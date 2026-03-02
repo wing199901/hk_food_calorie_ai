@@ -1,0 +1,16 @@
+$kind: http-request
+name: Generate AI Insight (Week)
+url: "{{baseUrl}}/generate-ai-insight"
+method: POST
+auth:
+  type: inherit
+  credentials:
+    id: 65b90fcf-7a32-446d-b2b8-59ca70ca7e9f
+body:
+  type: json
+  content: |-
+    {
+        "user_id": "{{userId}}",
+        "period": "week"
+    }
+order: 6000

@@ -1,0 +1,10 @@
+$kind: collection
+name: Edge Functions
+auth:
+  - id: 65b90fcf-7a32-446d-b2b8-59ca70ca7e9f
+    type: bearer
+    name: Bearer Token
+    credentials:
+      token: "{{bearerToken}}"
+    rules:
+      url: 127.0.0.1:54321

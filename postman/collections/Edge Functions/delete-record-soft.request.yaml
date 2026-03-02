@@ -1,0 +1,16 @@
+$kind: http-request
+name: Delete Record (Soft)
+url: "{{baseUrl}}/delete-record"
+method: POST
+auth:
+  type: inherit
+  credentials:
+    id: 65b90fcf-7a32-446d-b2b8-59ca70ca7e9f
+body:
+  type: json
+  content: |-
+    {
+        "user_id": "{{userId}}",
+        "record_id": "{{recordId}}"
+    }
+order: 4000
