@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../widgets/date_navigator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -8,16 +9,9 @@ import '../models/meal.dart';
 import '../theme/app_theme.dart';
 
 class LogPage extends StatefulWidget {
-  final DateTime date;
-  final ValueChanged<DateTime> setDate;
   final StorageService storage;
 
-  const LogPage({
-    super.key,
-    required this.date,
-    required this.setDate,
-    required this.storage,
-  });
+  const LogPage({super.key, required this.storage});
 
   @override
   State<LogPage> createState() => _LogPageState();
@@ -25,6 +19,7 @@ class LogPage extends StatefulWidget {
 
 class _LogPageState extends State<LogPage> {
   List<Meal> meals = [];
+  DateTime _date = DateTime.now();
 
   @override
   void initState() {
@@ -34,79 +29,21 @@ class _LogPageState extends State<LogPage> {
   }
 
   @override
-  void didUpdateWidget(covariant LogPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.date != widget.date) _loadData();
-  }
-
-  @override
   void dispose() {
     widget.storage.removeListener(_loadData);
     super.dispose();
   }
 
+  void _setDate(DateTime d) {
+    setState(() => _date = d);
+    _loadData();
+  }
+
   void _loadData() {
     if (!mounted) return;
     setState(() {
-      meals = widget.storage.getMealsForDate(widget.date);
+      meals = widget.storage.getMealsForDate(_date);
     });
-  }
-
-  bool get _isToday {
-    final now = DateTime.now();
-    return widget.date.year == now.year &&
-        widget.date.month == now.month &&
-        widget.date.day == now.day;
-  }
-
-  void _goToPreviousDay() {
-    widget.setDate(widget.date.subtract(const Duration(days: 1)));
-  }
-
-  void _goToNextDay() {
-    if (!_isToday) widget.setDate(widget.date.add(const Duration(days: 1)));
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: widget.date,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: AppTheme.primary),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) widget.setDate(picked);
-  }
-
-  void _handleDelete(String id) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Meal'),
-        content: const Text('Are you sure you want to delete this meal?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              widget.storage.deleteMeal(id);
-              Navigator.pop(ctx);
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: AppTheme.destructive),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showMealModal({Meal? meal}) {
@@ -115,7 +52,7 @@ class _LogPageState extends State<LogPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _ManualMealModal(
-        date: widget.date,
+        date: _date,
         storage: widget.storage,
         initialMeal: meal,
       ),
@@ -153,7 +90,7 @@ class _LogPageState extends State<LogPage> {
                         color: Colors.white,
                       ),
                     ),
-                    _buildDateNav(),
+                    DateNavigator(date: _date, onDateChanged: _setDate),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -205,7 +142,7 @@ class _LogPageState extends State<LogPage> {
         // Meal list
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
             child: Column(
               children: [
                 Row(
@@ -235,7 +172,7 @@ class _LogPageState extends State<LogPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 Expanded(
                   child: meals.isEmpty
                       ? Center(
@@ -282,11 +219,83 @@ class _LogPageState extends State<LogPage> {
                           ),
                         )
                       : ListView.separated(
+                          padding: EdgeInsets.zero,
                           itemCount: meals.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (_, _) =>
                               const SizedBox(height: 12),
-                          itemBuilder: (context, index) =>
-                              _buildMealCard(meals[index]),
+                          itemBuilder: (context, index) {
+                            final meal = meals[index];
+                            return Dismissible(
+                              key: Key(meal.id),
+                              confirmDismiss: (direction) async {
+                                if (direction == DismissDirection.startToEnd) {
+                                  // Swipe right → edit
+                                  _showMealModal(meal: meal);
+                                  return false; // don't dismiss
+                                }
+                                // Swipe left → delete
+                                return await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Delete Meal'),
+                                        content: const Text(
+                                          'Are you sure you want to delete this meal?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, true),
+                                            child: const Text(
+                                              'Delete',
+                                              style: TextStyle(
+                                                color: AppTheme.destructive,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ) ??
+                                    false;
+                              },
+                              onDismissed: (_) {
+                                widget.storage.deleteMeal(meal.id);
+                              },
+                              // Swipe-right background (edit)
+                              background: Container(
+                                alignment: Alignment.centerLeft,
+                                padding: const EdgeInsets.only(left: 24),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primary,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Icon(
+                                  Icons.edit_outlined,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                              // Swipe-left background (delete)
+                              secondaryBackground: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 24),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.destructive,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                              child: _buildMealCard(meal),
+                            );
+                          },
                         ),
                 ),
               ],
@@ -294,50 +303,6 @@ class _LogPageState extends State<LogPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildDateNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: _goToPreviousDay,
-            child: const Padding(
-              padding: EdgeInsets.all(4),
-              child: Icon(Icons.chevron_left, size: 20, color: Colors.white),
-            ),
-          ),
-          GestureDetector(
-            onTap: _pickDate,
-            child: Text(
-              _isToday ? 'Today' : DateFormat('MMM d').format(widget.date),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: _isToday ? null : _goToNextDay,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: _isToday ? Colors.white30 : Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -375,11 +340,6 @@ class _LogPageState extends State<LogPage> {
                             fontSize: 16,
                           ),
                         ),
-                      ),
-                      const Icon(
-                        Icons.edit,
-                        size: 14,
-                        color: AppTheme.mutedForeground,
                       ),
                     ],
                   ),
@@ -449,22 +409,6 @@ class _LogPageState extends State<LogPage> {
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () => _handleDelete(meal.id),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: AppTheme.destructive.withValues(alpha: 0.1),
-                    ),
-                    child: const Icon(
-                      Icons.delete,
-                      size: 16,
-                      color: AppTheme.destructive,
-                    ),
-                  ),
-                ),
               ],
             ),
           ],
@@ -480,9 +424,9 @@ class _LogPageState extends State<LogPage> {
         width: width,
         height: height,
         fit: BoxFit.cover,
-        placeholder: (_, __) =>
+        placeholder: (_, _) =>
             Container(width: width, height: height, color: Colors.grey[200]),
-        errorWidget: (_, __, ___) => Container(
+        errorWidget: (_, _, _) => Container(
           width: width,
           height: height,
           color: Colors.grey[200],
@@ -495,7 +439,7 @@ class _LogPageState extends State<LogPage> {
         width: width,
         height: height,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
+        errorBuilder: (_, _, _) => Container(
           width: width,
           height: height,
           color: Colors.grey[200],
@@ -837,6 +781,7 @@ class _ManualMealModalState extends State<_ManualMealModal> {
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: const TextStyle(color: AppTheme.mutedForeground),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(

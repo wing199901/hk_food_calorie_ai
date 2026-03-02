@@ -4,6 +4,15 @@
 *.pyc
 *.swp
 .DS_Store
+
+# Supabase / API secrets – never commit these
+.env
+.env.json
+.env.development
+.env.production
+
+# envied generated file contains the obfuscated keys – keep out of git
+lib/env/env.g.dart
 .atom/
 .build/
 .buildlog/

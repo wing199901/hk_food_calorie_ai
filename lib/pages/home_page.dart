@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/date_navigator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
@@ -8,17 +9,9 @@ import '../theme/app_theme.dart';
 
 class HomePage extends StatefulWidget {
   final Function(String) onNavigate;
-  final DateTime date;
-  final ValueChanged<DateTime> setDate;
   final StorageService storage;
 
-  const HomePage({
-    super.key,
-    required this.onNavigate,
-    required this.date,
-    required this.setDate,
-    required this.storage,
-  });
+  const HomePage({super.key, required this.onNavigate, required this.storage});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -27,67 +20,46 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   Map<String, int> stats = {'consumed': 0, 'target': 2000, 'remaining': 2000};
   List<Meal> meals = [];
+  DateTime _date = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _loadData();
-    widget.storage.addListener(_loadData);
-  }
-
-  @override
-  void didUpdateWidget(covariant HomePage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.date != widget.date) _loadData();
+    widget.storage.addListener(_onStorageChanged);
   }
 
   @override
   void dispose() {
-    widget.storage.removeListener(_loadData);
+    widget.storage.removeListener(_onStorageChanged);
     super.dispose();
+  }
+
+  /// Defer setState to post-frame so it never fires during another widget's build.
+  void _onStorageChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadData();
+    });
+  }
+
+  void _setDate(DateTime d) {
+    setState(() => _date = d);
+    _loadData();
   }
 
   void _loadData() {
     if (!mounted) return;
     setState(() {
-      stats = widget.storage.getStatsForDate(widget.date);
-      meals = widget.storage.getMealsForDate(widget.date);
+      stats = widget.storage.getStatsForDate(_date);
+      meals = widget.storage.getMealsForDate(_date);
     });
   }
 
   bool get _isToday {
     final now = DateTime.now();
-    return widget.date.year == now.year &&
-        widget.date.month == now.month &&
-        widget.date.day == now.day;
-  }
-
-  void _goToPreviousDay() {
-    widget.setDate(widget.date.subtract(const Duration(days: 1)));
-  }
-
-  void _goToNextDay() {
-    if (!_isToday) {
-      widget.setDate(widget.date.add(const Duration(days: 1)));
-    }
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: widget.date,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: AppTheme.primary),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) widget.setDate(picked);
+    return _date.year == now.year &&
+        _date.month == now.month &&
+        _date.day == now.day;
   }
 
   @override
@@ -141,56 +113,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ],
                       ),
-                      // Date navigator
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _iconButton(Icons.chevron_left, _goToPreviousDay),
-                            GestureDetector(
-                              onTap: _pickDate,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.calendar_today,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      _isToday
-                                          ? 'Today'
-                                          : DateFormat(
-                                              'MMM d',
-                                            ).format(widget.date),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            _iconButton(
-                              Icons.chevron_right,
-                              _isToday ? null : _goToNextDay,
-                            ),
-                          ],
-                        ),
-                      ),
+                      DateNavigator(date: _date, onDateChanged: _setDate),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -283,7 +206,7 @@ class _HomePageState extends State<HomePage> {
           ),
           // Add meal button
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
             child: GestureDetector(
               onTap: () => widget.onNavigate('camera'),
               child: Container(
@@ -341,20 +264,20 @@ class _HomePageState extends State<HomePage> {
           ),
           // Meal list
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   _isToday
                       ? "Today's Meals"
-                      : 'Meals on ${DateFormat('MMM d').format(widget.date)}',
+                      : 'Meals on ${DateFormat('MMM d').format(_date)}',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 if (meals.isEmpty)
                   Container(
                     width: double.infinity,
@@ -420,12 +343,12 @@ class _HomePageState extends State<HomePage> {
                                     width: 64,
                                     height: 64,
                                     fit: BoxFit.cover,
-                                    placeholder: (_, __) => Container(
+                                    placeholder: (_, _) => Container(
                                       width: 64,
                                       height: 64,
                                       color: Colors.grey[200],
                                     ),
-                                    errorWidget: (_, __, ___) => Container(
+                                    errorWidget: (_, _, _) => Container(
                                       width: 64,
                                       height: 64,
                                       color: Colors.grey[200],
@@ -490,20 +413,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _iconButton(IconData icon, VoidCallback? onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Icon(
-          icon,
-          color: onTap == null ? Colors.white30 : Colors.white,
-          size: 20,
-        ),
       ),
     );
   }

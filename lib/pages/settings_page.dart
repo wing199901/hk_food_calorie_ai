@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../services/storage_service.dart';
+import '../services/supabase_service.dart';
 import '../models/user_profile.dart';
 import '../theme/app_theme.dart';
 
@@ -19,6 +21,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool showBMIInfo = false;
   bool showWHtRInfo = false;
   Map<String, String> errors = {};
+  String _appVersion = '';
 
   static const _defaultProfile = {
     'age': 25,
@@ -34,6 +37,15 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _loadData();
     widget.storage.addListener(_loadData);
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted)
+      setState(
+        () => _appVersion = 'Version ${info.version}+${info.buildNumber}',
+      );
   }
 
   @override
@@ -48,78 +60,6 @@ class _SettingsPageState extends State<SettingsPage> {
       profile = widget.storage.getUserProfile();
       dailyTarget = widget.storage.getDailyTarget();
     });
-    _recalculateTEE();
-  }
-
-  void _recalculateTEE() {
-    final age = profile.age ?? _defaultProfile['age'] as int;
-    final weight = profile.weight ?? _defaultProfile['weight'] as double;
-    final gender = profile.gender ?? _defaultProfile['gender'] as String;
-    final activityLevel =
-        profile.activityLevel ?? _defaultProfile['activityLevel'] as String;
-
-    final calculatedTEE = _calculateDailyTarget(
-      age,
-      weight,
-      gender,
-      activityLevel,
-    );
-    if (calculatedTEE != dailyTarget) {
-      setState(() => dailyTarget = calculatedTEE);
-      widget.storage.setDailyTarget(calculatedTEE);
-    }
-  }
-
-  int _calculateDailyTarget(
-    int age,
-    double weight,
-    String gender,
-    String activityLevel,
-  ) {
-    double bmr;
-    if (gender == 'male') {
-      if (age < 30) {
-        bmr = 15.3 * weight + 679;
-      } else if (age < 60) {
-        bmr = 11.6 * weight + 879;
-      } else {
-        bmr = 13.5 * weight + 487;
-      }
-    } else if (gender == 'female') {
-      if (age < 30) {
-        bmr = 14.7 * weight + 496;
-      } else if (age < 60) {
-        bmr = 8.7 * weight + 829;
-      } else {
-        bmr = 10.5 * weight + 596;
-      }
-    } else {
-      double maleBmr, femaleBmr;
-      if (age < 30) {
-        maleBmr = 15.3 * weight + 679;
-      } else if (age < 60) {
-        maleBmr = 11.6 * weight + 879;
-      } else {
-        maleBmr = 13.5 * weight + 487;
-      }
-      if (age < 30) {
-        femaleBmr = 14.7 * weight + 496;
-      } else if (age < 60) {
-        femaleBmr = 8.7 * weight + 829;
-      } else {
-        femaleBmr = 10.5 * weight + 596;
-      }
-      bmr = (maleBmr + femaleBmr) / 2;
-    }
-
-    const activityMultipliers = {
-      'sedentary': 1.2,
-      'light': 1.375,
-      'moderate': 1.55,
-      'active': 1.725,
-      'very-active': 1.9,
-    };
-    return (bmr * (activityMultipliers[activityLevel] ?? 1.55)).round();
   }
 
   double _calculateBMI() {
@@ -652,28 +592,28 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: AppTheme.primary.withValues(alpha: 0.2),
                     ),
                   ),
-                  child: const Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'About FitCalorie',
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
                           fontSize: 16,
                         ),
                       ),
-                      SizedBox(height: 8),
-                      Text(
+                      const SizedBox(height: 8),
+                      const Text(
                         'Track your meals, analyze your nutrition, and reach your fitness goals with AI-powered food recognition.',
                         style: TextStyle(
                           color: AppTheme.mutedForeground,
                           fontSize: 14,
                         ),
                       ),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       Text(
-                        'Version 1.0.0',
-                        style: TextStyle(
+                        _appVersion.isEmpty ? 'Version —' : _appVersion,
+                        style: const TextStyle(
                           color: AppTheme.mutedForeground,
                           fontSize: 12,
                         ),
@@ -681,12 +621,59 @@ class _SettingsPageState extends State<SettingsPage> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 24),
+                // Sign Out
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: _handleSignOut,
+                    icon: const Icon(Icons.logout, size: 18),
+                    label: const Text('Sign Out'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.destructive,
+                      side: BorderSide(
+                        color: AppTheme.destructive.withValues(alpha: 0.4),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _handleSignOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.destructive),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      // The StreamBuilder in AppLoader listens to authStateChanges and will
+      // automatically redirect to AuthPage once signOut completes.
+      await SupabaseService().signOut();
+    }
   }
 
   Widget _buildSection({
@@ -720,7 +707,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ),
-              if (trailing != null) trailing,
+              if (trailing != null) trailing, // ignore: use_null_aware_elements
             ],
           ),
           const SizedBox(height: 16),
@@ -749,6 +736,7 @@ class _SettingsPageState extends State<SettingsPage> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: const TextStyle(color: AppTheme.mutedForeground),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(

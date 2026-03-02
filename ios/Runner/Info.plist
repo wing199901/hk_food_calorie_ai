@@ -70,5 +70,16 @@
 		<string>Camera permission is required to use the camera for scanning QR codes and taking photos.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Photo library permission is required to access your photos for uploading and sharing.</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.544596266714-bp3v4n2lsv3l49stb17l87ae4pjelfp2</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>

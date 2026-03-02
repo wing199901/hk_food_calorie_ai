@@ -1,20 +1,81 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/meal.dart';
 import '../models/user_profile.dart';
 import '../models/body_metric.dart';
+import 'demo_data.dart';
+import 'supabase_service.dart';
 
 class StorageService extends ChangeNotifier {
   static const _mealsKey = 'fitcalorie_meals';
   static const _targetKey = 'fitcalorie_target';
   static const _profileKey = 'fitcalorie_profile';
-  static const _demoInitializedKey = 'fitcalorie_demo_initialized';
+  static const _demoInitializedKey = 'fitcalorie_demo_initialized_v2';
   static const _bodyHistoryKey = 'fitcalorie_body_history';
-  static const _lastCheckinKey = 'fitcalorie_last_checkin';
+  static const _lastCheckInKey = 'fitcalorie_last_checkin';
+  static const _shortcutsKey = 'fitcalorie_shortcuts';
 
   late SharedPreferences _prefs;
+  final _supabase = SupabaseService();
+
+  /// Fire-and-forget Supabase write — silently ignored if not authenticated.
+  void _syncAsync(Future<void> Function() fn) {
+    if (!_supabase.isAuthenticated) return;
+    fn().catchError((e) {
+      if (kDebugMode) debugPrint('[StorageService] Supabase sync error: $e');
+    });
+  }
+
+  /// Pull all data from Supabase and overwrite local storage.
+  /// Call this once after the user signs in.
+  Future<void> syncFromSupabase() async {
+    if (!_supabase.isAuthenticated) return;
+    try {
+      final data = await _supabase.fetchAllUserData();
+
+      // Meals (from meal_records table)
+      final meals = data['meals'] as List<Meal>;
+      if (meals.isNotEmpty) {
+        await _prefs.setString(
+          _mealsKey,
+          jsonEncode(meals.map((e) => e.toJson()).toList()),
+        );
+      }
+
+      // Body history
+      final bodyHistory = data['bodyHistory'] as List<BodyMetric>;
+      if (bodyHistory.isNotEmpty) {
+        await _prefs.setString(
+          _bodyHistoryKey,
+          jsonEncode(bodyHistory.map((e) => e.toJson()).toList()),
+        );
+      }
+
+      // Profile
+      final profile = data['profile'] as UserProfile;
+      if (profile.weight != null || profile.age != null) {
+        await _prefs.setString(_profileKey, jsonEncode(profile.toJson()));
+        // Recalculate TEE from synced profile
+        final tee = calculateTEE(profile);
+        await _prefs.setString(_targetKey, tee.toString());
+      }
+
+      // Calorie target is auto-calculated from profile via calculateTEE()
+      // so we skip restoring it from Supabase here.
+
+      // Last check-in date
+      final lastCheckInDate = data['lastCheckInDate'] as String?;
+      if (lastCheckInDate != null) {
+        await _prefs.setString(_lastCheckInKey, lastCheckInDate);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) debugPrint('[StorageService] syncFromSupabase error: $e');
+    }
+  }
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -22,107 +83,26 @@ class StorageService extends ChangeNotifier {
 
   // ─── Demo Data ───────────────────────────────────────────────
 
-  static List<Meal> _buildDemoMeals() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return [
-      Meal(
-        id: 'demo-1',
-        name: 'Breakfast Bowl with Berries',
-        calories: 320,
-        protein: 12,
-        carbs: 54,
-        fat: 8,
-        timestamp: now - 7 * 60 * 60 * 1000,
-        image:
-            'https://images.unsplash.com/photo-1602682822546-09bc5623461e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-      ),
-      Meal(
-        id: 'demo-2',
-        name: 'Grilled Chicken with Vegetables',
-        calories: 420,
-        protein: 38,
-        carbs: 28,
-        fat: 18,
-        timestamp: now - 3 * 60 * 60 * 1000,
-        image:
-            'https://images.unsplash.com/photo-1682423187670-4817da9a1b23?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-      ),
-      Meal(
-        id: 'demo-3',
-        name: 'Fresh Green Salad Bowl',
-        calories: 280,
-        protein: 15,
-        carbs: 22,
-        fat: 14,
-        timestamp: now - 26 * 60 * 60 * 1000,
-        image:
-            'https://images.unsplash.com/photo-1649531794884-b8bb1de72e68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-      ),
-      Meal(
-        id: 'demo-4',
-        name: 'Berry Smoothie',
-        calories: 240,
-        protein: 8,
-        carbs: 42,
-        fat: 5,
-        timestamp: now - 50 * 60 * 60 * 1000,
-        image:
-            'https://images.unsplash.com/photo-1588068403046-169c80c69938?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-      ),
-    ];
-  }
-
-  static List<BodyMetric> _buildDemoBodyHistory() {
-    final now = DateTime.now();
-    final fmt = DateFormat('yyyy-MM-dd');
-    return [
-      BodyMetric(
-        date: fmt.format(now.subtract(const Duration(days: 30))),
-        weight: 72.5,
-        waistline: 85,
-      ),
-      BodyMetric(
-        date: fmt.format(now.subtract(const Duration(days: 20))),
-        weight: 71.8,
-        waistline: 84,
-      ),
-      BodyMetric(
-        date: fmt.format(now.subtract(const Duration(days: 10))),
-        weight: 71.2,
-        waistline: 83,
-      ),
-      BodyMetric(
-        date: fmt.format(now.subtract(const Duration(days: 5))),
-        weight: 70.8,
-        waistline: 82.5,
-      ),
-      BodyMetric(
-        date: fmt.format(now.subtract(const Duration(days: 1))),
-        weight: 70.5,
-        waistline: 82,
-      ),
-    ];
-  }
-
   void initializeDemoData() {
     final bodyHistory = getBodyHistory();
     if (bodyHistory.isEmpty) {
       _prefs.setString(
         _bodyHistoryKey,
-        jsonEncode(_buildDemoBodyHistory().map((e) => e.toJson()).toList()),
+        jsonEncode(DemoData.buildBodyHistory().map((e) => e.toJson()).toList()),
       );
       notifyListeners();
     }
 
     final initialized = _prefs.getString(_demoInitializedKey);
     if (initialized == null) {
-      final meals = getMeals();
-      if (meals.isEmpty) {
-        _prefs.setString(
-          _mealsKey,
-          jsonEncode(_buildDemoMeals().map((e) => e.toJson()).toList()),
-        );
-      }
+      // Replace any stale demo meals with fresh today-relative timestamps.
+      final existing = getMeals();
+      final nonDemo = existing.where((m) => !m.id.startsWith('demo-')).toList();
+      final freshDemo = DemoData.buildMeals();
+      _prefs.setString(
+        _mealsKey,
+        jsonEncode([...nonDemo, ...freshDemo].map((e) => e.toJson()).toList()),
+      );
       _prefs.setString(_demoInitializedKey, 'true');
       notifyListeners();
     }
@@ -131,6 +111,20 @@ class StorageService extends ChangeNotifier {
   void clearDemoData() {
     _prefs.remove(_mealsKey);
     _prefs.remove(_demoInitializedKey);
+    _prefs.remove('fitcalorie_demo_initialized'); // remove legacy v1 key
+    notifyListeners();
+  }
+
+  /// Clear ALL local data (used when signing into a real account).
+  void clearAllLocalData() {
+    _prefs.remove(_mealsKey);
+    _prefs.remove(_targetKey);
+    _prefs.remove(_profileKey);
+    _prefs.remove(_demoInitializedKey);
+    _prefs.remove('fitcalorie_demo_initialized');
+    _prefs.remove(_bodyHistoryKey);
+    _prefs.remove(_lastCheckInKey);
+    _prefs.remove(_shortcutsKey);
     notifyListeners();
   }
 
@@ -150,6 +144,10 @@ class StorageService extends ChangeNotifier {
       _mealsKey,
       jsonEncode(meals.map((e) => e.toJson()).toList()),
     );
+    final dateStr = DateFormat(
+      'yyyy-MM-dd',
+    ).format(DateTime.fromMillisecondsSinceEpoch(meal.timestamp));
+    _syncAsync(() => _supabase.addMeal(meal, date: dateStr));
     notifyListeners();
   }
 
@@ -173,6 +171,7 @@ class StorageService extends ChangeNotifier {
       _mealsKey,
       jsonEncode(meals.map((e) => e.toJson()).toList()),
     );
+    _syncAsync(() => _supabase.deleteMeal(id));
     notifyListeners();
   }
 
@@ -207,6 +206,7 @@ class StorageService extends ChangeNotifier {
 
   void setDailyTarget(int target) {
     _prefs.setString(_targetKey, target.toString());
+    _syncAsync(() => _supabase.saveCalorieTarget(target));
     notifyListeners();
   }
 
@@ -251,7 +251,63 @@ class StorageService extends ChangeNotifier {
 
   void setUserProfile(UserProfile profile) {
     _prefs.setString(_profileKey, jsonEncode(profile.toJson()));
+    // Auto-recalculate TEE whenever the profile changes
+    final tee = calculateTEE(profile);
+    _prefs.setString(_targetKey, tee.toString());
+    _syncAsync(() => _supabase.saveProfile(profile));
+    _syncAsync(() => _supabase.saveCalorieTarget(tee));
     notifyListeners();
+  }
+
+  /// Centralized TEE (Total Energy Expenditure) calculator.
+  /// Uses FAO/WHO/UNU (2001) BMR equations × activity multiplier.
+  static int calculateTEE(UserProfile profile) {
+    final age = profile.age ?? 25;
+    final weight = profile.weight ?? 70.0;
+    final gender = profile.gender ?? 'male';
+    final activityLevel = profile.activityLevel ?? 'moderate';
+
+    double bmr;
+    if (gender == 'male') {
+      if (age < 30) {
+        bmr = 15.3 * weight + 679;
+      } else if (age < 60) {
+        bmr = 11.6 * weight + 879;
+      } else {
+        bmr = 13.5 * weight + 487;
+      }
+    } else if (gender == 'female') {
+      if (age < 30) {
+        bmr = 14.7 * weight + 496;
+      } else if (age < 60) {
+        bmr = 8.7 * weight + 829;
+      } else {
+        bmr = 10.5 * weight + 596;
+      }
+    } else {
+      // 'other': average of male + female
+      double maleBmr, femaleBmr;
+      if (age < 30) {
+        maleBmr = 15.3 * weight + 679;
+        femaleBmr = 14.7 * weight + 496;
+      } else if (age < 60) {
+        maleBmr = 11.6 * weight + 879;
+        femaleBmr = 8.7 * weight + 829;
+      } else {
+        maleBmr = 13.5 * weight + 487;
+        femaleBmr = 10.5 * weight + 596;
+      }
+      bmr = (maleBmr + femaleBmr) / 2;
+    }
+
+    const activityMultipliers = {
+      'sedentary': 1.2,
+      'light': 1.375,
+      'moderate': 1.55,
+      'active': 1.725,
+      'very-active': 1.9,
+    };
+    return (bmr * (activityMultipliers[activityLevel] ?? 1.55)).round();
   }
 
   // ─── Body History ────────────────────────────────────────────
@@ -282,16 +338,68 @@ class StorageService extends ChangeNotifier {
       _bodyHistoryKey,
       jsonEncode(history.map((e) => e.toJson()).toList()),
     );
+    _syncAsync(() => _supabase.saveBodyMetric(metric));
     notifyListeners();
   }
 
-  // ─── Last Checkin ────────────────────────────────────────────
+  // ─── Last Check-In ───────────────────────────────────────────
 
-  String? getLastCheckinDate() {
-    return _prefs.getString(_lastCheckinKey);
+  String? getLastCheckInDate() {
+    return _prefs.getString(_lastCheckInKey);
   }
 
-  void setLastCheckinDate(String dateStr) {
-    _prefs.setString(_lastCheckinKey, dateStr);
+  void setLastCheckInDate(String dateStr) {
+    _prefs.setString(_lastCheckInKey, dateStr);
+    _syncAsync(() => _supabase.saveLastCheckInDate(dateStr));
+  }
+
+  // ─── Shortcuts ───────────────────────────────────────────────
+
+  /// Returns pinned shortcut meals (max 12).
+  List<Meal> getShortcuts() {
+    final data = _prefs.getString(_shortcutsKey);
+    if (data == null) return [];
+    final list = jsonDecode(data) as List;
+    return list.map((e) => Meal.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  void addShortcut(Meal meal) {
+    final shortcuts = getShortcuts();
+    // Deduplicate by name (case-insensitive)
+    if (shortcuts.any((s) => s.name.toLowerCase() == meal.name.toLowerCase())) {
+      return;
+    }
+    shortcuts.insert(0, meal);
+    if (shortcuts.length > 12) shortcuts.removeLast();
+    _prefs.setString(
+      _shortcutsKey,
+      jsonEncode(shortcuts.map((e) => e.toJson()).toList()),
+    );
+    notifyListeners();
+  }
+
+  void removeShortcut(String id) {
+    final shortcuts = getShortcuts();
+    shortcuts.removeWhere((s) => s.id == id);
+    _prefs.setString(
+      _shortcutsKey,
+      jsonEncode(shortcuts.map((e) => e.toJson()).toList()),
+    );
+    notifyListeners();
+  }
+
+  /// Returns recently logged meals deduplicated by name (most recent first).
+  List<Meal> getRecentUniqueMeals({int limit = 30}) {
+    final meals = getMeals().reversed.toList();
+    final seen = <String>{};
+    final result = <Meal>[];
+    for (final m in meals) {
+      final key = m.name.toLowerCase();
+      if (seen.add(key)) {
+        result.add(m);
+        if (result.length >= limit) break;
+      }
+    }
+    return result;
   }
 }
