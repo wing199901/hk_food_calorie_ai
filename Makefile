@@ -23,3 +23,8 @@ set-secrets:
 # Serve functions locally for testing
 serve-functions:
 	supabase functions serve --env-file supabase/.env.local
+
+# Apply a migration SQL file to local Supabase DB
+# Usage: make db-migrate FILE=supabase/migrations/quick_add_items.sql
+db-migrate:
+	/Applications/Postgres.app/Contents/Versions/latest/bin/psql postgresql://supabase_admin:postgres@127.0.0.1:54322/postgres -f $(FILE)

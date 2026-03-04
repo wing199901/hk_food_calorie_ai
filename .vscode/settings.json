@@ -3,5 +3,6 @@
         "Supabase"
     ],
     "files.autoSave": "afterDelay",
-    "dart.flutterHotReloadOnSave": "all"
+    "dart.flutterHotReloadOnSave": "all",
+    "makefile.configureOnOpen": false
 }

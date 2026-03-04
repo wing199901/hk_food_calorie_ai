@@ -15,3 +15,4 @@ body:
         "date": "{{date}}"
     }
 order: 1053
+examples: ./.resources/analyze-meal-3-egg-tarts.resources/examples

@@ -92,7 +92,7 @@ class _CheckInPageState extends State<CheckInPage> {
                       fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 48),
                   _buildInputField(
                     icon: Icons.monitor_weight_outlined,
                     label: 'Current Weight (kg)',
@@ -106,7 +106,7 @@ class _CheckInPageState extends State<CheckInPage> {
                     controller: _waistlineController,
                     hint: '80',
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 48),
                   SizedBox(
                     width: double.infinity,
                     height: 56,
@@ -197,7 +197,7 @@ class _CheckInPageState extends State<CheckInPage> {
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 18,
+              vertical: 16,
             ),
           ),
           style: const TextStyle(fontSize: 18),

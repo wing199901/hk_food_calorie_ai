@@ -35,7 +35,7 @@ Deno.serve(async (req: Request) => {
     const { data: records, error: recErr } = await supabase
       .from("meal_records")
       .select(
-        "date, items, total_calories, total_protein, total_carbs, total_fat",
+        "date, items, total_calories, total_protein, total_carbs, total_fat, total_sugar",
       )
       .eq("user_id", user_id)
       .gte("date", startStr)
@@ -60,7 +60,7 @@ Deno.serve(async (req: Request) => {
     // ── Build daily aggregation for charts ───
     const dailyMap = new Map<
       string,
-      { calories: number; protein: number; carbs: number; fat: number }
+      { calories: number; protein: number; carbs: number; fat: number; sugar: number }
     >();
 
     for (const rec of records ?? []) {
@@ -69,11 +69,13 @@ Deno.serve(async (req: Request) => {
         protein: 0,
         carbs: 0,
         fat: 0,
+        sugar: 0,
       };
       day.calories += rec.total_calories || 0;
       day.protein += rec.total_protein || 0;
       day.carbs += rec.total_carbs || 0;
       day.fat += rec.total_fat || 0;
+      day.sugar += rec.total_sugar || 0;
       dailyMap.set(rec.date, day);
     }
 

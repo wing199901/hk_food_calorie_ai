@@ -201,7 +201,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 drawVerticalLine: false,
                 horizontalInterval: 500,
                 getDrawingHorizontalLine: (value) => FlLine(
-                  color: Colors.grey[200]!,
+                  color: AppTheme.chartGrid,
                   strokeWidth: 1,
                   dashArray: [4, 4],
                 ),
@@ -210,13 +210,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 horizontalLines: [
                   HorizontalLine(
                     y: 0,
-                    color: Colors.grey[200]!,
+                    color: AppTheme.chartGrid,
                     strokeWidth: 1,
                     dashArray: [4, 4],
                   ),
                   HorizontalLine(
                     y: 2000,
-                    color: Colors.grey[200]!,
+                    color: AppTheme.chartGrid,
                     strokeWidth: 1,
                     dashArray: [4, 4],
                   ),
@@ -265,33 +265,6 @@ class _AnalysisPageState extends State<AnalysisPage> {
         _selectedMacroIndex = (_selectedMacroIndex == index) ? null : index;
       });
     }
-  }
-
-  Widget? _buildSelectedMacroDetail() {
-    if (_selectedMacroIndex == null ||
-        _selectedMacroIndex! >= weeklyData.length) {
-      return null;
-    }
-    final d = weeklyData[_selectedMacroIndex!];
-    final protein = d['protein'] as int;
-    final carbs = d['carbs'] as int;
-    final fat = d['fat'] as int;
-    final total = protein + carbs + fat;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Row(
-        children: [
-          _detailChip('Total', '${total}g', AppTheme.mutedForeground),
-          const SizedBox(width: 8),
-          _detailChip('Protein', '${protein}g', const Color(0xFF8884D8)),
-          const SizedBox(width: 8),
-          _detailChip('Carbs', '${carbs}g', const Color(0xFF82CA9D)),
-          const SizedBox(width: 8),
-          _detailChip('Fat', '${fat}g', const Color(0xFFFFC658)),
-        ],
-      ),
-    );
   }
 
   // ─── Body Metrics detail panel ───────────────────────────────
@@ -353,13 +326,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
               _detailChip(
                 'Weight',
                 hasWeight ? '${weight.toStringAsFixed(1)} kg' : '—',
-                Colors.blue,
+                AppTheme.chartWeight,
               ),
               const SizedBox(width: 12),
               _detailChip(
                 'Waist',
                 hasWaist ? '${waistline.toStringAsFixed(1)} cm' : '—',
-                Colors.orange,
+                AppTheme.chartWaist,
               ),
             ],
           ),
@@ -370,22 +343,20 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 100),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            decoration: const BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
-              ),
+    return Column(
+      children: [
+        // Sticky Header
+        Container(
+          decoration: const BoxDecoration(
+            gradient: AppTheme.primaryGradient,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(24),
+              bottomRight: Radius.circular(24),
             ),
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-            child: SafeArea(
-              bottom: false,
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          child: SafeArea(
+            bottom: false,
               child: Column(
                 children: [
                   // Title & week nav
@@ -436,23 +407,27 @@ class _AnalysisPageState extends State<AnalysisPage> {
               ),
             ),
           ),
-          // Charts
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                _buildEnergyChart(),
-                const SizedBox(height: 24),
-                _buildMacroChart(),
-                const SizedBox(height: 24),
-                _buildBodyMetricsChart(),
-                const SizedBox(height: 24),
-                _buildInsights(),
-              ],
+        // Scrollable charts
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 100),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  _buildEnergyChart(),
+                  const SizedBox(height: 24),
+                  _buildMacroChart(),
+                  const SizedBox(height: 24),
+                  _buildBodyMetricsChart(),
+                  const SizedBox(height: 24),
+                  _buildInsights(),
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -658,7 +633,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
               drawVerticalLine: false,
               horizontalInterval: gridInterval,
               getDrawingHorizontalLine: (value) => FlLine(
-                color: Colors.grey[200]!,
+                color: AppTheme.chartGrid,
                 strokeWidth: 1,
                 dashArray: [5, 5],
               ),
@@ -667,13 +642,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
               horizontalLines: [
                 HorizontalLine(
                   y: 0,
-                  color: Colors.grey[200]!,
+                  color: AppTheme.chartGrid,
                   strokeWidth: 1,
                   dashArray: [5, 5],
                 ),
                 HorizontalLine(
                   y: maxY,
-                  color: Colors.grey[200]!,
+                  color: AppTheme.chartGrid,
                   strokeWidth: 1,
                   dashArray: [5, 5],
                 ),
@@ -789,15 +764,15 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 weeklyData
                     .map((d) => (d['protein'] as int).toDouble())
                     .toList(),
-                const Color(0xFF8884D8),
+                AppTheme.chartProtein,
               ),
               _macroLine(
                 weeklyData.map((d) => (d['carbs'] as int).toDouble()).toList(),
-                const Color(0xFF82CA9D),
+                AppTheme.chartCarbs,
               ),
               _macroLine(
                 weeklyData.map((d) => (d['fat'] as int).toDouble()).toList(),
-                const Color(0xFFFFC658),
+                AppTheme.chartFat,
               ),
             ],
             titlesData: FlTitlesData(
@@ -856,7 +831,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
               show: true,
               drawVerticalLine: false,
               getDrawingHorizontalLine: (value) => FlLine(
-                color: Colors.grey[200]!,
+                color: AppTheme.chartGrid,
                 strokeWidth: 1,
                 dashArray: [5, 5],
               ),
@@ -866,13 +841,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
               horizontalLines: [
                 HorizontalLine(
                   y: 0,
-                  color: Colors.grey[200]!,
+                  color: AppTheme.chartGrid,
                   strokeWidth: 1,
                   dashArray: [5, 5],
                 ),
                 HorizontalLine(
                   y: maxY > 0 ? maxY : 100,
-                  color: Colors.grey[200]!,
+                  color: AppTheme.chartGrid,
                   strokeWidth: 1,
                   dashArray: [5, 5],
                 ),
@@ -911,21 +886,21 @@ class _AnalysisPageState extends State<AnalysisPage> {
           children: [
             Expanded(
               child: _summaryChip(
-                color: const Color(0xFF8884D8),
+                color: AppTheme.chartProtein,
                 label: 'Protein',
                 value: '${totalProtein}g',
               ),
             ),
             Expanded(
               child: _summaryChip(
-                color: const Color(0xFF82CA9D),
+                color: AppTheme.chartCarbs,
                 label: 'Carbs',
                 value: '${totalCarbs}g',
               ),
             ),
             Expanded(
               child: _summaryChip(
-                color: const Color(0xFFFFC658),
+                color: AppTheme.chartFat,
                 label: 'Fat',
                 value: '${totalFat}g',
               ),
@@ -1096,13 +1071,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
                       LineChartBarData(
                         spots: weightSpots,
                         isCurved: true,
-                        color: Colors.blue,
+                        color: AppTheme.chartWeight,
                         barWidth: 2,
                         dotData: FlDotData(
                           show: true,
                           getDotPainter: (_, _, _, _) => FlDotCirclePainter(
                             radius: 4,
-                            color: Colors.blue,
+                            color: AppTheme.chartWeight,
                             strokeWidth: 2,
                             strokeColor: Colors.white,
                           ),
@@ -1112,13 +1087,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
                       LineChartBarData(
                         spots: waistSpots,
                         isCurved: true,
-                        color: Colors.orange,
+                        color: AppTheme.chartWaist,
                         barWidth: 2,
                         dotData: FlDotData(
                           show: true,
                           getDotPainter: (_, _, _, _) => FlDotCirclePainter(
                             radius: 4,
-                            color: Colors.orange,
+                            color: AppTheme.chartWaist,
                             strokeWidth: 2,
                             strokeColor: Colors.white,
                           ),
@@ -1180,7 +1155,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                     show: true,
                     drawVerticalLine: false,
                     getDrawingHorizontalLine: (value) => FlLine(
-                      color: Colors.grey[200]!,
+                      color: AppTheme.chartGrid,
                       strokeWidth: 1,
                       dashArray: [5, 5],
                     ),
@@ -1190,7 +1165,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                     horizontalLines: [
                       HorizontalLine(
                         y: 0,
-                        color: Colors.grey[200]!,
+                        color: AppTheme.chartGrid,
                         strokeWidth: 1,
                         dashArray: [5, 5],
                       ),
@@ -1230,14 +1205,14 @@ class _AnalysisPageState extends State<AnalysisPage> {
           children: [
             Expanded(
               child: _summaryChip(
-                color: Colors.blue,
+                color: AppTheme.chartWeight,
                 label: 'Weight',
                 value: '$latestWeight kg',
               ),
             ),
             Expanded(
               child: _summaryChip(
-                color: Colors.orange,
+                color: AppTheme.chartWaist,
                 label: 'Waist',
                 value: '$latestWaist cm',
               ),
@@ -1301,13 +1276,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
           ),
           if (_daysOnTarget >= 5)
             _insightTile(
-              Colors.green,
+              AppTheme.primary,
               '🎉 Outstanding consistency!',
               'You\'ve hit your TEE target on $_daysOnTarget days this week!',
             ),
           if (_streak >= 3)
             _insightTile(
-              Colors.orange,
+              AppTheme.accent,
               '🔥 You\'re on fire!',
               '$_streak-day streak of consistent tracking!',
             ),

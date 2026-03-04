@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/meal.dart';
 import '../models/user_profile.dart';
 import '../models/body_metric.dart';
+import '../models/quick_add_item.dart';
 import '../env/env.dart';
 
 class SupabaseService extends ChangeNotifier {
@@ -287,6 +288,48 @@ class SupabaseService extends ChangeNotifier {
     });
   }
 
+  // ─── Quick Add Items ───────────────────────────────────────────────────────
+
+  /// Fetch all quick-add items for the current user, ordered by sort_order.
+  Future<List<QuickAddItem>> fetchQuickAddItems() async {
+    final uid = _requireUid();
+    final data = await _client
+        .from('quick_add_items')
+        .select()
+        .eq('user_id', uid)
+        .order('sort_order', ascending: true);
+    return (data as List<dynamic>)
+        .map((e) => QuickAddItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Insert a new quick-add item.
+  Future<void> addQuickAddItem(QuickAddItem item, {int sortOrder = 0}) async {
+    final uid = _requireUid();
+    await _client.from('quick_add_items').insert({
+      'id': item.id,
+      'user_id': uid,
+      'name': item.name,
+      'calories': item.calories,
+      'protein': item.protein,
+      'carbs': item.carbs,
+      'fat': item.fat,
+      'sugar': item.sugar,
+      'icon': item.icon,
+      'sort_order': sortOrder,
+    });
+  }
+
+  /// Delete a quick-add item.
+  Future<void> deleteQuickAddItem(String itemId) async {
+    final uid = _requireUid();
+    await _client
+        .from('quick_add_items')
+        .delete()
+        .eq('user_id', uid)
+        .eq('id', itemId);
+  }
+
   // ─── Sync All ──────────────────────────────────────────────────────────────
 
   /// Pull all user data from Supabase in one batch.
@@ -297,6 +340,7 @@ class SupabaseService extends ChangeNotifier {
       fetchLastCheckInDate(),
       fetchMeals(),
       fetchBodyHistory(),
+      fetchQuickAddItems(),
     ]);
     return {
       'profile': results[0] as UserProfile,
@@ -304,6 +348,7 @@ class SupabaseService extends ChangeNotifier {
       'lastCheckInDate': results[2] as String?,
       'meals': results[3] as List<Meal>,
       'bodyHistory': results[4] as List<BodyMetric>,
+      'quickAddItems': results[5] as List<QuickAddItem>,
     };
   }
 

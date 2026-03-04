@@ -14,6 +14,14 @@ class AppTheme {
   static const Color warning = Color(0xFFFBBF24);
   static const Color border = Color(0x14000000);
 
+  // ─── Chart / Data Colors ───────────────────────────────────
+  static const Color chartProtein = Color(0xFF8884D8);
+  static const Color chartCarbs = Color(0xFF82CA9D);
+  static const Color chartFat = Color(0xFFFFC658);
+  static const Color chartWeight = Color(0xFF3B82F6);
+  static const Color chartWaist = Color(0xFFF97316);
+  static const Color chartGrid = Color(0xFFEEEEEE);
+
   static ThemeData get lightTheme {
     return ThemeData(
       brightness: Brightness.light,
@@ -62,7 +70,7 @@ class AppTheme {
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 14,
+          vertical: 16,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

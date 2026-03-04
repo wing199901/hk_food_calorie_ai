@@ -7,6 +7,7 @@ class Meal {
   final int? protein;
   final int? carbs;
   final int? fat;
+  final int? sugar;
 
   Meal({
     required this.id,
@@ -17,6 +18,7 @@ class Meal {
     this.protein,
     this.carbs,
     this.fat,
+    this.sugar,
   });
 
   Map<String, dynamic> toJson() => {
@@ -28,6 +30,7 @@ class Meal {
     'protein': protein,
     'carbs': carbs,
     'fat': fat,
+    'sugar': sugar,
   };
 
   factory Meal.fromJson(Map<String, dynamic> json) => Meal(
@@ -39,6 +42,7 @@ class Meal {
     protein: json['protein'] != null ? (json['protein'] as num).toInt() : null,
     carbs: json['carbs'] != null ? (json['carbs'] as num).toInt() : null,
     fat: json['fat'] != null ? (json['fat'] as num).toInt() : null,
+    sugar: json['sugar'] != null ? (json['sugar'] as num).toInt() : null,
   );
 
   Meal copyWith({
@@ -50,6 +54,7 @@ class Meal {
     int? protein,
     int? carbs,
     int? fat,
+    int? sugar,
   }) {
     return Meal(
       id: id ?? this.id,
@@ -60,6 +65,7 @@ class Meal {
       protein: protein ?? this.protein,
       carbs: carbs ?? this.carbs,
       fat: fat ?? this.fat,
+      sugar: sugar ?? this.sugar,
     );
   }
 }

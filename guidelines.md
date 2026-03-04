@@ -25,11 +25,36 @@
 
 ### Tables
 
-| Table           | Primary Key       | Description                                                            |
-| --------------- | ----------------- | ---------------------------------------------------------------------- |
-| `user_profiles` | `user_id` (uuid)  | Age, weight, height, waistline, gender, activity level, calorie target |
-| `body_metrics`  | `(user_id, date)` | Daily weight & waistline snapshots                                     |
-| `meal_records`  | `id` (text)       | AI-parsed meal entries; `items` stored as JSONB array                  |
+| Table              | Primary Key            | Description                                                            |
+| ------------------ | ---------------------- | ---------------------------------------------------------------------- |
+| `user_profiles`    | `user_id` (uuid)       | Age, weight, height, waistline, gender, activity level, calorie target |
+| `body_metrics`     | `(user_id, date)`      | Daily weight & waistline snapshots                                     |
+| `meal_records`     | `id` (text)            | AI-parsed meal entries; `items` stored as JSONB array                  |
+| `quick_add_items`  | `(user_id, id)` (text) | User’s custom quick-add food shortcuts with icon & macros              |
+
+### `quick_add_items` — Quick Add Items
+
+用戶自訂快捷食物按鈕。新用戶註冊時會透過 DB trigger (`seed_quick_add_items`) 自動插入 8 個預設食物。用戶可以新增或刪除自己嘅 quick-add items。
+
+| Column     | Type        | Description                           |
+| ---------- | ----------- | ------------------------------------- |
+| `id`       | text        | 唯一 ID（`default-*` 或 `custom-*`）        |
+| `user_id`  | uuid (FK)   | 擁有者                                  |
+| `name`     | text        | 食物名稱                                  |
+| `calories` | integer     | 熱量                                      |
+| `protein`  | integer     | 蛋白質 (g)                               |
+| `carbs`    | integer     | 碳水化合物 (g)                           |
+| `fat`      | integer     | 脂肪 (g)                                 |
+| `sugar`    | integer     | 糖份 (g)                                 |
+| `icon`     | text        | Emoji icon                            |
+| `sort_order` | integer   | 排序                                      |
+
+### iOS-style Quick Add 刪除交互
+
+- 用戶長按 quick-add item 即進入 edit mode
+- Edit mode 下每個 item 左上角顯示紅色 × badge，點擊即刪除
+- 點擊 “Done” 或點擊空白處退出 edit mode
+- 快捷新增透過 bottom sheet（包含 emoji icon picker + 熱量 / 各營養素）
 
 ### `meal_records.items` — JSONB element schema
 
@@ -80,45 +105,80 @@ Each element matches the structure returned by the Gemini prompt in `analyze-mea
 | `generate-ai-insight` | 每週／月 AI 飲食分析報告                            | `GEMINI_API_KEY` |
 | `cleanup-old-records` | Cron — 永久清除軟刪除紀錄                           | —                |
 
-### AI System Prompt（`analyze-meal` 必須使用）
+### AI Structured Output（`analyze-meal` 必須使用）
+
+`analyze-meal` 使用 Gemini **Structured Output**（`responseMimeType` + `responseSchema`），保證回傳合法 JSON，唔使手動 strip markdown fences。
+
+#### `systemInstruction`（行為 / 領域知識）
 
 ```typescript
-const SYSTEM_PROMPT = `你係專業營養師，可以分析任何菜系嘅食物同飲品相片（中式、西式、日韓、東南亞、甜品、飲品等），只返嚴格 JSON（唔好加任何解釋）：
-{
-  "items": [
-    {
-      "name_zh": "食物名（繁體中文）",
-      "name_en": "English Name",
-      "type": "food" 或 "drink",
-      "portion_size": 數量(數字，例如 1、2、0.5),
-      "portion_unit": "unit in English (e.g. plate, bowl, piece, cup, slice, serving, glass, can, pack)",
-      "portion_grams": 固體食物估計克數(g)，飲品填 null,
-      "portion_ml": 飲品估計毫升(ml)，固體食物填 null,
-      "calories": 熱量(kcal),
-      "protein": 蛋白質(g),
-      "carbs": 碳水化合物(g),
-      "fat": 脂肪(g),
-      "sugar": 糖(g),
-      "confidence": 0.0到1.0
-    }
-  ],
-  "total_calories": 總熱量,
-  "total_protein": 總蛋白質,
-  "total_carbs": 總碳水,
-  "total_fat": 總脂肪
-}
+const SYSTEM_INSTRUCTION = `你係專業營養師，負責分析任何菜系嘅食物同飲品相片。
 
-特別注意：
+核心能力：
 - 支援所有菜系：西餐（牛排、漢堡、意粉、沙律等）、日韓（拉麵、壽司、炸雞等）、東南亞（泰式、越式等）、中式、港式等
 - 特別熟悉香港本地食物：茶餐廳、大排檔、酒樓點心、街頭小食、便利店食品
 - 常見香港菜要認準：燒賣、腸粉、奶茶、豬扒飯、菠蘿包、蛋撻、雲吞麵、煲仔飯等
+
+分析規則：
 - 飲品都要分析（奶茶、咖啡、汽水、果汁、啤酒、湯等），用 portion_ml 記錄容量
 - 固體食物用 portion_grams，飲品用 portion_ml，唔好兩個都填
 - 份量要估計相片中嘅真實份量，唔好假設標準份量
 - 如遇唔確定嘅食物，畀出最合理嘅估計同較低嘅 confidence
+- 如果相片冇食物或睇唔清楚，回傳空 items 陣列同 error 訊息`;
+```
 
-如果相片冇食物或睇唔清楚，回覆：
-{ "items": [], "error": "No food or drink detected" }`;
+#### `responseSchema`（JSON 結構定義）
+
+```typescript
+const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    items: {
+      type: "ARRAY",
+      description: "分析到嘅食物/飲品列表，冇食物時回傳空陣列",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name_zh:       { type: "STRING",  description: "食物名（繁體中文）" },
+          name_en:       { type: "STRING",  description: "English name" },
+          type:          { type: "STRING",  enum: ["food", "drink"] },
+          portion_size:  { type: "NUMBER",  description: "數量，例如 1、2、0.5" },
+          portion_unit:  { type: "STRING",  description: "Unit in English" },
+          portion_grams: { type: "INTEGER", nullable: true },
+          portion_ml:    { type: "INTEGER", nullable: true },
+          calories:      { type: "INTEGER" },
+          protein:       { type: "INTEGER" },
+          carbs:         { type: "INTEGER" },
+          fat:           { type: "INTEGER" },
+          sugar:         { type: "INTEGER" },
+          confidence:    { type: "NUMBER" },
+        },
+        required: [
+          "name_zh", "name_en", "type",
+          "portion_size", "portion_unit",
+          "calories", "protein", "carbs", "fat", "sugar", "confidence",
+        ],
+      },
+    },
+    total_calories: { type: "INTEGER" },
+    total_protein:  { type: "INTEGER" },
+    total_carbs:    { type: "INTEGER" },
+    total_fat:      { type: "INTEGER" },
+    error:          { type: "STRING", nullable: true },
+  },
+  required: ["items", "total_calories", "total_protein", "total_carbs", "total_fat"],
+};
+```
+
+#### `generationConfig`
+
+```typescript
+generationConfig: {
+  temperature: 0.2,
+  maxOutputTokens: 2048,
+  responseMimeType: "application/json",
+  responseSchema: RESPONSE_SCHEMA,
+}
 ```
 
 ### Image Handling（client 端壓縮規則）
@@ -130,19 +190,6 @@ const SYSTEM_PROMPT = `你係專業營養師，可以分析任何菜系嘅食物
 - 壓縮後轉 base64 傳送
 - 目標大小：< 1.5MB（base64 後）
 - 格式必須為 JPEG
-
-### Local Development
-
-```bash
-# 啟動本地 Supabase（需要 Docker）
-supabase start
-
-# 本地跑 edge functions
-make serve-functions   # 使用 supabase/.env.local
-
-# 本地 base URL
-http://127.0.0.1:54321/functions/v1
-```
 
 ---
 
@@ -225,7 +272,7 @@ BorderRadius.circular(10)
 - 永遠唔好 hardcode text style — 從 `Theme.of(context).textTheme` 取
 - 所有 spacing 跟從 **8-Point Grid System**（見上方）
 - 用 `BorderRadius.circular()` — 只用格系值（4、8、12、16、24）
-- 所有 UI 文字以繁體中文為主
+- 所有 UI 文字以English為主
 
 ---
 
@@ -241,5 +288,5 @@ BorderRadius.circular(10)
 
 ## Communication
 
-- **所有回覆請用廣東話（香港中文）**，技術術語可保留英文（例如 `widget`、`null safety`、`RLS`）。
-- 解釋概念時用貼地例子，唔好過度正式。
+- **Reply to the user in Chinese (Hong Kong / Cantonese)**, with English technical terms kept as-is (e.g. `widget`, `null safety`, `RLS`).
+- All code, comments, and documentation must be written in **English**.

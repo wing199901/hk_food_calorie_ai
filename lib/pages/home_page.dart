@@ -178,7 +178,7 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
                   // Stats row
                   Row(
                     children: [
@@ -230,7 +230,7 @@ class _HomePageState extends State<HomePage> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(32),
                       ),
                       child: const Icon(
                         Icons.add,
@@ -302,12 +302,7 @@ class _HomePageState extends State<HomePage> {
                             color: AppTheme.mutedForeground,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'No meals logged',
-                          style: TextStyle(color: AppTheme.mutedForeground),
-                        ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 16),
                         Text(
                           _isToday
                               ? 'Start tracking your food!'
@@ -346,12 +341,12 @@ class _HomePageState extends State<HomePage> {
                                     placeholder: (_, _) => Container(
                                       width: 64,
                                       height: 64,
-                                      color: Colors.grey[200],
+                                      color: AppTheme.muted,
                                     ),
                                     errorWidget: (_, _, _) => Container(
                                       width: 64,
                                       height: 64,
-                                      color: Colors.grey[200],
+                                      color: AppTheme.muted,
                                       child: const Icon(Icons.image),
                                     ),
                                   ),
@@ -435,7 +430,7 @@ class _HomePageState extends State<HomePage> {
           Row(
             children: [
               Icon(icon, size: 16, color: Colors.white),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Text(
                 label,
                 style: const TextStyle(color: Colors.white70, fontSize: 14),

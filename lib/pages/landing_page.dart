@@ -23,8 +23,8 @@ class LandingPage extends StatelessWidget {
               decoration: const BoxDecoration(
                 gradient: AppTheme.primaryGradient,
                 borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(40),
-                  bottomRight: Radius.circular(40),
+                  bottomLeft: Radius.circular(48),
+                  bottomRight: Radius.circular(48),
                 ),
               ),
             ),
@@ -47,7 +47,7 @@ class LandingPage extends StatelessWidget {
                           height: 72,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(22),
+                            borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.15),
@@ -71,7 +71,7 @@ class LandingPage extends StatelessWidget {
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         const Text(
                           'Smart nutrition tracking for\nyour active lifestyle',
                           textAlign: TextAlign.center,
@@ -91,16 +91,19 @@ class LandingPage extends StatelessWidget {
                                       'https://images.unsplash.com/photo-1665394055917-de22650a17b4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => Container(
-                                    color: Colors.grey[300],
+                                    color: AppTheme.muted,
                                     child: const Center(
                                       child: CircularProgressIndicator(),
                                     ),
                                   ),
                                   errorWidget: (context, url, error) =>
                                       Container(
-                                    color: Colors.grey[300],
-                                    child: const Icon(Icons.image, size: 48),
-                                  ),
+                                        color: AppTheme.muted,
+                                        child: const Icon(
+                                          Icons.image,
+                                          size: 48,
+                                        ),
+                                      ),
                                 ),
                               ),
                               Positioned(
@@ -132,7 +135,7 @@ class LandingPage extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
                         // Features
                         _buildFeatureRow(
                           Icons.camera_alt,
@@ -140,7 +143,7 @@ class LandingPage extends StatelessWidget {
                           'Photo Logging',
                           'Snap a photo to track meals instantly',
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         _buildFeatureRow(
                           Icons.pie_chart,
                           AppTheme.accent,
@@ -153,7 +156,7 @@ class LandingPage extends StatelessWidget {
                 ),
                 // ── Pinned bottom button ──
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
                   child: SizedBox(
                     width: double.infinity,
                     height: 56,
@@ -219,7 +222,7 @@ class LandingPage extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
+              shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 20),
           ),

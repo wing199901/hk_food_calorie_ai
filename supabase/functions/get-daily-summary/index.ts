@@ -22,7 +22,7 @@ Deno.serve(async (req: Request) => {
     const { data: records, error: recErr } = await supabase
       .from("meal_records")
       .select(
-        "id, items, total_calories, total_protein, total_carbs, total_fat, created_at",
+        "id, items, total_calories, total_protein, total_carbs, total_fat, total_sugar, created_at",
       )
       .eq("user_id", user_id)
       .eq("date", date)
@@ -39,6 +39,7 @@ Deno.serve(async (req: Request) => {
     let totalProtein = 0;
     let totalCarbs = 0;
     let totalFat = 0;
+    let totalSugar = 0;
     let itemsCount = 0;
 
     // deno-lint-ignore no-explicit-any
@@ -49,6 +50,7 @@ Deno.serve(async (req: Request) => {
       totalProtein += rec.total_protein || 0;
       totalCarbs += rec.total_carbs || 0;
       totalFat += rec.total_fat || 0;
+      totalSugar += rec.total_sugar || 0;
       const items = rec.items as unknown[];
       itemsCount += items?.length ?? 0;
       if (items) allItems.push(...items);
@@ -82,6 +84,7 @@ Deno.serve(async (req: Request) => {
         protein: totalProtein,
         carbs: totalCarbs,
         fat: totalFat,
+        sugar: totalSugar,
       },
       items_count: itemsCount,
       calorie_target: calorieTarget,

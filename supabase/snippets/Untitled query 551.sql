@@ -189,9 +189,7 @@ create policy "Users can delete their own quick add items"
 
 -- Seed default quick-add items for new users via trigger
 create or replace function public.seed_quick_add_items()
-returns trigger language plpgsql security definer
-set search_path = ''
-as $$
+returns trigger language plpgsql security definer as $$
 begin
   insert into public.quick_add_items (id, user_id, name, calories, protein, carbs, fat, sugar, icon, sort_order)
   values
@@ -215,22 +213,28 @@ execute procedure public.seed_quick_add_items();
 -- ─────────────────────────────────────────────────────────────
 -- 5. Helper: auto-update updated_at
 -- ─────────────────────────────────────────────────────────────
-create or replace function public.handle_updated_at()
-returns trigger language plpgsql
-set search_path = ''
-as $$
+create or replace function public.handle_updated_at
+()
+returns trigger language plpgsql as $$
 begin
-  new.updated_at = now();
-  return new;
+  new.updated_at = now
+();
+return new;
 end;
 $$;
 
 create or replace trigger on_user_profiles_updated
-  before update on public.user_profiles
+  before
+update on public.user_profiles
   for each row
-  execute procedure public.handle_updated_at();
+execute
+procedure public.handle_updated_at
+();
 
 create or replace trigger on_meal_records_updated
-  before update on public.meal_records
+  before
+update on public.meal_records
   for each row
-  execute procedure public.handle_updated_at();
+execute
+procedure public.handle_updated_at
+();

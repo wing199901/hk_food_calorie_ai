@@ -15,3 +15,4 @@ body:
         "date": "{{date}}"
     }
 order: 1000
+examples: ./.resources/analyze-meal.resources/examples

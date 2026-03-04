@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/meal.dart';
 import '../models/user_profile.dart';
 import '../models/body_metric.dart';
+import '../models/quick_add_item.dart';
 import 'demo_data.dart';
 import 'supabase_service.dart';
 
@@ -16,6 +17,7 @@ class StorageService extends ChangeNotifier {
   static const _bodyHistoryKey = 'fitcalorie_body_history';
   static const _lastCheckInKey = 'fitcalorie_last_checkin';
   static const _shortcutsKey = 'fitcalorie_shortcuts';
+  static const _quickAddKey = 'fitcalorie_quick_add_items';
 
   late SharedPreferences _prefs;
   final _supabase = SupabaseService();
@@ -69,6 +71,15 @@ class StorageService extends ChangeNotifier {
       final lastCheckInDate = data['lastCheckInDate'] as String?;
       if (lastCheckInDate != null) {
         await _prefs.setString(_lastCheckInKey, lastCheckInDate);
+      }
+
+      // Quick add items
+      final quickAddItems = data['quickAddItems'] as List<QuickAddItem>;
+      if (quickAddItems.isNotEmpty) {
+        await _prefs.setString(
+          _quickAddKey,
+          jsonEncode(quickAddItems.map((e) => e.toJson()).toList()),
+        );
       }
 
       notifyListeners();
@@ -125,6 +136,7 @@ class StorageService extends ChangeNotifier {
     _prefs.remove(_bodyHistoryKey);
     _prefs.remove(_lastCheckInKey);
     _prefs.remove(_shortcutsKey);
+    _prefs.remove(_quickAddKey);
     notifyListeners();
   }
 
@@ -401,5 +413,53 @@ class StorageService extends ChangeNotifier {
       }
     }
     return result;
+  }
+
+  // ─── Quick Add Items ─────────────────────────────────────────
+
+  /// Returns user's quick-add items. Seeds defaults if empty.
+  List<QuickAddItem> getQuickAddItems() {
+    final data = _prefs.getString(_quickAddKey);
+    if (data == null) {
+      // First time — seed defaults locally
+      final defaults = QuickAddItem.defaults;
+      _prefs.setString(
+        _quickAddKey,
+        jsonEncode(defaults.map((e) => e.toJson()).toList()),
+      );
+      return defaults;
+    }
+    final list = jsonDecode(data) as List;
+    return list
+        .map((e) => QuickAddItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  void addQuickAddItem(QuickAddItem item) {
+    final items = getQuickAddItems();
+    // Deduplicate by name (case-insensitive)
+    if (items.any((i) => i.name.toLowerCase() == item.name.toLowerCase())) {
+      return;
+    }
+    items.add(item);
+    _prefs.setString(
+      _quickAddKey,
+      jsonEncode(items.map((e) => e.toJson()).toList()),
+    );
+    _syncAsync(
+      () => _supabase.addQuickAddItem(item, sortOrder: items.length - 1),
+    );
+    notifyListeners();
+  }
+
+  void removeQuickAddItem(String id) {
+    final items = getQuickAddItems();
+    items.removeWhere((i) => i.id == id);
+    _prefs.setString(
+      _quickAddKey,
+      jsonEncode(items.map((e) => e.toJson()).toList()),
+    );
+    _syncAsync(() => _supabase.deleteQuickAddItem(id));
+    notifyListeners();
   }
 }

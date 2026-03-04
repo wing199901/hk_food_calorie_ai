@@ -100,7 +100,7 @@ class _AuthPageState extends State<AuthPage> {
 
   // ── Outlined text field with floating label (Google / Microsoft style) ────
 
-  static const _outlineBorder = Color(0xFFDADCE0);
+  static const _outlineBorder = AppTheme.border;
   static const _focusBorder = AppTheme.primary;
 
   InputDecoration _outlinedDecoration({
@@ -120,19 +120,19 @@ class _AuthPageState extends State<AuthPage> {
       ),
       filled: false,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: _outlineBorder),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: _outlineBorder),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: _focusBorder, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: AppTheme.destructive),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -220,7 +220,7 @@ class _AuthPageState extends State<AuthPage> {
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -231,7 +231,7 @@ class _AuthPageState extends State<AuthPage> {
                           decoration: _outlinedDecoration(label: 'Email'),
                         ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
 
                         // Password
                         TextField(
@@ -254,9 +254,8 @@ class _AuthPageState extends State<AuthPage> {
                           ),
                         ),
 
-                        // Confirm Password (sign up only)
                         if (!_isSignIn) ...[
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 24),
                           TextField(
                             controller: _confirmCtrl,
                             obscureText: _obscureConfirm,
@@ -314,7 +313,7 @@ class _AuthPageState extends State<AuthPage> {
                               backgroundColor: AppTheme.primary,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               elevation: 0,
                               padding: EdgeInsets.zero,
@@ -341,7 +340,7 @@ class _AuthPageState extends State<AuthPage> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
                   // ── Toggle sign in / sign up ──────────────────────────
                   Row(
@@ -364,7 +363,7 @@ class _AuthPageState extends State<AuthPage> {
                           });
                         },
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
@@ -387,7 +386,7 @@ class _AuthPageState extends State<AuthPage> {
                       children: [
                         Expanded(
                           child: Divider(
-                            color: Colors.grey[300],
+                            color: AppTheme.border,
                             thickness: 0.8,
                           ),
                         ),
@@ -396,7 +395,7 @@ class _AuthPageState extends State<AuthPage> {
                           child: Text(
                             'or',
                             style: TextStyle(
-                              color: Colors.grey[500],
+                              color: AppTheme.mutedForeground,
                               fontSize: 13,
                               fontWeight: FontWeight.w400,
                             ),
@@ -404,7 +403,7 @@ class _AuthPageState extends State<AuthPage> {
                         ),
                         Expanded(
                           child: Divider(
-                            color: Colors.grey[300],
+                            color: AppTheme.border,
                             thickness: 0.8,
                           ),
                         ),

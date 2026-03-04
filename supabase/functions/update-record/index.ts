@@ -10,10 +10,12 @@ import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 interface FoodItem {
   name_zh: string;
   name_en: string;
+  type: "food" | "drink";
   calories: number;
   protein: number;
   carbs: number;
   fat: number;
+  sugar: number;
   portion_size: number;
   portion_unit: string;
   portion_grams?: number | null;
@@ -70,6 +72,9 @@ Deno.serve(async (req: Request) => {
     const totalFat = Math.round(
       updated_items.reduce((s: number, i: FoodItem) => s + (i.fat || 0), 0),
     );
+    const totalSugar = Math.round(
+      updated_items.reduce((s: number, i: FoodItem) => s + (i.sugar || 0), 0),
+    );
 
     // ── Update record ────────────────────────
     const { error: updateErr } = await supabase
@@ -80,6 +85,7 @@ Deno.serve(async (req: Request) => {
         total_protein: totalProtein,
         total_carbs: totalCarbs,
         total_fat: totalFat,
+        total_sugar: totalSugar,
       })
       .eq("id", record_id);
 
@@ -96,6 +102,7 @@ Deno.serve(async (req: Request) => {
         total_protein: totalProtein,
         total_carbs: totalCarbs,
         total_fat: totalFat,
+        total_sugar: totalSugar,
       },
     });
   } catch (err) {

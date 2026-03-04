@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 import '../models/meal.dart';
+import '../models/quick_add_item.dart';
 import '../theme/app_theme.dart';
 
 class AddFoodPage extends StatefulWidget {
@@ -23,146 +25,117 @@ class _AddFoodPageState extends State<AddFoodPage> {
   String? _selectedImage;
   bool _analyzing = false;
   Map<String, dynamic>? _result;
+  bool _isEditMode = false;
+  List<QuickAddItem> _quickAddItems = [];
+
+  static const _availableIcons = [
+    '🍚', '🥚', '🍌', '🍞', '☕', '🍗', '🍎', '🥛',
+    '🍜', '🥗', '🍕', '🍔', '🌮', '🍣', '🍱', '🥟',
+    '🍝', '🥩', '🍰', '🧁', '🍩', '🥤', '🍵', '🥐',
+    '🍙', '🥪', '🍲', '🥘', '🫕', '🍽️',
+  ];
 
   static const _foodDatabase = [
     {
-      'name': 'Grilled Chicken Salad',
-      'calories': 350,
+      'name': '燒味雙併飯',
+      'calories': 750,
       'protein': 35,
-      'carbs': 15,
-      'fat': 18,
-    },
-    {
-      'name': 'Pasta Carbonara',
-      'calories': 580,
-      'protein': 22,
-      'carbs': 65,
+      'carbs': 88,
       'fat': 28,
+      'sugar': 6,
     },
     {
-      'name': 'Salmon with Vegetables',
-      'calories': 420,
-      'protein': 38,
-      'carbs': 12,
-      'fat': 24,
+      'name': '菠蘿油 + 凍奶茶',
+      'calories': 520,
+      'protein': 8,
+      'carbs': 62,
+      'fat': 26,
+      'sugar': 28,
     },
     {
-      'name': 'Burger with Fries',
-      'calories': 850,
-      'protein': 32,
-      'carbs': 78,
-      'fat': 45,
-    },
-    {
-      'name': 'Caesar Salad',
-      'calories': 320,
+      'name': '雲吞麵',
+      'calories': 380,
       'protein': 18,
-      'carbs': 12,
+      'carbs': 48,
+      'fat': 12,
+      'sugar': 4,
+    },
+    {
+      'name': '叉燒飯',
+      'calories': 680,
+      'protein': 32,
+      'carbs': 85,
       'fat': 22,
+      'sugar': 8,
     },
     {
-      'name': 'Sushi Roll Set',
-      'calories': 450,
-      'protein': 20,
-      'carbs': 68,
-      'fat': 8,
-    },
-    {
-      'name': 'Pizza Slice',
-      'calories': 285,
-      'protein': 12,
-      'carbs': 36,
+      'name': '蛋撻',
+      'calories': 220,
+      'protein': 4,
+      'carbs': 28,
       'fat': 10,
+      'sugar': 12,
     },
     {
-      'name': 'Fruit Bowl',
-      'calories': 150,
-      'protein': 2,
+      'name': '點心拼盤（蝦餃、燒賣、腸粉）',
+      'calories': 580,
+      'protein': 24,
+      'carbs': 52,
+      'fat': 28,
+      'sugar': 6,
+    },
+    {
+      'name': '豬扒包',
+      'calories': 450,
+      'protein': 22,
       'carbs': 38,
-      'fat': 1,
+      'fat': 24,
+      'sugar': 4,
     },
     {
-      'name': 'Protein Smoothie',
-      'calories': 280,
-      'protein': 25,
-      'carbs': 32,
-      'fat': 6,
-    },
-    {
-      'name': 'Oatmeal with Berries',
+      'name': '魚蛋粉',
       'calories': 320,
-      'protein': 12,
-      'carbs': 54,
-      'fat': 8,
+      'protein': 16,
+      'carbs': 42,
+      'fat': 10,
+      'sugar': 2,
+    },
+    {
+      'name': '凍檸茶',
+      'calories': 120,
+      'protein': 0,
+      'carbs': 30,
+      'fat': 0,
+      'sugar': 28,
+    },
+    {
+      'name': '煲仔飯',
+      'calories': 620,
+      'protein': 28,
+      'carbs': 78,
+      'fat': 22,
+      'sugar': 6,
     },
   ];
 
-  static const _preconfiguredItems = [
-    {
-      'name': 'Bowl of Rice',
-      'calories': 200,
-      'protein': 4,
-      'carbs': 45,
-      'fat': 0,
-      'icon': '🍚',
-    },
-    {
-      'name': 'Apple',
-      'calories': 95,
-      'protein': 0,
-      'carbs': 25,
-      'fat': 0,
-      'icon': '🍎',
-    },
-    {
-      'name': 'Banana',
-      'calories': 105,
-      'protein': 1,
-      'carbs': 27,
-      'fat': 0,
-      'icon': '🍌',
-    },
-    {
-      'name': 'Boiled Egg',
-      'calories': 78,
-      'protein': 6,
-      'carbs': 0,
-      'fat': 5,
-      'icon': '🥚',
-    },
-    {
-      'name': 'Slice of Bread',
-      'calories': 80,
-      'protein': 3,
-      'carbs': 15,
-      'fat': 1,
-      'icon': '🍞',
-    },
-    {
-      'name': 'Coffee (Black)',
-      'calories': 2,
-      'protein': 0,
-      'carbs': 0,
-      'fat': 0,
-      'icon': '☕',
-    },
-    {
-      'name': 'Black Tea',
-      'calories': 0,
-      'protein': 0,
-      'carbs': 0,
-      'fat': 0,
-      'icon': '🍵',
-    },
-    {
-      'name': 'Instant Noodle',
-      'calories': 380,
-      'protein': 8,
-      'carbs': 54,
-      'fat': 14,
-      'icon': '🍜',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadQuickAddItems();
+    widget.storage.addListener(_loadQuickAddItems);
+  }
+
+  @override
+  void dispose() {
+    widget.storage.removeListener(_loadQuickAddItems);
+    super.dispose();
+  }
+
+  void _loadQuickAddItems() {
+    setState(() {
+      _quickAddItems = widget.storage.getQuickAddItems();
+    });
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
@@ -170,6 +143,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
     if (picked != null) {
       setState(() {
         _selectedImage = picked.path;
+        _isEditMode = false;
       });
       _analyzeImage(picked.path);
     }
@@ -187,17 +161,23 @@ class _AddFoodPageState extends State<AddFoodPage> {
     });
   }
 
-  void _handleQuickAdd(Map<String, dynamic> item) {
+  void _handleQuickAdd(QuickAddItem item) {
+    if (_isEditMode) return;
     setState(() {
       _selectedImage = null;
       _result = {
-        'name': item['name'],
-        'calories': item['calories'],
-        'protein': item['protein'],
-        'carbs': item['carbs'],
-        'fat': item['fat'],
+        'name': item.name,
+        'calories': item.calories,
+        'protein': item.protein,
+        'carbs': item.carbs,
+        'fat': item.fat,
       };
     });
+  }
+
+  void _handleDeleteQuickAdd(QuickAddItem item) {
+    HapticFeedback.mediumImpact();
+    widget.storage.removeQuickAddItem(item.id);
   }
 
   void _handleSave() {
@@ -229,81 +209,93 @@ class _AddFoodPageState extends State<AddFoodPage> {
     });
   }
 
+  void _enterEditMode() {
+    HapticFeedback.heavyImpact();
+    setState(() => _isEditMode = true);
+  }
+
+  void _exitEditMode() {
+    setState(() => _isEditMode = false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 40),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Container(
-              decoration: const BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(24),
+    return GestureDetector(
+      onTap: _isEditMode ? _exitEditMode : null,
+      child: Scaffold(
+        backgroundColor: AppTheme.background,
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(24),
+                    bottomRight: Radius.circular(24),
+                  ),
                 ),
-              ),
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-              child: SafeArea(
-                bottom: false,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'Add Food',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                child: SafeArea(
+                  bottom: false,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'Add Food',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Track your meal',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white70,
+                            SizedBox(height: 4),
+                            Text(
+                              'Track your meal',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white70,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.25),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 20,
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-            // Content
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: (_result != null || _selectedImage != null)
-                  ? _buildResultView()
-                  : _buildCaptureView(),
-            ),
-          ],
+              const SizedBox(height: 24),
+              // Content
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: (_result != null || _selectedImage != null)
+                    ? _buildResultView()
+                    : _buildCaptureView(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -316,7 +308,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
         // Scan Meal section
         Row(
           children: [
-            Icon(Icons.camera_alt, color: Colors.orange[500], size: 20),
+            Icon(Icons.camera_alt, color: AppTheme.accent, size: 20),
             const SizedBox(width: 8),
             const Text(
               'Scan Meal',
@@ -345,172 +337,314 @@ class _AddFoodPageState extends State<AddFoodPage> {
           ],
         ),
         const SizedBox(height: 32),
-        // Quick Add section
+        // Quick Add section header
         Row(
           children: [
-            Icon(Icons.restaurant, color: Colors.grey[500], size: 20),
+            Icon(Icons.restaurant, color: AppTheme.mutedForeground, size: 20),
             const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Quick Add',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
+            Expanded(
+              child: _isEditMode
+                  ? const Text(
+                      'Hold to delete',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.mutedForeground,
+                      ),
+                    )
+                  : const Text(
+                      'Quick Add',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
             ),
-            GestureDetector(
-              onTap: _openManualAddSheet,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.accent,
-                  borderRadius: BorderRadius.circular(12),
+            if (_isEditMode)
+              GestureDetector(
+                onTap: _exitEditMode,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-                child: const Icon(Icons.add, color: Colors.white, size: 20),
+              )
+            else
+              GestureDetector(
+                onTap: _openAddQuickAddSheet,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 20),
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          padding: EdgeInsets.zero,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 2.4,
-          children: _preconfiguredItems
-              .map((item) => _buildQuickAddItem(item))
-              .toList(),
-        ),
+        if (_quickAddItems.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Column(
+              children: [
+                const Text('🍽️', style: TextStyle(fontSize: 32)),
+                const SizedBox(height: 12),
+                const Text(
+                  'No quick add items',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.mutedForeground,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Tap + to add your favourite foods',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          GridView.count(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            padding: EdgeInsets.zero,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 2.4,
+            children: _quickAddItems
+                .map((item) => _buildQuickAddItem(item))
+                .toList(),
+          ),
         const SizedBox(height: 32),
       ],
     );
   }
 
-  void _openManualAddSheet() {
+  void _openAddQuickAddSheet() {
     final nameCtrl = TextEditingController();
     final calCtrl = TextEditingController();
     final proteinCtrl = TextEditingController();
     final carbsCtrl = TextEditingController();
     final fatCtrl = TextEditingController();
+    final sugarCtrl = TextEditingController();
+    String selectedIcon = '🍽️';
+    bool nameError = false;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.muted,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Add Food Manually',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 16),
-              _manualField(
-                controller: nameCtrl,
-                label: 'Food Name',
-                hint: 'e.g. Chicken Rice',
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _manualField(
-                      controller: calCtrl,
-                      label: 'Calories (kcal)',
-                      hint: '0',
-                      numeric: true,
-                      textInputAction: TextInputAction.next,
-                    ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Add Quick Add Item',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 16),
+                // Icon picker
+                const Text(
+                  'Icon',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 48,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _availableIcons.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 8),
+                    itemBuilder: (_, index) {
+                      final icon = _availableIcons[index];
+                      final isSelected = icon == selectedIcon;
+                      return GestureDetector(
+                        onTap: () =>
+                            setSheetState(() => selectedIcon = icon),
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.accent.withValues(alpha: 0.15)
+                                : AppTheme.muted,
+                            borderRadius: BorderRadius.circular(12),
+                            border: isSelected
+                                ? Border.all(color: AppTheme.accent, width: 2)
+                                : null,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            icon,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _manualField(
-                      controller: proteinCtrl,
-                      label: 'Protein (g)',
-                      hint: '0',
-                      numeric: true,
-                      textInputAction: TextInputAction.next,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _manualField(
-                      controller: carbsCtrl,
-                      label: 'Carbs (g)',
-                      hint: '0',
-                      numeric: true,
-                      textInputAction: TextInputAction.next,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _manualField(
-                      controller: fatCtrl,
-                      label: 'Fat (g)',
-                      hint: '0',
-                      numeric: true,
-                      textInputAction: TextInputAction.done,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final name = nameCtrl.text.trim();
-                    if (name.isEmpty) return;
-                    Navigator.pop(ctx);
-                    _handleQuickAdd({
-                      'name': name,
-                      'calories': int.tryParse(calCtrl.text) ?? 0,
-                      'protein': int.tryParse(proteinCtrl.text) ?? 0,
-                      'carbs': int.tryParse(carbsCtrl.text) ?? 0,
-                      'fat': int.tryParse(fatCtrl.text) ?? 0,
-                    });
+                ),
+                const SizedBox(height: 16),
+                _manualField(
+                  controller: nameCtrl,
+                  label: 'Food Name',
+                  hint: 'e.g. Chicken Rice',
+                  textInputAction: TextInputAction.next,
+                  errorText: nameError ? 'Food name is required' : null,
+                  onChanged: (_) {
+                    if (nameError) setSheetState(() => nameError = false);
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _manualField(
+                        controller: calCtrl,
+                        label: 'Calories (kcal)',
+                        hint: '0',
+                        numeric: true,
+                        textInputAction: TextInputAction.next,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _manualField(
+                        controller: proteinCtrl,
+                        label: 'Protein (g)',
+                        hint: '0',
+                        numeric: true,
+                        textInputAction: TextInputAction.next,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _manualField(
+                        controller: carbsCtrl,
+                        label: 'Carbs (g)',
+                        hint: '0',
+                        numeric: true,
+                        textInputAction: TextInputAction.next,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _manualField(
+                        controller: fatCtrl,
+                        label: 'Fat (g)',
+                        hint: '0',
+                        numeric: true,
+                        textInputAction: TextInputAction.next,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _manualField(
+                        controller: sugarCtrl,
+                        label: 'Sugar (g)',
+                        hint: '0',
+                        numeric: true,
+                        textInputAction: TextInputAction.done,
+                      ),
+                    ),
+                    const Expanded(child: SizedBox()),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final name = nameCtrl.text.trim();
+                      if (name.isEmpty) {
+                        setSheetState(() => nameError = true);
+                        return;
+                      }
+                      Navigator.pop(ctx);
+                      final item = QuickAddItem(
+                        id: 'custom-${DateTime.now().millisecondsSinceEpoch}',
+                        name: name,
+                        calories: int.tryParse(calCtrl.text) ?? 0,
+                        protein: int.tryParse(proteinCtrl.text) ?? 0,
+                        carbs: int.tryParse(carbsCtrl.text) ?? 0,
+                        fat: int.tryParse(fatCtrl.text) ?? 0,
+                        sugar: int.tryParse(sugarCtrl.text) ?? 0,
+                        icon: selectedIcon,
+                      );
+                      widget.storage.addQuickAddItem(item);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Save Quick Add',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
-                  child: const Text(
-                    'Add to Log',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -523,40 +657,63 @@ class _AddFoodPageState extends State<AddFoodPage> {
     required String hint,
     bool numeric = false,
     TextInputAction textInputAction = TextInputAction.next,
+    String? errorText,
+    ValueChanged<String>? onChanged,
   }) {
+    final hasError = errorText != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: hasError ? AppTheme.destructive : null,
+          ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         TextField(
           controller: controller,
           keyboardType: numeric ? TextInputType.number : TextInputType.text,
           textInputAction: textInputAction,
+          onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey[400]),
+            hintStyle: TextStyle(color: AppTheme.mutedForeground),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
-              vertical: 10,
+              vertical: 12,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: AppTheme.border),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppTheme.border),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: hasError ? AppTheme.destructive : AppTheme.border,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: hasError ? AppTheme.destructive : AppTheme.primary,
+                width: 1.5,
+              ),
             ),
           ),
         ),
+        if (hasError) ...[  
+          const SizedBox(height: 4),
+          Text(
+            errorText,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.destructive,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -586,10 +743,10 @@ class _AddFoodPageState extends State<AddFoodPage> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: Colors.orange[50],
+                color: AppTheme.accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: Icon(icon, color: Colors.orange[600], size: 24),
+              child: Icon(icon, color: AppTheme.accent, size: 24),
             ),
             const SizedBox(height: 12),
             Text(
@@ -602,46 +759,84 @@ class _AddFoodPageState extends State<AddFoodPage> {
     );
   }
 
-  Widget _buildQuickAddItem(Map<String, dynamic> item) {
+  Widget _buildQuickAddItem(QuickAddItem item) {
     return GestureDetector(
       onTap: () => _handleQuickAdd(item),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Row(
-          children: [
-            Text(item['icon'] as String, style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    item['name'] as String,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    '${item['calories']} kcal',
-                    style: const TextStyle(
-                      color: AppTheme.mutedForeground,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+      onLongPress: _isEditMode ? null : _enterEditMode,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: _isEditMode
+                  ? Colors.white.withValues(alpha: 0.9)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _isEditMode
+                    ? AppTheme.destructive.withValues(alpha: 0.3)
+                    : AppTheme.border,
               ),
             ),
-          ],
-        ),
+            child: Row(
+              children: [
+                Text(
+                  item.icon,
+                  style: const TextStyle(fontSize: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        item.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${item.calories} kcal',
+                        style: const TextStyle(
+                          color: AppTheme.mutedForeground,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // iOS-style delete badge
+          if (_isEditMode)
+            Positioned(
+              top: -8,
+              left: -8,
+              child: GestureDetector(
+                onTap: () => _handleDeleteQuickAdd(item),
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.destructive,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

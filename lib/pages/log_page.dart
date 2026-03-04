@@ -425,11 +425,11 @@ class _LogPageState extends State<LogPage> {
         height: height,
         fit: BoxFit.cover,
         placeholder: (_, _) =>
-            Container(width: width, height: height, color: Colors.grey[200]),
+            Container(width: width, height: height, color: AppTheme.muted),
         errorWidget: (_, _, _) => Container(
           width: width,
           height: height,
-          color: Colors.grey[200],
+          color: AppTheme.muted,
           child: const Icon(Icons.image),
         ),
       );
@@ -442,7 +442,7 @@ class _LogPageState extends State<LogPage> {
         errorBuilder: (_, _, _) => Container(
           width: width,
           height: height,
-          color: Colors.grey[200],
+          color: AppTheme.muted,
           child: const Icon(Icons.image),
         ),
       );
@@ -798,7 +798,7 @@ class _ManualMealModalState extends State<_ManualMealModal> {
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 14,
+              vertical: 16,
             ),
           ),
         ),
