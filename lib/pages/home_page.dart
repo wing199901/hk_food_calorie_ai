@@ -312,6 +312,10 @@ class _HomePageState extends State<HomePage> {
                             fontSize: 14,
                           ),
                         ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Add a meal to start the day',
+                          style: TextStyle(
                             color: AppTheme.mutedForeground,
                             fontSize: 14,
                           ),
