@@ -312,6 +312,10 @@ class _HomePageState extends State<HomePage> {
                             fontSize: 14,
                           ),
                         ),
+                            color: AppTheme.mutedForeground,
+                            fontSize: 14,
+                          ),
+                        ),
                       ],
                     ),
                   )

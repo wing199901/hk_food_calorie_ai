@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import '../services/storage_service.dart';
 import '../models/body_metric.dart';
+import '../models/user_profile.dart';
 import '../theme/app_theme.dart';
 import '../widgets/week_navigator.dart';
 
@@ -415,6 +416,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
+                  _buildHealthScores(),
+                  const SizedBox(height: 24),
                   _buildEnergyChart(),
                   const SizedBox(height: 24),
                   _buildMacroChart(),
@@ -470,6 +473,170 @@ class _AnalysisPageState extends State<AnalysisPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ─── Health Scores (BMI / WHtR / TEE) ─────────────────────────
+
+  static const _defaultWeight = 70.0;
+  static const _defaultHeight = 175.0;
+  static const _defaultWaistline = 80.0;
+
+  double _calculateBMI(UserProfile p) {
+    final w = p.weight ?? _defaultWeight;
+    final h = p.height ?? _defaultHeight;
+    return double.parse((w / ((h / 100) * (h / 100))).toStringAsFixed(1));
+  }
+
+  double _calculateWHtR(UserProfile p) {
+    final waist = p.waistline ?? _defaultWaistline;
+    final h = p.height ?? _defaultHeight;
+    return double.parse((waist / h).toStringAsFixed(2));
+  }
+
+  String _bmiCategory(double bmi) {
+    if (bmi < 18.5) return 'Underweight';
+    if (bmi < 25) return 'Normal';
+    if (bmi < 30) return 'Overweight';
+    return 'Obese';
+  }
+
+  String _whtrCategory(double r) {
+    if (r < 0.4) return 'Slim';
+    if (r < 0.5) return 'Healthy';
+    if (r < 0.6) return 'Overweight';
+    return 'Obese';
+  }
+
+  Color _bmiColor(double bmi) {
+    if (bmi < 18.5) return AppTheme.chartWeight;
+    if (bmi < 25) return AppTheme.primary;
+    if (bmi < 30) return AppTheme.warning;
+    return AppTheme.destructive;
+  }
+
+  Color _whtrColor(double r) {
+    if (r < 0.4) return AppTheme.chartWeight;
+    if (r < 0.5) return AppTheme.primary;
+    if (r < 0.6) return AppTheme.warning;
+    return AppTheme.destructive;
+  }
+
+  Widget _buildHealthScores() {
+    final profile = widget.storage.getUserProfile();
+    final bmi = _calculateBMI(profile);
+    final whtr = _calculateWHtR(profile);
+    final tee = StorageService.calculateTEE(profile);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.favorite, color: AppTheme.destructive, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Health Scores',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _scoreCard(
+                  label: 'BMI',
+                  value: '$bmi',
+                  subtitle: _bmiCategory(bmi),
+                  color: _bmiColor(bmi),
+                  icon: Icons.monitor_weight_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _scoreCard(
+                  label: 'WHtR',
+                  value: '$whtr',
+                  subtitle: _whtrCategory(whtr),
+                  color: _whtrColor(whtr),
+                  icon: Icons.straighten,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _scoreCard(
+                  label: 'TEE',
+                  value: '$tee',
+                  subtitle: 'kcal/day',
+                  color: AppTheme.accent,
+                  icon: Icons.local_fire_department,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _scoreCard({
+    required String label,
+    required String value,
+    required String subtitle,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppTheme.mutedForeground,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1229,6 +1396,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
   Widget _buildInsights() {
     final target = todayStats['target'] ?? 2000;
+    final profile = widget.storage.getUserProfile();
+    final bmi = _calculateBMI(profile);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -1254,37 +1424,49 @@ class _AnalysisPageState extends State<AnalysisPage> {
           if (_weekAverage < target * 0.8 && _weekAverage > 0)
             _insightTile(
               AppTheme.warning,
-              'Energy Deficit Alert',
-              'Your average intake is significantly below your TEE target. Ensure you\'re fueling your body adequately for your activity level.',
+              'Eating a bit too little la~',
+              'Your average intake is way below target. Don\'t skip meals — your body needs fuel to function properly!',
             ),
           if (_weekAverage > target * 1.2)
             _insightTile(
               AppTheme.accent,
-              'Calorie Surplus',
-              'Your average intake is above your TEE. This might lead to weight gain unless you\'re intentionally bulking.',
+              'Calories a bit high today la~ 🫣',
+              'Your average intake is above your TEE. Maybe cut down on the milk tea and egg tarts a bit?',
+            ),
+          if (bmi >= 25)
+            _insightTile(
+              AppTheme.warning,
+              'BMI is on the higher side',
+              'Your BMI is ${bmi.toStringAsFixed(1)} — try swapping fried foods for steamed ones. Small changes add up!',
+            ),
+          if (bmi < 18.5)
+            _insightTile(
+              AppTheme.chartWeight,
+              'You\'re a bit underweight right now',
+              'BMI is ${bmi.toStringAsFixed(1)}. Make sure you\'re eating enough protein and healthy fats!',
             ),
           _insightTile(
             AppTheme.secondary,
-            'Understanding TEE',
-            'Your Total Energy Expenditure (TEE) is the scientifically calculated amount of energy your body needs daily. Aim to match your intake with this number for maintenance.',
+            'What is TEE?',
+            'Total Energy Expenditure — it\'s how many calories your body burns daily. Match your intake to this number for maintenance.',
             icon: Icons.info_outline,
           ),
           _insightTile(
             AppTheme.primary,
-            'Protein Power',
-            'Try to include a source of protein in every meal to support muscle maintenance and satiety.',
+            'Protein is your best friend 💪',
+            'Add a source of protein to every meal — chicken breast, eggs, tofu. Keeps you full and helps build muscle!',
           ),
           if (_daysOnTarget >= 5)
             _insightTile(
               AppTheme.primary,
-              '🎉 Outstanding consistency!',
-              'You\'ve hit your TEE target on $_daysOnTarget days this week!',
+              '🎉 So consistent this week!',
+              'You hit your TEE target $_daysOnTarget out of 7 days — keep it up la!',
             ),
           if (_streak >= 3)
             _insightTile(
               AppTheme.accent,
-              '🔥 You\'re on fire!',
-              '$_streak-day streak of consistent tracking!',
+              '🔥 $_streak-day streak! On fire!',
+              'You\'ve been tracking for $_streak days straight. That\'s some serious discipline!',
             ),
         ],
       ),

@@ -211,7 +211,7 @@ class SupabaseService extends ChangeNotifier {
           Meal(
             id: rec['id'] as String,
             name: items.length > 1
-                ? '$firstName 等${items.length}項'
+                ? '$firstName + ${items.length - 1} more'
                 : firstName as String,
             calories: (rec['total_calories'] as num?)?.toInt() ?? 0,
             protein: (rec['total_protein'] as num?)?.toInt(),
@@ -244,7 +244,7 @@ class SupabaseService extends ChangeNotifier {
           'protein': meal.protein ?? 0,
           'carbs': meal.carbs ?? 0,
           'fat': meal.fat ?? 0,
-          'portion': '1份',
+          'portion': '1 serving',
           'confidence': 1.0,
         },
       ],
@@ -285,6 +285,9 @@ class SupabaseService extends ChangeNotifier {
       'date': metric.date,
       'weight': metric.weight,
       'waistline': metric.waistline,
+      'bmi': metric.bmi,
+      'whtr': metric.whtr,
+      'tee': metric.tee,
     });
   }
 

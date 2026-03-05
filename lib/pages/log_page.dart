@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../widgets/date_navigator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -175,8 +176,10 @@ class _LogPageState extends State<LogPage> {
                 const SizedBox(height: 8),
                 Expanded(
                   child: meals.isEmpty
-                      ? Center(
+                      ? Align(
+                          alignment: Alignment.center,
                           child: Container(
+                            width: double.infinity,
                             padding: const EdgeInsets.all(32),
                             decoration: BoxDecoration(
                               color: Colors.white,
@@ -206,14 +209,6 @@ class _LogPageState extends State<LogPage> {
                                     color: AppTheme.mutedForeground,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Add a meal manually or scan food',
-                                  style: TextStyle(
-                                    color: AppTheme.mutedForeground,
-                                    fontSize: 14,
-                                  ),
-                                ),
                               ],
                             ),
                           ),
@@ -234,28 +229,24 @@ class _LogPageState extends State<LogPage> {
                                   return false; // don't dismiss
                                 }
                                 // Swipe left → delete
-                                return await showDialog<bool>(
+                                return await showCupertinoDialog<bool>(
                                       context: context,
-                                      builder: (ctx) => AlertDialog(
+                                      builder: (ctx) => CupertinoAlertDialog(
                                         title: const Text('Delete Meal'),
                                         content: const Text(
                                           'Are you sure you want to delete this meal?',
                                         ),
                                         actions: [
-                                          TextButton(
+                                          CupertinoDialogAction(
                                             onPressed: () =>
                                                 Navigator.pop(ctx, false),
                                             child: const Text('Cancel'),
                                           ),
-                                          TextButton(
+                                          CupertinoDialogAction(
+                                            isDestructiveAction: true,
                                             onPressed: () =>
                                                 Navigator.pop(ctx, true),
-                                            child: const Text(
-                                              'Delete',
-                                              style: TextStyle(
-                                                color: AppTheme.destructive,
-                                              ),
-                                            ),
+                                            child: const Text('Delete'),
                                           ),
                                         ],
                                       ),

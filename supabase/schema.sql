@@ -57,19 +57,15 @@ update
 create table
 if not exists public.body_metrics
 (
-  user_id    uuid not null references auth.users
-(id) on
-delete cascade,
-  date       date
-not null,                   -- date type (YYYY-MM-DD)
-  weight     numeric
-(5,2),
-  waistline  numeric
-(5,2),
-  created_at timestamptz default now
-(),
-  primary key
-(user_id, date)
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  date       date not null,                   -- date type (YYYY-MM-DD)
+  weight     numeric(5,2),
+  waistline  numeric(5,2),
+  bmi        numeric(4,1),
+  whtr       numeric(3,2),
+  tee        integer,
+  created_at timestamptz default now(),
+  primary key (user_id, date)
 );
 
 alter table public.body_metrics enable row level security;
@@ -92,29 +88,29 @@ update
 = user_id);
 
 -- ─────────────────────────────────────────────────────────────
--- 3. meal_records  (所有飲食紀錄：AI 分析 + 手動輸入)
+-- 3. meal_records  (all diet records: AI-analysed + manual)
 -- ─────────────────────────────────────────────────────────────
-create table
-if not exists public.meal_records
-(
-  id              text primary key,               -- client or server generated
-  user_id         uuid not null references auth.users
-(id) on
-delete cascade,
-  date            date not null,                -- date type (YYYY-MM-DD)
-  items           jsonb
-not null default '[]',  -- AI 解析的食物陣列
-  total_calories  integer not null default 0,
-  total_protein   integer default 0,
-  total_carbs     integer default 0,
-  total_fat       integer default 0,
-  total_sugar     integer default 0,
-  image_url       text,                         -- 原始相片 URL / base64 ref
-  deleted_at      timestamptz,                  -- soft delete
-  created_at      timestamptz default now
-(),
-  updated_at      timestamptz default now
-()
+create table if not exists public.meal_records (
+  -- identity
+  id              text          primary key,           -- client or server generated UUID
+  user_id         uuid          not null references auth.users (id) on delete cascade,
+  date            date          not null,              -- YYYY-MM-DD
+
+  -- input
+  image_base64    text,                               -- original photo stored as base64
+
+  -- AI output
+  items           jsonb         not null default '[]', -- array of food/drink items
+  total_calories  integer       not null default 0,
+  total_protein   integer                default 0,
+  total_carbs     integer                default 0,
+  total_fat       integer                default 0,
+  total_sugar     integer                default 0,
+
+  -- metadata
+  deleted_at      timestamptz,                        -- soft delete
+  created_at      timestamptz            default now(),
+  updated_at      timestamptz            default now()
 );
 
 
@@ -123,6 +119,12 @@ create index
 if not exists meal_records_user_date_idx
   on public.meal_records
 (user_id, date);
+
+-- Supports fetchMeals ORDER BY created_at DESC
+create index
+if not exists meal_records_user_created_idx
+  on public.meal_records
+(user_id, created_at desc);
 
 alter table public.meal_records enable row level security;
 

@@ -335,22 +335,60 @@ class StorageService extends ChangeNotifier {
 
   void addBodyMetric(BodyMetric metric) {
     final history = getBodyHistory();
+    final profile = getUserProfile();
+
+    // Auto-compute health scores from profile + metric data
+    final weight = metric.weight ?? profile.weight;
+    final height = profile.height;
+    final waist = metric.waistline ?? profile.waistline;
+
+    double? bmi;
+    double? whtr;
+    int? tee;
+
+    if (weight != null && height != null && height > 0) {
+      bmi = double.parse(
+        (weight / ((height / 100) * (height / 100))).toStringAsFixed(1),
+      );
+    }
+    if (waist != null && height != null && height > 0) {
+      whtr = double.parse((waist / height).toStringAsFixed(2));
+    }
+    tee = calculateTEE(
+      profile.copyWith(weight: weight ?? profile.weight),
+    );
+
+    final enriched = BodyMetric(
+      date: metric.date,
+      weight: metric.weight ?? (history.isNotEmpty
+          ? history.lastWhere(
+              (m) => m.weight != null,
+              orElse: () => metric,
+            ).weight
+          : null),
+      waistline: metric.waistline ?? (history.isNotEmpty
+          ? history.lastWhere(
+              (m) => m.waistline != null,
+              orElse: () => metric,
+            ).waistline
+          : null),
+      bmi: bmi,
+      whtr: whtr,
+      tee: tee,
+    );
+
     final index = history.indexWhere((m) => m.date == metric.date);
     if (index != -1) {
-      history[index] = BodyMetric(
-        date: metric.date,
-        weight: metric.weight ?? history[index].weight,
-        waistline: metric.waistline ?? history[index].waistline,
-      );
+      history[index] = enriched;
     } else {
-      history.add(metric);
+      history.add(enriched);
     }
     history.sort((a, b) => a.date.compareTo(b.date));
     _prefs.setString(
       _bodyHistoryKey,
       jsonEncode(history.map((e) => e.toJson()).toList()),
     );
-    _syncAsync(() => _supabase.saveBodyMetric(metric));
+    _syncAsync(() => _supabase.saveBodyMetric(enriched));
     notifyListeners();
   }
 

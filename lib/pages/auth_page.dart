@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
@@ -78,15 +79,15 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   void _showConfirmationDialog() {
-    showDialog(
+    showCupertinoDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => CupertinoAlertDialog(
         title: const Text('Check your email'),
         content: const Text(
           'We sent a confirmation link to your email address. Please verify it before signing in.',
         ),
         actions: [
-          TextButton(
+          CupertinoDialogAction(
             onPressed: () {
               Navigator.of(context).pop();
               setState(() => _isSignIn = true);

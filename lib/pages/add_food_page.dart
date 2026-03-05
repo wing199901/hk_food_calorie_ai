@@ -37,7 +37,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
 
   static const _foodDatabase = [
     {
-      'name': '燒味雙併飯',
+      'name': 'BBQ Combo Rice',
       'calories': 750,
       'protein': 35,
       'carbs': 88,
@@ -45,7 +45,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
       'sugar': 6,
     },
     {
-      'name': '菠蘿油 + 凍奶茶',
+      'name': 'Pineapple Bun + Iced Milk Tea',
       'calories': 520,
       'protein': 8,
       'carbs': 62,
@@ -53,7 +53,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
       'sugar': 28,
     },
     {
-      'name': '雲吞麵',
+      'name': 'Wonton Noodles',
       'calories': 380,
       'protein': 18,
       'carbs': 48,
@@ -61,7 +61,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
       'sugar': 4,
     },
     {
-      'name': '叉燒飯',
+      'name': 'Char Siu Rice',
       'calories': 680,
       'protein': 32,
       'carbs': 85,
@@ -69,7 +69,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
       'sugar': 8,
     },
     {
-      'name': '蛋撻',
+      'name': 'Egg Tart',
       'calories': 220,
       'protein': 4,
       'carbs': 28,
@@ -77,7 +77,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
       'sugar': 12,
     },
     {
-      'name': '點心拼盤（蝦餃、燒賣、腸粉）',
+      'name': 'Dim Sum Platter (Har Gow, Siu Mai, Cheung Fun)',
       'calories': 580,
       'protein': 24,
       'carbs': 52,
@@ -85,7 +85,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
       'sugar': 6,
     },
     {
-      'name': '豬扒包',
+      'name': 'Pork Chop Bun',
       'calories': 450,
       'protein': 22,
       'carbs': 38,
@@ -93,7 +93,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
       'sugar': 4,
     },
     {
-      'name': '魚蛋粉',
+      'name': 'Fish Ball Noodles',
       'calories': 320,
       'protein': 16,
       'carbs': 42,
@@ -101,7 +101,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
       'sugar': 2,
     },
     {
-      'name': '凍檸茶',
+      'name': 'Iced Lemon Tea',
       'calories': 120,
       'protein': 0,
       'carbs': 30,
@@ -109,7 +109,7 @@ class _AddFoodPageState extends State<AddFoodPage> {
       'sugar': 28,
     },
     {
-      'name': '煲仔飯',
+      'name': 'Claypot Rice',
       'calories': 620,
       'protein': 28,
       'carbs': 78,

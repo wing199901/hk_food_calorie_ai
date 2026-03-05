@@ -14,7 +14,7 @@ class DemoData {
     return [
       Meal(
         id: 'demo-1',
-        name: '菠蘿油 + 奶茶',
+        name: 'Pineapple Bun + Milk Tea',
         calories: 520,
         protein: 8,
         carbs: 62,
@@ -28,7 +28,7 @@ class DemoData {
       ),
       Meal(
         id: 'demo-2',
-        name: '叉燒飯',
+        name: 'Char Siu Rice',
         calories: 680,
         protein: 32,
         carbs: 85,
@@ -42,7 +42,7 @@ class DemoData {
       ),
       Meal(
         id: 'demo-3',
-        name: '雲吞麵',
+        name: 'Wonton Noodles',
         calories: 380,
         protein: 18,
         carbs: 48,
@@ -56,7 +56,7 @@ class DemoData {
       ),
       Meal(
         id: 'demo-4',
-        name: '蛋撻',
+        name: 'Egg Tart',
         calories: 220,
         protein: 4,
         carbs: 28,
