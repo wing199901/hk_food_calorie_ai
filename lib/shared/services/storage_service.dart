@@ -57,7 +57,7 @@ class StorageService extends ChangeNotifier {
 
       // Profile
       final profile = data['profile'] as UserProfile;
-      if (profile.weight != null || profile.age != null) {
+      if (profile.weight != null || profile.birthdate != null) {
         await _prefs.setString(_profileKey, jsonEncode(profile.toJson()));
         // Recalculate TEE from synced profile
         final tee = calculateTEE(profile);

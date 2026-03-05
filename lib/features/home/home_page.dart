@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
-import '../widgets/date_navigator.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../shared/widgets/date_navigator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
-import '../services/storage_service.dart';
-import '../models/meal.dart';
-import '../theme/app_theme.dart';
+import '../../shared/providers/providers.dart';
+import '../../shared/models/meal.dart';
+import '../../core/theme/app_theme.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   final Function(String) onNavigate;
-  final StorageService storage;
 
-  const HomePage({super.key, required this.onNavigate, required this.storage});
+  const HomePage({super.key, required this.onNavigate});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> {
   Map<String, int> stats = {'consumed': 0, 'target': 2000, 'remaining': 2000};
   List<Meal> meals = [];
   DateTime _date = DateTime.now();
@@ -26,20 +26,6 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadData();
-    widget.storage.addListener(_onStorageChanged);
-  }
-
-  @override
-  void dispose() {
-    widget.storage.removeListener(_onStorageChanged);
-    super.dispose();
-  }
-
-  /// Defer setState to post-frame so it never fires during another widget's build.
-  void _onStorageChanged() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _loadData();
-    });
   }
 
   void _setDate(DateTime d) {
@@ -49,9 +35,10 @@ class _HomePageState extends State<HomePage> {
 
   void _loadData() {
     if (!mounted) return;
+    final storage = ref.read(storageProvider);
     setState(() {
-      stats = widget.storage.getStatsForDate(_date);
-      meals = widget.storage.getMealsForDate(_date);
+      stats = storage.getStatsForDate(_date);
+      meals = storage.getMealsForDate(_date);
     });
   }
 
@@ -64,6 +51,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild when storage notifies.
+    ref.watch(storageProvider);
     final consumed = stats['consumed'] ?? 0;
     final target = stats['target'] ?? 2000;
     final remaining = stats['remaining'] ?? 2000;

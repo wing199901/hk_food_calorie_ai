@@ -1,14 +1,14 @@
 class UserProfile {
-  final int? age;
+  final String? birthdate; // 'YYYY-MM-DD'
   final double? weight;
   final double? height;
   final double? waistline;
   final String? gender; // 'male' | 'female' | 'other'
   final String?
-  activityLevel; // 'sedentary' | 'light' | 'moderate' | 'active' | 'very-active'
+      activityLevel; // 'sedentary' | 'light' | 'moderate' | 'active' | 'very-active'
 
   UserProfile({
-    this.age,
+    this.birthdate,
     this.weight,
     this.height,
     this.waistline,
@@ -16,8 +16,22 @@ class UserProfile {
     this.activityLevel,
   });
 
+  /// Age computed from birthdate.
+  int? get age {
+    if (birthdate == null) return null;
+    final bd = DateTime.tryParse(birthdate!);
+    if (bd == null) return null;
+    final now = DateTime.now();
+    int years = now.year - bd.year;
+    if (now.month < bd.month ||
+        (now.month == bd.month && now.day < bd.day)) {
+      years--;
+    }
+    return years;
+  }
+
   Map<String, dynamic> toJson() => {
-    'age': age,
+    'birthdate': birthdate,
     'weight': weight,
     'height': height,
     'waistline': waistline,
@@ -26,7 +40,7 @@ class UserProfile {
   };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
-    age: json['age'] != null ? (json['age'] as num).toInt() : null,
+    birthdate: json['birthdate'] as String?,
     weight: json['weight'] != null ? (json['weight'] as num).toDouble() : null,
     height: json['height'] != null ? (json['height'] as num).toDouble() : null,
     waistline: json['waistline'] != null
@@ -37,7 +51,7 @@ class UserProfile {
   );
 
   UserProfile copyWith({
-    int? age,
+    String? birthdate,
     double? weight,
     double? height,
     double? waistline,
@@ -45,7 +59,7 @@ class UserProfile {
     String? activityLevel,
   }) {
     return UserProfile(
-      age: age ?? this.age,
+      birthdate: birthdate ?? this.birthdate,
       weight: weight ?? this.weight,
       height: height ?? this.height,
       waistline: waistline ?? this.waistline,
@@ -53,4 +67,8 @@ class UserProfile {
       activityLevel: activityLevel ?? this.activityLevel,
     );
   }
+
+  /// Whether the core account fields are filled (birthdate, gender, height).
+  bool get isProfileComplete =>
+      birthdate != null && gender != null && height != null;
 }

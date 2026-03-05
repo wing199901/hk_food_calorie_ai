@@ -1,0 +1,291 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import '../../shared/providers/providers.dart';
+import '../../shared/models/user_profile.dart';
+import '../../shared/models/body_metric.dart';
+import '../../core/theme/app_theme.dart';
+import 'widgets/account_profile_section.dart';
+import 'widgets/body_metrics_section.dart';
+import 'widgets/data_management_section.dart';
+import 'widgets/about_section.dart';
+import 'widgets/sign_out_button.dart';
+
+class SettingsPage extends ConsumerStatefulWidget {
+  const SettingsPage({super.key});
+
+  @override
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+  UserProfile _profile = UserProfile();
+  String _appVersion = '';
+
+  // Account Profile edit mode
+  bool _isEditingProfile = false;
+  DateTime? _editBirthdate;
+  String? _editGender;
+
+  // Body Metrics controllers
+  final _weightCtrl = TextEditingController();
+  final _heightCtrl = TextEditingController();
+  final _waistlineCtrl = TextEditingController();
+  String _activityLevel = 'moderate';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+    _loadVersion();
+  }
+
+  @override
+  void dispose() {
+    _weightCtrl.dispose();
+    _heightCtrl.dispose();
+    _waistlineCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(
+        () => _appVersion = 'Version ${info.version}+${info.buildNumber}',
+      );
+    }
+  }
+
+  void _loadData() {
+    if (!mounted) return;
+    final storage = ref.read(storageProvider);
+    final profile = storage.getUserProfile();
+    setState(() {
+      _profile = profile;
+      _editBirthdate =
+          profile.birthdate != null ? DateTime.tryParse(profile.birthdate!) : null;
+      _editGender = profile.gender;
+      _weightCtrl.text = profile.weight?.toString() ?? '';
+      _heightCtrl.text = profile.height?.toString() ?? '';
+      _waistlineCtrl.text = profile.waistline?.toString() ?? '';
+      _activityLevel = profile.activityLevel ?? 'moderate';
+    });
+  }
+
+  // ─── Account Profile ─────────────────────────────────────────
+
+  void _toggleEditProfile() {
+    if (_isEditingProfile) {
+      // Save
+      final newProfile = _profile.copyWith(
+        birthdate: _editBirthdate != null
+            ? DateFormat('yyyy-MM-dd').format(_editBirthdate!)
+            : _profile.birthdate,
+        gender: _editGender ?? _profile.gender,
+      );
+      ref.read(storageProvider).setUserProfile(newProfile);
+      setState(() {
+        _profile = newProfile;
+        _isEditingProfile = false;
+      });
+    } else {
+      setState(() => _isEditingProfile = true);
+    }
+  }
+
+  Future<void> _pickBirthdate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _editBirthdate ?? DateTime(now.year - 25),
+      firstDate: DateTime(1920),
+      lastDate: now,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+            primary: AppTheme.primary,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() => _editBirthdate = picked);
+    }
+  }
+
+  // ─── Body Metrics ────────────────────────────────────────────
+
+  void _handleUpdateToday() {
+    final storage = ref.read(storageProvider);
+    final newWeight = double.tryParse(_weightCtrl.text);
+    final newHeight = double.tryParse(_heightCtrl.text);
+    final newWaistline = double.tryParse(_waistlineCtrl.text);
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    // Update profile with latest body values
+    final newProfile = _profile.copyWith(
+      weight: newWeight ?? _profile.weight,
+      height: newHeight ?? _profile.height,
+      waistline: newWaistline ?? _profile.waistline,
+      activityLevel: _activityLevel,
+    );
+    storage.setUserProfile(newProfile);
+
+    // Save body metric for today
+    storage.addBodyMetric(
+      BodyMetric(date: todayStr, weight: newWeight, waistline: newWaistline),
+    );
+
+    setState(() => _profile = newProfile);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Body metrics updated'),
+        backgroundColor: AppTheme.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // ─── Data Management ─────────────────────────────────────────
+
+  void _handleClearData() {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Clear Data'),
+        content: const Text(
+          'Are you sure you want to clear all meal data? This cannot be undone.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              ref.read(storageProvider).clearDemoData();
+              Navigator.pop(ctx);
+            },
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Sign Out ────────────────────────────────────────────────
+
+  Future<void> _handleSignOut() async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(supabaseProvider).signOut();
+    }
+  }
+
+  // ─── Build ───────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(storageProvider);
+    return Column(
+      children: [
+        // Sticky Header
+        Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: AppTheme.primaryGradient,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(24),
+              bottomRight: Radius.circular(24),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Settings',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Personalize your experience',
+                  style: TextStyle(fontSize: 16, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Scrollable content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 100),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  AccountProfileSection(
+                    profile: _profile,
+                    isEditing: _isEditingProfile,
+                    editBirthdate: _editBirthdate,
+                    editGender: _editGender,
+                    onToggleEdit: _toggleEditProfile,
+                    onPickBirthdate: _pickBirthdate,
+                    onGenderChanged: (v) => setState(() => _editGender = v),
+                  ),
+                  const SizedBox(height: 24),
+                  BodyMetricsSection(
+                    weightCtrl: _weightCtrl,
+                    heightCtrl: _heightCtrl,
+                    waistlineCtrl: _waistlineCtrl,
+                    activityLevel: _activityLevel,
+                    onActivityChanged: (v) =>
+                        setState(() => _activityLevel = v),
+                    onUpdateToday: _handleUpdateToday,
+                  ),
+                  const SizedBox(height: 24),
+                  DataManagementSection(onClearData: _handleClearData),
+                  const SizedBox(height: 24),
+                  AboutSection(appVersion: _appVersion),
+                  const SizedBox(height: 24),
+                  SignOutButton(onSignOut: _handleSignOut),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

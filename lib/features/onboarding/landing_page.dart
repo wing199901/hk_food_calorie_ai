@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../theme/app_theme.dart';
+import '../../core/theme/app_theme.dart';
 
 class LandingPage extends StatelessWidget {
   final VoidCallback onGetStarted;

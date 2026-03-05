@@ -15,7 +15,7 @@ if not exists public.user_profiles
   user_id           uuid primary key references auth.users
 (id) on
 delete cascade,
-  age               integer,
+  birthdate         date,          -- YYYY-MM-DD
   weight            numeric
 (5,2),
   height            numeric

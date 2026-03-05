@@ -5,7 +5,7 @@ import '../models/meal.dart';
 import '../models/user_profile.dart';
 import '../models/body_metric.dart';
 import '../models/quick_add_item.dart';
-import '../env/env.dart';
+import '../../env/env.dart';
 
 class SupabaseService extends ChangeNotifier {
   static SupabaseClient get _client => Supabase.instance.client;
@@ -96,7 +96,7 @@ class SupabaseService extends ChangeNotifier {
         .maybeSingle();
     if (data == null) return UserProfile();
     return UserProfile(
-      age: data['age'] != null ? (data['age'] as num).toInt() : null,
+      birthdate: data['birthdate'] as String?,
       weight: data['weight'] != null
           ? (data['weight'] as num).toDouble()
           : null,
@@ -116,7 +116,7 @@ class SupabaseService extends ChangeNotifier {
     // Use defaults for null fields to avoid inserting NULLs in the DB.
     await _client.from('user_profiles').upsert({
       'user_id': uid,
-      'age': profile.age ?? 25,
+      'birthdate': profile.birthdate,
       'weight': profile.weight ?? 70.0,
       'height': profile.height ?? 175.0,
       'waistline': profile.waistline ?? 80.0,

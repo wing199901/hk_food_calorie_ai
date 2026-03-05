@@ -4,5 +4,8 @@
     ],
     "files.autoSave": "afterDelay",
     "dart.flutterHotReloadOnSave": "all",
-    "makefile.configureOnOpen": false
+    "makefile.configureOnOpen": false,
+    "chat.tools.terminal.autoApprove": {
+        "flutter": true
+    }
 }

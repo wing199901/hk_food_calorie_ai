@@ -1,31 +1,30 @@
 import 'package:flutter/material.dart';
-import '../services/storage_service.dart';
-import '../models/body_metric.dart';
-import '../theme/app_theme.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../shared/providers/providers.dart';
+import '../../shared/models/body_metric.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
-class CheckInPage extends StatefulWidget {
+class CheckInPage extends ConsumerStatefulWidget {
   final VoidCallback onComplete;
-  final StorageService storage;
 
   const CheckInPage({
     super.key,
     required this.onComplete,
-    required this.storage,
   });
 
   @override
-  State<CheckInPage> createState() => _CheckInPageState();
+  ConsumerState<CheckInPage> createState() => _CheckInPageState();
 }
 
-class _CheckInPageState extends State<CheckInPage> {
+class _CheckInPageState extends ConsumerState<CheckInPage> {
   final _weightController = TextEditingController();
   final _waistlineController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    final profile = widget.storage.getUserProfile();
+    final profile = ref.read(storageProvider).getUserProfile();
     if (profile.weight != null) {
       _weightController.text = profile.weight.toString();
     }
@@ -42,28 +41,29 @@ class _CheckInPageState extends State<CheckInPage> {
   }
 
   void _handleSave() {
+    final storage = ref.read(storageProvider);
     final newWeight = double.tryParse(_weightController.text);
     final newWaistline = double.tryParse(_waistlineController.text);
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    widget.storage.addBodyMetric(
+    storage.addBodyMetric(
       BodyMetric(date: todayStr, weight: newWeight, waistline: newWaistline),
     );
 
-    final profile = widget.storage.getUserProfile();
-    widget.storage.setUserProfile(
+    final profile = storage.getUserProfile();
+    storage.setUserProfile(
       profile.copyWith(
         weight: newWeight ?? profile.weight,
         waistline: newWaistline ?? profile.waistline,
       ),
     );
-    widget.storage.setLastCheckInDate(todayStr);
+    storage.setLastCheckInDate(todayStr);
     widget.onComplete();
   }
 
   void _handleSkip() {
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    widget.storage.setLastCheckInDate(todayStr);
+    ref.read(storageProvider).setLastCheckInDate(todayStr);
     widget.onComplete();
   }
 

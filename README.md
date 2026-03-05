@@ -14,15 +14,17 @@ AI-powered food calorie tracking app built with Flutter, Supabase, and Google Ge
 
 ## Tech Stack
 
-| Layer            | Technology                                       |
-| ---------------- | ------------------------------------------------ |
-| Mobile App       | Flutter (Dart SDK `^3.11.0`)                     |
-| Backend / DB     | Supabase (PostgreSQL + RLS)                      |
-| Serverless Logic | Supabase Edge Functions (Deno / TypeScript)      |
-| AI               | Google Gemini 2.5 Flash                          |
-| Auth             | Supabase Auth + Google Sign-In                   |
-| Local State      | `shared_preferences` via `StorageService`        |
-| Charts           | `fl_chart`                                       |
+| Layer            | Technology                                           |
+| ---------------- | ---------------------------------------------------- |
+| Mobile App       | Flutter (Dart SDK `^3.11.0`)                         |
+| State Management | `flutter_riverpod ^2.6.1`                            |
+| Backend / DB     | Supabase (PostgreSQL + RLS)                          |
+| Serverless Logic | Supabase Edge Functions (Deno / TypeScript)          |
+| AI               | Google Gemini 2.5 Flash                              |
+| Auth             | Supabase Auth                                        |
+| Local State      | `shared_preferences` via `StorageService`            |
+| Charts           | `fl_chart ^0.70.2`                                   |
+| Env Secrets      | `envied` + `build_runner` (generated `lib/env/`)     |
 
 ## Getting Started
 
@@ -35,18 +37,46 @@ AI-powered food calorie tracking app built with Flutter, Supabase, and Google Ge
 
 ## Project Structure
 
+Feature-first layout — each screen owns its page + widgets subtree:
+
 ```
 lib/
-  main.dart              # App entry, auth flow, navigation
-  env/                   # Generated environment variables (envied)
-  models/                # Data models (Meal, UserProfile, BodyMetric, QuickAddItem)
-  pages/                 # UI pages (Home, Analysis, Log, Settings, AddFood, etc.)
-  services/              # StorageService (local), SupabaseService (cloud)
-  theme/                 # AppTheme colours, typography, gradients
-  widgets/               # Reusable UI components
+├── main.dart                        # App entry point, routing, AppShell
+├── env/                             # Generated envied secrets (never edit manually)
+├── core/
+│   └── theme/app_theme.dart           # AppTheme colours, gradients, lightTheme
+├── shared/                          # Cross-feature building blocks
+│   ├── models/                        # UserProfile, Meal, BodyMetric, QuickAddItem
+│   ├── providers/                     # storageProvider, supabaseProvider (Riverpod)
+│   ├── services/                      # StorageService, SupabaseService, DemoData
+│   └── widgets/                       # DateNavigator, DatePickerPopup, WeekNavigator
+└── features/
+    ├── analysis/         analysis_page.dart + widgets/ (6 chart widgets)
+    ├── auth/             auth_page.dart
+    ├── check_in/         check_in_page.dart
+    ├── food_analysis/    add_food_page.dart + widgets/ (3 widgets)
+    ├── home/             home_page.dart
+    ├── log/              log_page.dart + widgets/ (meal_card, manual_meal_modal)
+    ├── onboarding/       landing_page.dart, complete_profile_page.dart
+    └── settings/         settings_page.dart
 supabase/
   schema.sql             # Database schema (source of truth)
   functions/             # Edge functions (analyze-meal, etc.)
 ```
 
-See [guidelines.md](guidelines.md) for full project conventions and rules.
+## Architecture & Routing
+
+```
+AppLoader (‘Phase)
+  ├── loading   → CircularProgressIndicator
+  ├── landing   → LandingPage
+  ├── auth      → AuthPage
+  └── app       → AppShell
+
+AppShell (AppScreen)
+  ├── completeProfile → CompleteProfilePage  (isProfileComplete == false)
+  ├── bodyCheckIn     → CheckInPage          (lastCheckIn != today)
+  └── main            → MainScaffold         (Home / Analysis / + / Log / Settings)
+```
+
+See [.github/copilot-instructions.md](.github/copilot-instructions.md) for full coding conventions, visual style guidelines, and DB schema details.

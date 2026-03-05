@@ -1,22 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'services/storage_service.dart';
-import 'services/supabase_service.dart';
-import 'theme/app_theme.dart';
-import 'pages/landing_page.dart';
-import 'pages/auth_page.dart';
-import 'pages/check_in_page.dart';
-import 'pages/home_page.dart';
-import 'pages/add_food_page.dart';
-import 'pages/analysis_page.dart';
-import 'pages/log_page.dart';
-import 'pages/settings_page.dart';
+import 'shared/providers/providers.dart';
+import 'shared/services/storage_service.dart';
+import 'shared/services/supabase_service.dart';
+import 'core/theme/app_theme.dart';
+import 'features/onboarding/landing_page.dart';
+import 'features/onboarding/complete_profile_page.dart';
+import 'features/auth/auth_page.dart';
+import 'features/check_in/check_in_page.dart';
+import 'features/home/home_page.dart';
+import 'features/food_analysis/add_food_page.dart';
+import 'features/analysis/analysis_page.dart';
+import 'features/log/log_page.dart';
+import 'features/settings/settings_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseService.initialize();
-  runApp(const FitCalorieApp());
+
+  // Pre-initialise StorageService so SharedPreferences is ready.
+  final storage = StorageService();
+  await storage.init();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        storageProvider.overrideWith((ref) => storage),
+      ],
+      child: const FitCalorieApp(),
+    ),
+  );
 }
 
 class FitCalorieApp extends StatelessWidget {
@@ -34,18 +49,17 @@ class FitCalorieApp extends StatelessWidget {
 }
 
 /// Loads StorageService async, then decides which screen to show.
-class AppLoader extends StatefulWidget {
+class AppLoader extends ConsumerStatefulWidget {
   const AppLoader({super.key});
 
   @override
-  State<AppLoader> createState() => _AppLoaderState();
+  ConsumerState<AppLoader> createState() => _AppLoaderState();
 }
 
 enum _Phase { loading, landing, auth, app }
 
-class _AppLoaderState extends State<AppLoader> {
+class _AppLoaderState extends ConsumerState<AppLoader> {
   _Phase _phase = _Phase.loading;
-  StorageService? _storage;
 
   @override
   void initState() {
@@ -54,14 +68,11 @@ class _AppLoaderState extends State<AppLoader> {
   }
 
   Future<void> _init() async {
-    final storage = StorageService();
-    await storage.init();
-    // Demo data is seeded only when user taps "Continue without account".
-    if (!mounted) return;
-    _storage = storage;
+    final storage = ref.read(storageProvider);
+    final supabase = ref.read(supabaseProvider);
 
     // React to future sign-in / sign-out events automatically.
-    SupabaseService().authStateChanges.listen((event) {
+    supabase.authStateChanges.listen((event) {
       if (!mounted) return;
       if (event.event == AuthChangeEvent.signedIn) {
         // Clear ALL local data (including stale guest/demo profile)
@@ -75,11 +86,12 @@ class _AppLoaderState extends State<AppLoader> {
       }
     });
 
-    final isAuth = SupabaseService().isAuthenticated;
+    final isAuth = supabase.isAuthenticated;
     if (isAuth) {
       // Already logged in: sync first, then show app
       await storage.syncFromSupabase();
     }
+    if (!mounted) return;
     setState(() {
       _phase = isAuth ? _Phase.app : _Phase.landing;
     });
@@ -87,6 +99,8 @@ class _AppLoaderState extends State<AppLoader> {
 
   @override
   Widget build(BuildContext context) {
+    final storage = ref.read(storageProvider);
+
     switch (_phase) {
       case _Phase.loading:
         return const Scaffold(
@@ -102,50 +116,56 @@ class _AppLoaderState extends State<AppLoader> {
         return AuthPage(
           onAuthenticated: () => setState(() => _phase = _Phase.app),
           onSkip: () {
-            _storage?.initializeDemoData();
+            storage.initializeDemoData();
             setState(() => _phase = _Phase.app);
           },
         );
       case _Phase.app:
-        final storage = _storage;
-        if (storage == null) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
-            ),
-          );
-        }
-        return AppShell(storage: storage);
+        return const AppShell();
     }
   }
 }
 
 /// Determines the initial route: Landing → BodyCheckIn → MainScaffold.
-class AppShell extends StatefulWidget {
-  final StorageService storage;
-  const AppShell({super.key, required this.storage});
+class AppShell extends ConsumerStatefulWidget {
+  const AppShell({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-enum AppScreen { bodyCheckIn, main }
+enum AppScreen { completeProfile, bodyCheckIn, main }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> {
   late AppScreen _screen;
 
   @override
   void initState() {
     super.initState();
-    final profile = widget.storage.getUserProfile();
-    final lastCheckIn = widget.storage.getLastCheckInDate();
+    final storage = ref.read(storageProvider);
+    final profile = storage.getUserProfile();
+    final lastCheckIn = storage.getLastCheckInDate();
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    if (profile.weight == null && profile.height == null ||
+    if (!profile.isProfileComplete) {
+      _screen = AppScreen.completeProfile;
+    } else if (profile.weight == null && profile.height == null ||
         lastCheckIn != today) {
       _screen = AppScreen.bodyCheckIn;
     } else {
       _screen = AppScreen.main;
+    }
+  }
+
+  void _onProfileComplete() {
+    final storage = ref.read(storageProvider);
+    final lastCheckIn = storage.getLastCheckInDate();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    if (lastCheckIn != today) {
+      setState(() => _screen = AppScreen.bodyCheckIn);
+    } else {
+      setState(() => _screen = AppScreen.main);
     }
   }
 
@@ -154,24 +174,25 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     switch (_screen) {
+      case AppScreen.completeProfile:
+        return CompleteProfilePage(onComplete: _onProfileComplete);
       case AppScreen.bodyCheckIn:
-        return CheckInPage(storage: widget.storage, onComplete: _goToMain);
+        return CheckInPage(onComplete: _goToMain);
       case AppScreen.main:
-        return MainScaffold(storage: widget.storage);
+        return const MainScaffold();
     }
   }
 }
 
 /// Main app scaffold with bottom navigation.
-class MainScaffold extends StatefulWidget {
-  final StorageService storage;
-  const MainScaffold({super.key, required this.storage});
+class MainScaffold extends ConsumerStatefulWidget {
+  const MainScaffold({super.key});
 
   @override
-  State<MainScaffold> createState() => _MainScaffoldState();
+  ConsumerState<MainScaffold> createState() => _MainScaffoldState();
 }
 
-class _MainScaffoldState extends State<MainScaffold> {
+class _MainScaffoldState extends ConsumerState<MainScaffold> {
   int _currentIndex = 0;
 
   void _onNavTap(int index) {
@@ -180,7 +201,6 @@ class _MainScaffoldState extends State<MainScaffold> {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => AddFoodPage(
-            storage: widget.storage,
             onNavigate: (page) {
               Navigator.of(context).pop();
               if (page == 'home') setState(() => _currentIndex = 0);
@@ -198,7 +218,6 @@ class _MainScaffoldState extends State<MainScaffold> {
   Widget build(BuildContext context) {
     final pages = [
       HomePage(
-        storage: widget.storage,
         onNavigate: (page) {
           if (page == 'camera') {
             _onNavTap(2);
@@ -211,10 +230,10 @@ class _MainScaffoldState extends State<MainScaffold> {
           }
         },
       ),
-      AnalysisPage(storage: widget.storage),
+      const AnalysisPage(),
       const SizedBox(), // placeholder for camera tab
-      LogPage(storage: widget.storage),
-      SettingsPage(storage: widget.storage),
+      const LogPage(),
+      const SettingsPage(),
     ];
 
     return Scaffold(

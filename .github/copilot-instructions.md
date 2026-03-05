@@ -8,16 +8,17 @@
 
 ## Tech Stack
 
-| Layer            | Technology                                       |
-| ---------------- | ------------------------------------------------ |
-| Mobile App       | Flutter (Dart SDK `^3.11.0`)                     |
-| Backend / DB     | Supabase (PostgreSQL + RLS)                      |
-| Serverless Logic | Supabase Edge Functions (Deno / TypeScript)      |
-| AI               | Google Gemini 2.5 Flash                          |
-| Auth             | Supabase Auth                                    |
-| Local State      | `shared_preferences` via `StorageService`        |
-| Charts           | `fl_chart ^0.70.2`                               |
-| Env Secrets      | `envied` + `build_runner` (generated `lib/env/`) |
+| Layer            | Technology                                           |
+| ---------------- | ---------------------------------------------------- |
+| Mobile App       | Flutter (Dart SDK `^3.11.0`)                         |
+| State Management | `flutter_riverpod ^2.6.1` — all pages are `ConsumerStatefulWidget` |
+| Backend / DB     | Supabase (PostgreSQL + RLS)                          |
+| Serverless Logic | Supabase Edge Functions (Deno / TypeScript)          |
+| AI               | Google Gemini 2.5 Flash                              |
+| Auth             | Supabase Auth                                        |
+| Local State      | `shared_preferences` via `StorageService`            |
+| Charts           | `fl_chart ^0.70.2`                                   |
+| Env Secrets      | `envied` + `build_runner` (generated `lib/env/`)     |
 
 ---
 
@@ -25,12 +26,26 @@
 
 ### Tables
 
-| Table              | Primary Key            | Description                                                            |
-| ------------------ | ---------------------- | ---------------------------------------------------------------------- |
-| `user_profiles`    | `user_id` (uuid)       | Age, weight, height, waistline, gender, activity level, calorie target |
-| `body_metrics`     | `(user_id, date)`      | Daily weight, waistline, BMI, WHtR & TEE snapshots                   |
-| `meal_records`     | `id` (text)            | AI-parsed meal entries; `items` stored as JSONB array                  |
-| `quick_add_items`  | `(user_id, id)` (text) | User’s custom quick-add food shortcuts with icon & macros              |
+| Table              | Primary Key            | Description                                                                        |
+| ------------------ | ---------------------- | ---------------------------------------------------------------------------------- |
+| `user_profiles`    | `user_id` (uuid)       | Birthdate, weight, height, waistline, gender, activity level, calorie target        |
+| `body_metrics`     | `(user_id, date)`      | Daily weight, waistline, BMI, WHtR & TEE snapshots                                 |
+| `meal_records`     | `id` (text)            | AI-parsed meal entries; `items` stored as JSONB array                              |
+| `quick_add_items`  | `(user_id, id)` (text) | User's custom quick-add food shortcuts with icon & macros                          |
+### `user_profiles` — User Account & Body Data
+
+| Column            | Type          | Description                                                      |
+| ----------------- | ------------- | ---------------------------------------------------------------- |
+| `user_id`         | uuid (FK)     | Primary key — references `auth.users`                            |
+| `birthdate`       | date          | Date of birth (YYYY-MM-DD)                                       |
+| `weight`          | numeric(5,2)  | Body weight in kg                                                |
+| `height`          | numeric(5,2)  | Height in cm                                                     |
+| `waistline`       | numeric(5,2)  | Waist circumference in cm                                        |
+| `gender`          | text          | `'male'` \| `'female'` \| `'other'`                              |
+| `activity_level`  | integer       | 0=sedentary … 4=very-active (mapped from/to string in client)    |
+| `calorie_target`  | integer       | Daily kcal goal (auto-computed from TEE)                         |
+| `last_check_in_date` | date       | Date of last body check-in                                       |
+
 ### `body_metrics` — Daily Health Snapshots
 
 BMI, WHtR, and TEE are auto-computed and stored on every daily check-in. `StorageService.addBodyMetric()` calculates these values from the user profile before saving.
@@ -121,77 +136,7 @@ On failure they return `{ "success": false, "error": "message" }` with an approp
 
 `analyze-meal` uses Gemini **Structured Output** (`responseMimeType` + `responseSchema`) to guarantee valid JSON — no manual markdown fence stripping needed.
 
-#### `systemInstruction` (behaviour / domain knowledge)
-
-```typescript
-const SYSTEM_INSTRUCTION = `You are a professional nutritionist specialising in analysing food and drink photos from any cuisine.
-
-Core capabilities:
-- All cuisines: Western (steak, burgers, pasta, salads), Japanese/Korean (ramen, sushi, fried chicken), Southeast Asian (Thai, Vietnamese), Chinese, Hong Kong-style, etc.
-- Expert in Hong Kong local food: cha chaan teng (茶餐廳), dai pai dong (大排檔), dim sum (點心), street snacks, convenience store items
-- Familiar with common HK dishes: siu mai (燒賣), cheung fun (腸粉), milk tea (奶茶), pork chop bun (豬扒包), pineapple bun (菠蘿包), egg tart (蛋撻), wonton noodles (雲吞麵), claypot rice (煲仔飯), etc.
-
-Analysis rules:
-- Always analyse drinks (milk tea, coffee, soft drinks, juice, beer, soup, etc.) and record volume using portion_ml
-- Use portion_grams for solid food; use portion_ml for drinks — never fill both for the same item
-- Estimate the actual portion shown in the photo — do not assume a standard serving size
-- For uncertain items, provide the most reasonable estimate with a lower confidence score
-- If the photo contains no food or is unclear, return an empty items array and populate the error field`;
-```
-
-#### `responseSchema` (JSON structure definition)
-
-```typescript
-const RESPONSE_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    items: {
-      type: "ARRAY",
-      description: "List of identified food/drink items. Return empty array if no food detected.",
-      items: {
-        type: "OBJECT",
-        properties: {
-          name_zh:       { type: "STRING",  description: "Food name in Traditional Chinese" },
-          name_en:       { type: "STRING",  description: "English name" },
-          type:          { type: "STRING",  enum: ["food", "drink"] },
-          portion_size:  { type: "NUMBER",  description: "Quantity, e.g. 1, 2, 0.5" },
-          portion_unit:  { type: "STRING",  description: "Unit in English" },
-          portion_grams: { type: "INTEGER", nullable: true },
-          portion_ml:    { type: "INTEGER", nullable: true },
-          calories:      { type: "INTEGER" },
-          protein:       { type: "INTEGER" },
-          carbs:         { type: "INTEGER" },
-          fat:           { type: "INTEGER" },
-          sugar:         { type: "INTEGER" },
-          confidence:    { type: "NUMBER" },
-        },
-        required: [
-          "name_zh", "name_en", "type",
-          "portion_size", "portion_unit",
-          "calories", "protein", "carbs", "fat", "sugar", "confidence",
-        ],
-      },
-    },
-    total_calories: { type: "INTEGER" },
-    total_protein:  { type: "INTEGER" },
-    total_carbs:    { type: "INTEGER" },
-    total_fat:      { type: "INTEGER" },
-    error:          { type: "STRING", nullable: true },
-  },
-  required: ["items", "total_calories", "total_protein", "total_carbs", "total_fat"],
-};
-```
-
-#### `generationConfig`
-
-```typescript
-generationConfig: {
-  temperature: 0.2,
-  maxOutputTokens: 2048,
-  responseMimeType: "application/json",
-  responseSchema: RESPONSE_SCHEMA,
-}
-```
+See [`supabase/functions/analyze-meal/index.ts`](../supabase/functions/analyze-meal/index.ts) for the full `SYSTEM_INSTRUCTION`, `RESPONSE_SCHEMA`, and `generationConfig` (`temperature: 0.2`, `maxOutputTokens: 2048`).
 
 ### Image Handling (client-side compression rules)
 
@@ -211,18 +156,7 @@ The app uses a clean iOS-style design. All design decisions must follow the rule
 
 ### Colours (`AppTheme`)
 
-| Token             | Hex       | Usage                                 |
-| ----------------- | --------- | ------------------------------------- |
-| `primary`         | `#10B981` | Brand green — buttons, header, active state          |
-| `secondary`       | `#34D399` | Gradient end colour, highlights                      |
-| `accent`          | `#FF6B35` | Warm orange — calorie numbers, key data, primary CTA |
-| `background`      | `#F8FAFB` | Scaffold background                                  |
-| `card`            | `#FFFFFF` | Card surface                                         |
-| `muted`           | `#F3F4F6` | Chip background, dividers                            |
-| `mutedForeground` | `#6B7280` | Secondary labels                                     |
-| `foreground`      | `#1A1A1A` | Primary text                                         |
-| `destructive`     | `#EF4444` | Delete, error states                                 |
-| `warning`         | `#FBBF24` | Warning indicators                                   |
+See [`lib/core/theme/app_theme.dart`](../lib/core/theme/app_theme.dart) for the full colour token definitions. Key tokens: `primary` (#10B981 green), `accent` (#FF6B35 orange), `background` (#F8FAFB), `destructive` (#EF4444).
 
 ### Typography & Shape
 
@@ -295,10 +229,67 @@ BorderRadius.circular(10)
 ## Coding Conventions
 
 - **Dart**: Follow `flutter_lints`; prefer `const` constructors + trailing commas
+- **State Management**: All pages must extend `ConsumerStatefulWidget`; use `ref.read(storageProvider)` for one-off reads, `ref.watch(storageProvider)` to rebuild on storage changes
 - **Null safety**: Use `if (x != null) x` inside collections — avoid `?` null-aware collection element syntax (not supported by the current SDK)
 - **Services**: All Supabase calls must go through `SupabaseService`; never call `supabase.from()` directly inside a page widget
 - **Edge functions**: Place shared utilities in `supabase/functions/_shared/`; errors must use the shared `errorResponse` helper
-- **Schema**: `supabase/schema.sql` is the single source of truth — any DB changes must be reflected there, then re-applied via the DB container
+- **Schema**: `supabase/schema.sql` is the single source of truth — any DB changes must be reflected there, then applied to the local Supabase instance by running:
+  ```bash
+  supabase db reset
+  ```
+  This resets and re-applies the full schema against the local Supabase container.
+
+---
+
+## Architecture — Feature-First Clean Structure
+
+The project follows a **feature-first** layout under `lib/`. See [README.md](../README.md) for the full directory tree and routing state machine.
+
+### Architecture Rules
+
+- **Feature folder owns its page + widgets subtree.** Never import from one feature into another — share through `shared/` instead.
+- **One page file per route.** If a page grows large, extract child widgets into `features/<name>/widgets/`.
+- **`core/` has zero feature/shared dependencies.** Only flutter SDK + `dart:` packages allowed.
+- **Providers live in `shared/providers/`.** Both providers are `ChangeNotifierProvider` and are overridden in `main()` with pre-initialised instances.
+
+---
+
+## `UserProfile` Model
+
+See [`lib/shared/models/user_profile.dart`](../lib/shared/models/user_profile.dart) for the full model. Key rules:
+
+- Fields: `birthdate` (YYYY-MM-DD), `weight`, `height`, `waistline`, `gender`, `activityLevel`.
+- `age` is a **computed getter** derived from `birthdate`; never store or accept it as input.
+- `isProfileComplete` (`birthdate != null && gender != null && height != null`) drives the onboarding redirect in `AppShell`.
+
+---
+
+## Settings Page Design
+
+`settings_page.dart` is split into **five sections**:
+
+| # | Section | Behaviour |
+|---|---------|-----------|
+| 1 | **Account Profile** | Shows `birthdate`, `gender`, computed `age` — **read-only by default** (grey `AppTheme.muted` background). Tap **Edit** button to unlock; tap **Save** to persist. |
+| 2 | **Body Metrics** | `weight`, `height`, `waistline`, `activityLevel` — **always editable**. Big green **"Update Today"** button (`AppTheme.primary`) saves to both `user_profiles` and `body_metrics` for today's date. |
+| 3 | **Data Management** | "Clear All Meal Data" — `CupertinoAlertDialog` confirmation. |
+| 4 | **About FitCalorie** | App name, description, version from `PackageInfo`. |
+| 5 | **Sign Out** | `CupertinoAlertDialog` confirmation → `supabaseProvider.signOut()`. |
+
+---
+
+## Complete Profile Page (Onboarding)
+
+`features/onboarding/complete_profile_page.dart` — shown once after first sign-up (or whenever `isProfileComplete == false`).
+
+**Step 1 (required):** Birthdate (date picker) · Gender (icon selector: Male / Female / Other) · Height (number field)
+
+**Step 2 (optional):** Weight · Waistline · Activity Level (tap-to-select list)
+
+- Animated progress dots (pill-style) at the top
+- "Continue" advances from Step 1 → Step 2 after validation
+- "Save & Start Tracking" or "Skip for now" both call `onComplete`
+- On complete: `AppShell` checks `lastCheckIn` → routes to `CheckInPage` or `MainScaffold`
 
 ---
 

@@ -1,22 +1,21 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/supabase_service.dart';
-import '../theme/app_theme.dart';
+import '../../shared/providers/providers.dart';
+import '../../core/theme/app_theme.dart';
 
-class AuthPage extends StatefulWidget {
+class AuthPage extends ConsumerStatefulWidget {
   final VoidCallback onAuthenticated;
   final VoidCallback? onSkip;
 
   const AuthPage({super.key, required this.onAuthenticated, this.onSkip});
 
   @override
-  State<AuthPage> createState() => _AuthPageState();
+  ConsumerState<AuthPage> createState() => _AuthPageState();
 }
 
-class _AuthPageState extends State<AuthPage> {
-  final _supabase = SupabaseService();
-
+class _AuthPageState extends ConsumerState<AuthPage> {
   bool _isSignIn = true;
   bool _loading = false;
   String? _errorMessage;
@@ -58,10 +57,11 @@ class _AuthPageState extends State<AuthPage> {
     });
 
     try {
+      final supabase = ref.read(supabaseProvider);
       if (_isSignIn) {
-        await _supabase.signIn(email: email, password: password);
+        await supabase.signIn(email: email, password: password);
       } else {
-        final res = await _supabase.signUp(email: email, password: password);
+        final res = await supabase.signUp(email: email, password: password);
         if (res.user != null && res.session == null) {
           if (mounted) _showConfirmationDialog();
           setState(() => _loading = false);
