@@ -68,7 +68,7 @@ class UserProfile {
     );
   }
 
-  /// Whether the core account fields are filled (birthdate, gender, height).
+  /// Whether the core account fields are filled (birthdate, gender, height, weight).
   bool get isProfileComplete =>
-      birthdate != null && gender != null && height != null;
+      birthdate != null && gender != null && height != null && weight != null;
 }

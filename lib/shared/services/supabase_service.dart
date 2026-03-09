@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/meal.dart';
 import '../models/user_profile.dart';
@@ -39,27 +38,6 @@ class SupabaseService extends ChangeNotifier {
   }) => _client.auth.signInWithPassword(email: email, password: password);
 
   Future<void> signOut() => _client.auth.signOut();
-
-  /// Sign in with Google (native flow via google_sign_in).
-  /// Requires clientId configured in iOS/Android project.
-  Future<AuthResponse> signInWithGoogle() async {
-    final googleSignIn = GoogleSignIn(
-      // iOS: set the clientId from GoogleService-Info.plist
-      // Android: no clientId needed if google-services.json is present
-      scopes: ['email', 'profile'],
-    );
-    final googleUser = await googleSignIn.signIn();
-    if (googleUser == null) throw Exception('Google sign in cancelled');
-    final googleAuth = await googleUser.authentication;
-    final idToken = googleAuth.idToken;
-    final accessToken = googleAuth.accessToken;
-    if (idToken == null) throw Exception('No ID token from Google');
-    return _client.auth.signInWithIdToken(
-      provider: OAuthProvider.google,
-      idToken: idToken,
-      accessToken: accessToken,
-    );
-  }
 
   // ─── Activity-level int ↔ string mapping ─────────────────────────────────
 
@@ -111,17 +89,18 @@ class SupabaseService extends ChangeNotifier {
     );
   }
 
-  Future<void> saveProfile(UserProfile profile) async {
+  Future<void> saveProfile(UserProfile profile, {int? calorieTarget}) async {
     final uid = _requireUid();
-    // Use defaults for null fields to avoid inserting NULLs in the DB.
+    final tee = calorieTarget;
     await _client.from('user_profiles').upsert({
       'user_id': uid,
-      'birthdate': profile.birthdate,
-      'weight': profile.weight ?? 70.0,
-      'height': profile.height ?? 175.0,
-      'waistline': profile.waistline ?? 80.0,
-      'gender': profile.gender ?? 'male',
+      if (profile.birthdate != null) 'birthdate': profile.birthdate,
+      if (profile.weight != null) 'weight': profile.weight,
+      if (profile.height != null) 'height': profile.height,
+      if (profile.waistline != null) 'waistline': profile.waistline,
+      if (profile.gender != null) 'gender': profile.gender,
       'activity_level': _activityToInt(profile.activityLevel),
+      if (tee != null) 'calorie_target': tee,
     });
   }
 

@@ -26,11 +26,16 @@ class _AuthPageState extends ConsumerState<AuthPage> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
+  final _passwordFocus = FocusNode();
+  final _confirmFocus = FocusNode();
+
   @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
+    _passwordFocus.dispose();
+    _confirmFocus.dispose();
     super.dispose();
   }
 
@@ -59,9 +64,13 @@ class _AuthPageState extends ConsumerState<AuthPage> {
     try {
       final supabase = ref.read(supabaseProvider);
       if (_isSignIn) {
-        await supabase.signIn(email: email, password: password);
+        debugPrint('[Auth] signIn → email=$email');
+        final res = await supabase.signIn(email: email, password: password);
+        debugPrint('[Auth] signIn success → user=${res.user?.id} session=${res.session?.accessToken != null}');
       } else {
+        debugPrint('[Auth] signUp → email=$email');
         final res = await supabase.signUp(email: email, password: password);
+        debugPrint('[Auth] signUp → user=${res.user?.id} session=${res.session?.accessToken != null} emailConfirmed=${res.user?.emailConfirmedAt}');
         if (res.user != null && res.session == null) {
           if (mounted) _showConfirmationDialog();
           setState(() => _loading = false);
@@ -70,9 +79,11 @@ class _AuthPageState extends ConsumerState<AuthPage> {
       }
       if (mounted) widget.onAuthenticated();
     } on AuthException catch (e) {
-      setState(() => _errorMessage = e.message);
-    } catch (e) {
-      setState(() => _errorMessage = 'An unexpected error occurred.');
+      debugPrint('[Auth] AuthException → code=${e.statusCode} message=${e.message}');
+      setState(() => _errorMessage = '[${e.statusCode}] ${e.message}');
+    } catch (e, st) {
+      debugPrint('[Auth] unexpected error → $e\n$st');
+      setState(() => _errorMessage = 'Unexpected: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -229,6 +240,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                         TextField(
                           controller: _emailCtrl,
                           keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          onSubmitted: (_) =>
+                              FocusScope.of(context).requestFocus(_passwordFocus),
                           decoration: _outlinedDecoration(label: 'Email'),
                         ),
 
@@ -237,7 +251,14 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                         // Password
                         TextField(
                           controller: _passwordCtrl,
+                          focusNode: _passwordFocus,
                           obscureText: _obscurePassword,
+                          textInputAction: _isSignIn
+                              ? TextInputAction.done
+                              : TextInputAction.next,
+                          onSubmitted: (_) => _isSignIn
+                              ? _submit()
+                              : FocusScope.of(context).requestFocus(_confirmFocus),
                           decoration: _outlinedDecoration(
                             label: 'Password',
                             suffixIcon: IconButton(
@@ -259,7 +280,10 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                           const SizedBox(height: 24),
                           TextField(
                             controller: _confirmCtrl,
+                            focusNode: _confirmFocus,
                             obscureText: _obscureConfirm,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _submit(),
                             decoration: _outlinedDecoration(
                               label: 'Confirm password',
                               suffixIcon: IconButton(

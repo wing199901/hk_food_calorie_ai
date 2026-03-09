@@ -261,14 +261,15 @@ class StorageService extends ChangeNotifier {
     return UserProfile.fromJson(jsonDecode(data) as Map<String, dynamic>);
   }
 
-  void setUserProfile(UserProfile profile) {
+  /// Saves profile locally and syncs to Supabase.
+  /// Awaiting this Future ensures the DB write completes.
+  Future<void> setUserProfile(UserProfile profile) async {
     _prefs.setString(_profileKey, jsonEncode(profile.toJson()));
-    // Auto-recalculate TEE whenever the profile changes
     final tee = calculateTEE(profile);
     _prefs.setString(_targetKey, tee.toString());
-    _syncAsync(() => _supabase.saveProfile(profile));
-    _syncAsync(() => _supabase.saveCalorieTarget(tee));
     notifyListeners();
+    if (!_supabase.isAuthenticated) return;
+    await _supabase.saveProfile(profile, calorieTarget: tee);
   }
 
   /// Centralized TEE (Total Energy Expenditure) calculator.

@@ -6,19 +6,7 @@
 
 ---
 
-## Tech Stack
-
-| Layer            | Technology                                           |
-| ---------------- | ---------------------------------------------------- |
-| Mobile App       | Flutter (Dart SDK `^3.11.0`)                         |
-| State Management | `flutter_riverpod ^2.6.1` — all pages are `ConsumerStatefulWidget` |
-| Backend / DB     | Supabase (PostgreSQL + RLS)                          |
-| Serverless Logic | Supabase Edge Functions (Deno / TypeScript)          |
-| AI               | Google Gemini 2.5 Flash                              |
-| Auth             | Supabase Auth                                        |
-| Local State      | `shared_preferences` via `StorageService`            |
-| Charts           | `fl_chart ^0.70.2`                                   |
-| Env Secrets      | `envied` + `build_runner` (generated `lib/env/`)     |
+See [README.md](../README.md) for the full tech stack, project structure, and routing diagram.
 
 ---
 
@@ -32,49 +20,10 @@
 | `body_metrics`     | `(user_id, date)`      | Daily weight, waistline, BMI, WHtR & TEE snapshots                                 |
 | `meal_records`     | `id` (text)            | AI-parsed meal entries; `items` stored as JSONB array                              |
 | `quick_add_items`  | `(user_id, id)` (text) | User's custom quick-add food shortcuts with icon & macros                          |
-### `user_profiles` — User Account & Body Data
 
-| Column            | Type          | Description                                                      |
-| ----------------- | ------------- | ---------------------------------------------------------------- |
-| `user_id`         | uuid (FK)     | Primary key — references `auth.users`                            |
-| `birthdate`       | date          | Date of birth (YYYY-MM-DD)                                       |
-| `weight`          | numeric(5,2)  | Body weight in kg                                                |
-| `height`          | numeric(5,2)  | Height in cm                                                     |
-| `waistline`       | numeric(5,2)  | Waist circumference in cm                                        |
-| `gender`          | text          | `'male'` \| `'female'` \| `'other'`                              |
-| `activity_level`  | integer       | 0=sedentary … 4=very-active (mapped from/to string in client)    |
-| `calorie_target`  | integer       | Daily kcal goal (auto-computed from TEE)                         |
-| `last_check_in_date` | date       | Date of last body check-in                                       |
+See [README.md § Database Schema](../README.md#database-schema) for the full per-column breakdown. The source of truth is [`supabase/schema.sql`](../supabase/schema.sql).
 
-### `body_metrics` — Daily Health Snapshots
-
-BMI, WHtR, and TEE are auto-computed and stored on every daily check-in. `StorageService.addBodyMetric()` calculates these values from the user profile before saving.
-
-| Column      | Type          | Description                                          |
-| ----------- | ------------- | ---------------------------------------------------- |
-| `user_id`   | uuid (FK)     | User ID                                              |
-| `date`      | date          | Date (part of composite primary key)                 |
-| `weight`    | numeric(5,2)  | Body weight in kg                                    |
-| `waistline` | numeric(5,2)  | Waist circumference in cm                            |
-| `bmi`       | numeric(4,1)  | Body Mass Index — auto-computed from weight & height  |
-| `whtr`      | numeric(3,2)  | Waist-to-Height Ratio — auto-computed                 |
-| `tee`       | integer       | Total Energy Expenditure (kcal) — auto-computed       |
-### `quick_add_items` — Quick Add Items
-
-User-defined shortcut food buttons. On new user signup, a DB trigger (`seed_quick_add_items`) auto-inserts 8 default items. Users can add or delete their own quick-add items.
-
-| Column     | Type        | Description                           |
-| ---------- | ----------- | ------------------------------------- |
-| `id`         | text      | Unique ID (`default-*` or `custom-*`) |
-| `user_id`    | uuid (FK) | Owner                                 |
-| `name`       | text      | Food name                             |
-| `calories`   | integer   | Calories (kcal)                       |
-| `protein`    | integer   | Protein (g)                           |
-| `carbs`      | integer   | Carbohydrates (g)                     |
-| `fat`        | integer   | Fat (g)                               |
-| `sugar`      | integer   | Sugar (g)                             |
-| `icon`       | text      | Emoji icon                            |
-| `sort_order` | integer   | Display order                         |
+> `body_metrics`: BMI, WHtR, and TEE are auto-computed and stored on every daily check-in via `StorageService.addBodyMetric()`.
 
 ### iOS-style Quick Add Delete Interaction
 
@@ -115,22 +64,7 @@ All tables must enforce Row Level Security. All policies use `auth.uid() = user_
 
 ## Edge Functions
 
-All functions accept **POST** requests with `Authorization: Bearer <jwt>`. On success they return:
-
-```json
-{ "success": true, ... }
-```
-
-On failure they return `{ "success": false, "error": "message" }` with an appropriate HTTP status code.
-
-| Function              | Purpose                                             | Secrets          |
-| --------------------- | --------------------------------------------------- | ---------------- |
-| `analyze-meal`        | Gemini AI analyses photo → parses food → writes `meal_records` | `GEMINI_API_KEY` |
-| `get-daily-summary`   | Fetches daily nutrition summary + AI tip                       | —                |
-| `update-record`       | Updates food items and recalculates totals                     | —                |
-| `delete-record`       | Soft-delete (sets `deleted_at`) or hard-delete                 | —                |
-| `generate-ai-insight` | Weekly/monthly AI diet analysis report                         | `GEMINI_API_KEY` |
-| `cleanup-old-records` | Cron — permanently removes soft-deleted records                | —                |
+All functions accept **POST** requests with `Authorization: Bearer <jwt>`. See [supabase/functions/README.md](../supabase/functions/README.md) for the full function list, API request/response schemas, and deployment instructions.
 
 ### AI Structured Output (`analyze-meal`)
 
@@ -220,6 +154,7 @@ BorderRadius.circular(10)
 - Use `BorderRadius.circular()` with grid values only (4, 8, 12, 16, 24)
 - All UI text defaults to **English**
 - **All confirmation dialogs must use `CupertinoAlertDialog`** (iOS style); destructive actions use `isDestructiveAction: true`
+- **All date pickers must use `CupertinoDatePicker`** inside `showCupertinoModalPopup` — never use Material `showDatePicker`
 - **Health Scores (BMI / WHtR / TEE) are displayed on the Analysis Page only** — not on Settings Page
 - Home Page circular progress indicator: **220×220** size, kcal font **44px**, `strokeWidth: 14`
 - Analysis Page Insights use a **casual Hong Kong English tone** (e.g. "Your calories are a bit high today la~", "So consistent this week!", "Protein is your best friend 💪")
@@ -233,11 +168,11 @@ BorderRadius.circular(10)
 - **Null safety**: Use `if (x != null) x` inside collections — avoid `?` null-aware collection element syntax (not supported by the current SDK)
 - **Services**: All Supabase calls must go through `SupabaseService`; never call `supabase.from()` directly inside a page widget
 - **Edge functions**: Place shared utilities in `supabase/functions/_shared/`; errors must use the shared `errorResponse` helper
-- **Schema**: `supabase/schema.sql` is the single source of truth — any DB changes must be reflected there, then applied to the local Supabase instance by running:
+- **Schema**: `supabase/schema.sql` is the single source of truth — any DB changes must be reflected there **and** copied into `supabase/migrations/20240101000000_initial_schema.sql`, then applied to the local Supabase instance by running:
   ```bash
   supabase db reset
   ```
-  This resets and re-applies the full schema against the local Supabase container.
+  This resets and re-applies all migrations against the local Supabase container. The `seed.sql` warning can be ignored.
 
 ---
 
@@ -260,7 +195,7 @@ See [`lib/shared/models/user_profile.dart`](../lib/shared/models/user_profile.da
 
 - Fields: `birthdate` (YYYY-MM-DD), `weight`, `height`, `waistline`, `gender`, `activityLevel`.
 - `age` is a **computed getter** derived from `birthdate`; never store or accept it as input.
-- `isProfileComplete` (`birthdate != null && gender != null && height != null`) drives the onboarding redirect in `AppShell`.
+- `isProfileComplete` (`birthdate != null && gender != null && height != null && weight != null`) drives the onboarding redirect in `AppShell`.
 
 ---
 
@@ -270,8 +205,8 @@ See [`lib/shared/models/user_profile.dart`](../lib/shared/models/user_profile.da
 
 | # | Section | Behaviour |
 |---|---------|-----------|
-| 1 | **Account Profile** | Shows `birthdate`, `gender`, computed `age` — **read-only by default** (grey `AppTheme.muted` background). Tap **Edit** button to unlock; tap **Save** to persist. |
-| 2 | **Body Metrics** | `weight`, `height`, `waistline`, `activityLevel` — **always editable**. Big green **"Update Today"** button (`AppTheme.primary`) saves to both `user_profiles` and `body_metrics` for today's date. |
+| 1 | **Account Profile** | Tappable nav row → navigates to `ProfilePage` (dedicated page). On `ProfilePage`, profile details (`birthdate`, `gender`, `age`) are **read-only by default**. An **Edit** button sits inline to the right of the "Profile Details" section title; tap to unlock fields, tap **Save** to persist, tap **Cancel** to discard. |
+| 2 | **Body Metrics** | `weight`, `height`, `waistline`, `activityLevel` — **always editable**. Big green **"Update"** button (`AppTheme.primary`) saves to both `user_profiles` and `body_metrics` for today's date. |
 | 3 | **Data Management** | "Clear All Meal Data" — `CupertinoAlertDialog` confirmation. |
 | 4 | **About FitCalorie** | App name, description, version from `PackageInfo`. |
 | 5 | **Sign Out** | `CupertinoAlertDialog` confirmation → `supabaseProvider.signOut()`. |
@@ -280,16 +215,19 @@ See [`lib/shared/models/user_profile.dart`](../lib/shared/models/user_profile.da
 
 ## Complete Profile Page (Onboarding)
 
-`features/onboarding/complete_profile_page.dart` — shown once after first sign-up (or whenever `isProfileComplete == false`).
+`features/onboarding/complete_profile_page.dart` — shown once after first sign-up (or whenever `isProfileComplete == false`, i.e. any of `birthdate`, `gender`, `height`, `weight` is missing).
 
 **Step 1 (required):** Birthdate (date picker) · Gender (icon selector: Male / Female / Other) · Height (number field)
 
-**Step 2 (optional):** Weight · Waistline · Activity Level (tap-to-select list)
+**Step 2 (required):** Weight · Waistline (waistline optional)
 
-- Animated progress dots (pill-style) at the top
-- "Continue" advances from Step 1 → Step 2 after validation
-- "Save & Start Tracking" or "Skip for now" both call `onComplete`
-- On complete: `AppShell` checks `lastCheckIn` → routes to `CheckInPage` or `MainScaffold`
+**Step 3 (optional):** Activity Level (tap-to-select list)
+
+- Accepts an optional `initialProfile` parameter — if provided, all existing fields are pre-populated in `initState` so users only need to fill the missing fields
+- Animated progress dots (pill-style) at the top — 3 dots total
+- **No skip buttons** — "Continue" advances Step 1 → Step 2 (after validation) and Step 2 → Step 3; Step 3 has a single "Save & Start Tracking" button
+- On complete: `AppShell` navigates directly to `MainScaffold` (no check-in step)
+- Widgets extracted into `features/onboarding/widgets/`: `ProfileProgressDots`, `ProfileFieldLabel`, `ProfileInputField`, `ProfileGenderSelector`, `ProfileActivitySelector`
 
 ---
 

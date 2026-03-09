@@ -61,6 +61,13 @@ enum _Phase { loading, landing, auth, app }
 class _AppLoaderState extends ConsumerState<AppLoader> {
   _Phase _phase = _Phase.loading;
 
+  // When the app starts with an existing session, Supabase fires a signedIn
+  // event for session restoration. We skip this one event because the isAuth
+  // code path below already handles the initial sync — reacting to it would
+  // call clearAllLocalData() and race with the ongoing sync, causing an empty
+  // profile to be seen by AppShell and showing CompleteProfilePage incorrectly.
+  bool _skipNextSignIn = false;
+
   @override
   void initState() {
     super.initState();
@@ -71,24 +78,33 @@ class _AppLoaderState extends ConsumerState<AppLoader> {
     final storage = ref.read(storageProvider);
     final supabase = ref.read(supabaseProvider);
 
+    final isAuth = supabase.isAuthenticated;
+    // Mark that the upcoming session-restore signedIn event should be skipped.
+    _skipNextSignIn = isAuth;
+
     // React to future sign-in / sign-out events automatically.
     supabase.authStateChanges.listen((event) {
       if (!mounted) return;
       if (event.event == AuthChangeEvent.signedIn) {
-        // Clear ALL local data (including stale guest/demo profile)
-        // before pulling fresh cloud data for the authenticated user.
+        if (_skipNextSignIn) {
+          // This is the session-restore event — data is already being synced
+          // via the isAuth path below. Skip to avoid a race condition.
+          _skipNextSignIn = false;
+          return;
+        }
+        // Fresh login: clear any stale local/demo data, then sync cloud data.
         storage.clearAllLocalData();
         storage.syncFromSupabase().then((_) {
           if (mounted) setState(() => _phase = _Phase.app);
         });
       } else if (event.event == AuthChangeEvent.signedOut) {
+        _skipNextSignIn = false;
         setState(() => _phase = _Phase.landing);
       }
     });
 
-    final isAuth = supabase.isAuthenticated;
     if (isAuth) {
-      // Already logged in: sync first, then show app
+      // Already logged in: sync first, then show app.
       await storage.syncFromSupabase();
     }
     if (!mounted) return;
@@ -134,39 +150,53 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-enum AppScreen { completeProfile, bodyCheckIn, main }
+enum AppScreen { loading, completeProfile, bodyCheckIn, main }
 
 class _AppShellState extends ConsumerState<AppShell> {
-  late AppScreen _screen;
+  AppScreen _screen = AppScreen.loading;
 
   @override
   void initState() {
     super.initState();
+    _determineScreen();
+  }
+
+  Future<void> _determineScreen() async {
     final storage = ref.read(storageProvider);
-    final profile = storage.getUserProfile();
+    var profile = storage.getUserProfile();
+
+    // If local profile is incomplete but user is authenticated, the local
+    // cache may not have synced yet (e.g. timing race on login). Fetch
+    // directly from Supabase before deciding to show the onboarding flow.
+    if (!profile.isProfileComplete) {
+      final supabase = ref.read(supabaseProvider);
+      if (supabase.isAuthenticated) {
+        try {
+          final remote = await supabase.fetchProfile();
+          if (remote.isProfileComplete) {
+            await storage.setUserProfile(remote);
+            profile = remote;
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (!mounted) return;
     final lastCheckIn = storage.getLastCheckInDate();
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     if (!profile.isProfileComplete) {
-      _screen = AppScreen.completeProfile;
+      setState(() => _screen = AppScreen.completeProfile);
     } else if (profile.weight == null && profile.height == null ||
         lastCheckIn != today) {
-      _screen = AppScreen.bodyCheckIn;
-    } else {
-      _screen = AppScreen.main;
-    }
-  }
-
-  void _onProfileComplete() {
-    final storage = ref.read(storageProvider);
-    final lastCheckIn = storage.getLastCheckInDate();
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-    if (lastCheckIn != today) {
       setState(() => _screen = AppScreen.bodyCheckIn);
     } else {
       setState(() => _screen = AppScreen.main);
     }
+  }
+
+  void _onProfileComplete() {
+    setState(() => _screen = AppScreen.main);
   }
 
   void _goToMain() => setState(() => _screen = AppScreen.main);
@@ -174,8 +204,17 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     switch (_screen) {
+      case AppScreen.loading:
+        return const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(color: AppTheme.primary),
+          ),
+        );
       case AppScreen.completeProfile:
-        return CompleteProfilePage(onComplete: _onProfileComplete);
+        return CompleteProfilePage(
+          onComplete: _onProfileComplete,
+          initialProfile: ref.read(storageProvider).getUserProfile(),
+        );
       case AppScreen.bodyCheckIn:
         return CheckInPage(onComplete: _goToMain);
       case AppScreen.main:

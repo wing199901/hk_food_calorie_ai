@@ -76,7 +76,7 @@ class BodyMetricsSection extends StatelessWidget {
               onPressed: onUpdateToday,
               icon: const Icon(Icons.check_circle_outline, size: 20),
               label: const Text(
-                'Update Today',
+                'Update',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
@@ -88,11 +88,6 @@ class BodyMetricsSection extends StatelessWidget {
                 elevation: 2,
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'For best accuracy, update daily via Check-in page.',
-            style: TextStyle(color: AppTheme.mutedForeground, fontSize: 12),
           ),
         ],
       ),

@@ -7,7 +7,7 @@ import '../../shared/providers/providers.dart';
 import '../../shared/models/user_profile.dart';
 import '../../shared/models/body_metric.dart';
 import '../../core/theme/app_theme.dart';
-import 'widgets/account_profile_section.dart';
+import '../profile/profile_page.dart';
 import 'widgets/body_metrics_section.dart';
 import 'widgets/data_management_section.dart';
 import 'widgets/about_section.dart';
@@ -23,11 +23,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   UserProfile _profile = UserProfile();
   String _appVersion = '';
-
-  // Account Profile edit mode
-  bool _isEditingProfile = false;
-  DateTime? _editBirthdate;
-  String? _editGender;
 
   // Body Metrics controllers
   final _weightCtrl = TextEditingController();
@@ -65,9 +60,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final profile = storage.getUserProfile();
     setState(() {
       _profile = profile;
-      _editBirthdate =
-          profile.birthdate != null ? DateTime.tryParse(profile.birthdate!) : null;
-      _editGender = profile.gender;
       _weightCtrl.text = profile.weight?.toString() ?? '';
       _heightCtrl.text = profile.height?.toString() ?? '';
       _waistlineCtrl.text = profile.waistline?.toString() ?? '';
@@ -77,44 +69,55 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   // ─── Account Profile ─────────────────────────────────────────
 
-  void _toggleEditProfile() {
-    if (_isEditingProfile) {
-      // Save
-      final newProfile = _profile.copyWith(
-        birthdate: _editBirthdate != null
-            ? DateFormat('yyyy-MM-dd').format(_editBirthdate!)
-            : _profile.birthdate,
-        gender: _editGender ?? _profile.gender,
-      );
-      ref.read(storageProvider).setUserProfile(newProfile);
-      setState(() {
-        _profile = newProfile;
-        _isEditingProfile = false;
-      });
-    } else {
-      setState(() => _isEditingProfile = true);
-    }
+  void _openProfilePage() {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const ProfilePage()))
+        .then((_) => _loadData()); // refresh on return
   }
 
-  Future<void> _pickBirthdate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _editBirthdate ?? DateTime(now.year - 25),
-      firstDate: DateTime(1920),
-      lastDate: now,
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(
-            primary: AppTheme.primary,
-          ),
+  // ─── Profile Nav Row ─────────────────────────────────────────
+
+  Widget _buildProfileNavRow() {
+    return GestureDetector(
+      onTap: _openProfilePage,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.border),
         ),
-        child: child!,
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.person, size: 20, color: AppTheme.primary),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Account Profile',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: AppTheme.mutedForeground,
+            ),
+          ],
+        ),
       ),
     );
-    if (picked != null) {
-      setState(() => _editBirthdate = picked);
-    }
   }
 
   // ─── Body Metrics ────────────────────────────────────────────
@@ -254,15 +257,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  AccountProfileSection(
-                    profile: _profile,
-                    isEditing: _isEditingProfile,
-                    editBirthdate: _editBirthdate,
-                    editGender: _editGender,
-                    onToggleEdit: _toggleEditProfile,
-                    onPickBirthdate: _pickBirthdate,
-                    onGenderChanged: (v) => setState(() => _editGender = v),
-                  ),
+                  // Account Profile — navigate to dedicated page
+                  _buildProfileNavRow(),
                   const SizedBox(height: 24),
                   BodyMetricsSection(
                     weightCtrl: _weightCtrl,

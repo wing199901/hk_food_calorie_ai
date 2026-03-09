@@ -1,15 +1,27 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/models/user_profile.dart';
+import '../../shared/models/body_metric.dart';
 import '../../core/theme/app_theme.dart';
+import 'widgets/profile_progress_dots.dart';
+import 'widgets/profile_field_label.dart';
+import 'widgets/profile_input_field.dart';
+import 'widgets/profile_gender_selector.dart';
+import 'widgets/profile_activity_selector.dart';
 
-/// Two-step onboarding page shown after first sign-up.
+/// Two-step onboarding page shown after first sign-up or when profile is incomplete.
 class CompleteProfilePage extends ConsumerStatefulWidget {
   final VoidCallback onComplete;
+  final UserProfile? initialProfile;
 
-  const CompleteProfilePage({super.key, required this.onComplete});
+  const CompleteProfilePage({
+    super.key,
+    required this.onComplete,
+    this.initialProfile,
+  });
 
   @override
   ConsumerState<CompleteProfilePage> createState() =>
@@ -17,17 +29,34 @@ class CompleteProfilePage extends ConsumerStatefulWidget {
 }
 
 class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
-  int _step = 0; // 0 = step 1 (required), 1 = step 2 (optional)
+  int _step =
+      0; // 0 = step 1 (required), 1 = step 2 (optional), 2 = step 3 (optional)
 
   // Step 1: Required
   DateTime? _birthdate;
   String _gender = 'male';
   final _heightCtrl = TextEditingController();
+  bool _isSaving = false;
 
   // Step 2: Optional
   final _weightCtrl = TextEditingController();
   final _waistlineCtrl = TextEditingController();
   String _activityLevel = 'moderate';
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.initialProfile;
+    if (p == null) return;
+    if (p.birthdate != null) {
+      _birthdate = DateTime.tryParse(p.birthdate!);
+    }
+    if (p.gender != null) _gender = p.gender!;
+    if (p.height != null) _heightCtrl.text = p.height!.toStringAsFixed(1);
+    if (p.weight != null) _weightCtrl.text = p.weight!.toStringAsFixed(1);
+    if (p.waistline != null) _waistlineCtrl.text = p.waistline!.toStringAsFixed(1);
+    if (p.activityLevel != null) _activityLevel = p.activityLevel!;
+  }
 
   @override
   void dispose() {
@@ -39,57 +68,89 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
 
   Future<void> _pickBirthdate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final initialBirthDate =
+        _birthdate ?? DateTime(now.year - 25, now.month, now.day);
+    DateTime tempDate = initialBirthDate;
+
+    await showCupertinoModalPopup<void>(
       context: context,
-      initialDate: _birthdate ?? DateTime(now.year - 25),
-      firstDate: DateTime(1920),
-      lastDate: now,
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(
-            primary: AppTheme.primary,
-          ),
+      builder: (ctx) => Container(
+        height: 300,
+        color: CupertinoColors.systemBackground.resolveFrom(ctx),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                CupertinoButton(
+                  child: const Text('Done'),
+                  onPressed: () {
+                    setState(() => _birthdate = tempDate);
+                    Navigator.of(ctx).pop();
+                  },
+                ),
+              ],
+            ),
+            Expanded(
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.date,
+                initialDateTime: initialBirthDate,
+                maximumDate: DateTime.now(),
+                minimumDate: DateTime(1920),
+                onDateTimeChanged: (date) => tempDate = date,
+              ),
+            ),
+          ],
         ),
-        child: child!,
       ),
     );
-    if (picked != null) {
-      setState(() => _birthdate = picked);
-    }
   }
 
   void _goToStep2() {
-    // Validate step 1
     if (_birthdate == null) {
-      _showError('Please select your birthdate.');
-      return;
-    }
-    final height = double.tryParse(_heightCtrl.text);
-    if (height == null || height <= 0) {
-      _showError('Please enter a valid height.');
+      _showError('Please enter your birthdate.');
       return;
     }
     setState(() => _step = 1);
   }
 
-  void _handleSave() {
-    final storage = ref.read(storageProvider);
-    final height = double.tryParse(_heightCtrl.text);
-    final weight = double.tryParse(_weightCtrl.text);
-    final waistline = double.tryParse(_waistlineCtrl.text);
+  void _goToStep3() => setState(() => _step = 2);
 
-    final profile = UserProfile(
-      birthdate: _birthdate != null
-          ? DateFormat('yyyy-MM-dd').format(_birthdate!)
-          : null,
-      gender: _gender,
-      height: height,
-      weight: weight,
-      waistline: waistline,
-      activityLevel: _activityLevel,
-    );
-    storage.setUserProfile(profile);
-    widget.onComplete();
+  Future<void> _handleSave() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+    try {
+      final height = double.tryParse(_heightCtrl.text) ?? 175.0;
+      final weight = double.tryParse(_weightCtrl.text);
+      final waistline = double.tryParse(_waistlineCtrl.text);
+
+      final profile = UserProfile(
+        birthdate: _birthdate != null
+            ? DateFormat('yyyy-MM-dd').format(_birthdate!)
+            : null,
+        gender: _gender,
+        height: height,
+        weight: weight,
+        waistline: waistline,
+        activityLevel: _activityLevel,
+      );
+      await ref.read(storageProvider).setUserProfile(profile);
+
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final storage = ref.read(storageProvider);
+      storage.addBodyMetric(
+        BodyMetric(date: todayStr, weight: weight, waistline: waistline),
+      );
+      storage.setLastCheckInDate(todayStr);
+
+      if (mounted) widget.onComplete();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        debugPrint(error.toString());
+        _showError(error.toString());
+      }
+    }
   }
 
   void _showError(String message) {
@@ -122,7 +183,9 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                   Text(
                     _step == 0
                         ? 'Complete Your Profile'
-                        : 'Almost There!',
+                        : _step == 1
+                        ? 'Almost There!'
+                        : 'One Last Thing',
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -132,7 +195,9 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                   Text(
                     _step == 0
                         ? 'We need a few details to calculate your daily targets.'
-                        : 'Optional — helps us fine-tune your calorie goal.',
+                        : _step == 1
+                        ? 'Optional — helps us fine-tune your calorie goal.'
+                        : 'How active are you on a typical day?',
                     style: const TextStyle(
                       color: AppTheme.mutedForeground,
                       fontSize: 16,
@@ -141,10 +206,20 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                   ),
                   const SizedBox(height: 48),
                   // Form
-                  if (_step == 0) _buildStep1() else _buildStep2(),
+                  if (_step == 0)
+                    _buildStep1()
+                  else if (_step == 1)
+                    _buildStep2()
+                  else
+                    _buildStep3(),
                   const SizedBox(height: 48),
                   // Action buttons
-                  if (_step == 0) _buildStep1Buttons() else _buildStep2Buttons(),
+                  if (_step == 0)
+                    _buildStep1Buttons()
+                  else if (_step == 1)
+                    _buildStep2Buttons()
+                  else
+                    _buildStep3Buttons(),
                 ],
               ),
             ),
@@ -156,28 +231,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
 
   // ─── Progress Dots ───────────────────────────────────────────
 
-  Widget _buildProgressDots() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _dot(isActive: true),
-        const SizedBox(width: 8),
-        _dot(isActive: _step == 1),
-      ],
-    );
-  }
-
-  Widget _dot({required bool isActive}) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: isActive ? 32 : 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: isActive ? AppTheme.primary : AppTheme.muted,
-        borderRadius: BorderRadius.circular(4),
-      ),
-    );
-  }
+  Widget _buildProgressDots() => ProfileProgressDots(step: _step);
 
   // ─── Step 1: Required Fields ─────────────────────────────────
 
@@ -185,7 +239,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     return Column(
       children: [
         // Birthdate
-        _buildFieldLabel('Birthdate', isRequired: true),
+        ProfileFieldLabel('Birthdate', isRequired: true),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: _pickBirthdate,
@@ -223,14 +277,17 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         ),
         const SizedBox(height: 24),
         // Gender
-        _buildFieldLabel('Gender', isRequired: true),
+        ProfileFieldLabel('Gender', isRequired: true),
         const SizedBox(height: 8),
-        _buildGenderSelector(),
+        ProfileGenderSelector(
+          value: _gender,
+          onChanged: (v) => setState(() => _gender = v),
+        ),
         const SizedBox(height: 24),
         // Height
-        _buildFieldLabel('Height (cm)', isRequired: true),
+        ProfileFieldLabel('Height (cm)', isRequired: false),
         const SizedBox(height: 8),
-        _buildInputField(
+        ProfileInputField(
           controller: _heightCtrl,
           hint: '175',
           icon: Icons.height,
@@ -239,163 +296,42 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     );
   }
 
-  Widget _buildGenderSelector() {
-    const options = [
-      ('male', 'Male', Icons.male),
-      ('female', 'Female', Icons.female),
-      ('other', 'Other', Icons.transgender),
-    ];
-    return Row(
-      children: options.map((opt) {
-        final isSelected = _gender == opt.$1;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: opt.$1 != 'other' ? 8 : 0,
-            ),
-            child: GestureDetector(
-              onTap: () => setState(() => _gender = opt.$1),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.primary.withValues(alpha: 0.1)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.primary : AppTheme.border,
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      opt.$3,
-                      size: 24,
-                      color: isSelected
-                          ? AppTheme.primary
-                          : AppTheme.mutedForeground,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      opt.$2,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
-                        color: isSelected
-                            ? AppTheme.primary
-                            : AppTheme.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  // ─── Step 2: Optional Fields ─────────────────────────────────
+  // ─── Step 2
 
   Widget _buildStep2() {
     return Column(
       children: [
-        _buildFieldLabel('Weight (kg)'),
+        ProfileFieldLabel('Weight (kg)'),
         const SizedBox(height: 8),
-        _buildInputField(
+        ProfileInputField(
           controller: _weightCtrl,
           hint: '70',
           icon: Icons.monitor_weight_outlined,
         ),
         const SizedBox(height: 24),
-        _buildFieldLabel('Waistline (cm)'),
+        ProfileFieldLabel('Waistline (cm)'),
         const SizedBox(height: 8),
-        _buildInputField(
+        ProfileInputField(
           controller: _waistlineCtrl,
           hint: '80',
           icon: Icons.straighten,
         ),
-        const SizedBox(height: 24),
-        _buildFieldLabel('Activity Level'),
-        const SizedBox(height: 8),
-        _buildActivitySelector(),
       ],
     );
   }
 
-  Widget _buildActivitySelector() {
-    const levels = [
-      ('sedentary', 'Sedentary', 'Little/no exercise'),
-      ('light', 'Light', '1-3 days/week'),
-      ('moderate', 'Moderate', '3-5 days/week'),
-      ('active', 'Active', '6-7 days/week'),
-      ('very-active', 'Very Active', '2x per day'),
-    ];
+  // ─── Step 3: Activity Level ───────────────────────────────────
+
+  Widget _buildStep3() {
     return Column(
-      children: levels.map((level) {
-        final isSelected = _activityLevel == level.$1;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: GestureDetector(
-            onTap: () => setState(() => _activityLevel = level.$1),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppTheme.primary.withValues(alpha: 0.1)
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected ? AppTheme.primary : AppTheme.border,
-                  width: isSelected ? 2 : 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          level.$2,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: isSelected
-                                ? AppTheme.primary
-                                : AppTheme.foreground,
-                          ),
-                        ),
-                        Text(
-                          level.$3,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.mutedForeground,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isSelected)
-                    const Icon(
-                      Icons.check_circle,
-                      size: 24,
-                      color: AppTheme.primary,
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+      children: [
+        ProfileFieldLabel('Activity Level'),
+        const SizedBox(height: 8),
+        ProfileActivitySelector(
+          value: _activityLevel,
+          onChanged: (v) => setState(() => _activityLevel = v),
+        ),
+      ],
     );
   }
 
@@ -431,96 +367,74 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
   }
 
   Widget _buildStep2Buttons() {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: _handleSave,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 2,
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Save & Start Tracking',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                SizedBox(width: 8),
-                Icon(Icons.check_circle_outline, size: 20),
-              ],
-            ),
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: _goToStep3,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
+          elevation: 2,
         ),
-        const SizedBox(height: 12),
-        TextButton(
-          onPressed: _handleSave,
-          child: const Text(
-            'Skip for now',
-            style: TextStyle(
-              color: AppTheme.mutedForeground,
-              fontSize: 16,
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Continue',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Shared Helpers ──────────────────────────────────────────
-
-  Widget _buildFieldLabel(String label, {bool isRequired = false}) {
-    return Row(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
-        ),
-        if (isRequired)
-          const Text(' *', style: TextStyle(color: AppTheme.destructive)),
-      ],
-    );
-  }
-
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: AppTheme.mutedForeground),
-        prefixIcon: Icon(icon, size: 20, color: AppTheme.primary),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppTheme.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppTheme.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppTheme.primary, width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
+            SizedBox(width: 8),
+            Icon(Icons.arrow_forward, size: 20),
+          ],
         ),
       ),
-      style: const TextStyle(fontSize: 16),
+    );
+  }
+
+  Widget _buildStep3Buttons() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: _isSaving ? null : _handleSave,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 2,
+        ),
+        child: _isSaving
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      'Save & Start Tracking',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(Icons.check_circle_outline, size: 20),
+                ],
+              ),
+      ),
     );
   }
 }

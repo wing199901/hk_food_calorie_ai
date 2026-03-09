@@ -58,6 +58,7 @@ lib/
     ├── home/             home_page.dart
     ├── log/              log_page.dart + widgets/ (meal_card, manual_meal_modal)
     ├── onboarding/       landing_page.dart, complete_profile_page.dart
+    ├── profile/          profile_page.dart  (Account Profile edit page)
     └── settings/         settings_page.dart
 supabase/
   schema.sql             # Database schema (source of truth)
@@ -79,4 +80,80 @@ AppShell (AppScreen)
   └── main            → MainScaffold         (Home / Analysis / + / Log / Settings)
 ```
 
-See [.github/copilot-instructions.md](.github/copilot-instructions.md) for full coding conventions, visual style guidelines, and DB schema details.
+## Database Schema
+
+| Table              | Primary Key            | Description                                                          |
+| ------------------ | ---------------------- | -------------------------------------------------------------------- |
+| `user_profiles`    | `user_id` (uuid)       | Birthdate, weight, height, waistline, gender, activity level, calorie target |
+| `body_metrics`     | `(user_id, date)`      | Daily weight, waistline, BMI, WHtR & TEE snapshots                   |
+| `meal_records`     | `id` (text)            | AI-parsed meal entries; `items` stored as JSONB array                |
+| `quick_add_items`  | `(user_id, id)` (text) | User's custom quick-add food shortcuts with icon & macros            |
+
+### `user_profiles`
+
+| Column               | Type         | Description                                                   |
+| -------------------- | ------------ | ------------------------------------------------------------- |
+| `user_id`            | uuid (FK)    | Primary key — references `auth.users`                         |
+| `birthdate`          | date         | Date of birth (YYYY-MM-DD)                                    |
+| `weight`             | numeric(5,2) | Body weight in kg                                             |
+| `height`             | numeric(5,2) | Height in cm                                                  |
+| `waistline`          | numeric(5,2) | Waist circumference in cm                                     |
+| `gender`             | text         | `'male'` \| `'female'` \| `'other'`                           |
+| `activity_level`     | integer      | 0=sedentary … 4=very-active (mapped to string in client)      |
+| `calorie_target`     | integer      | Daily kcal goal (auto-computed from TEE)                      |
+| `last_check_in_date` | date         | Date of last body check-in                                    |
+
+### `body_metrics`
+
+BMI, WHtR, and TEE are auto-computed on every daily check-in via `StorageService.addBodyMetric()`.
+
+| Column     | Type         | Description                                        |
+| ---------- | ------------ | -------------------------------------------------- |
+| `user_id`  | uuid (FK)    | User ID                                            |
+| `date`     | date         | Date (composite primary key with `user_id`)        |
+| `weight`   | numeric(5,2) | Body weight in kg                                  |
+| `waistline`| numeric(5,2) | Waist circumference in cm                          |
+| `bmi`      | numeric(4,1) | Body Mass Index — auto-computed                    |
+| `whtr`     | numeric(3,2) | Waist-to-Height Ratio — auto-computed              |
+| `tee`      | integer      | Total Energy Expenditure (kcal) — auto-computed    |
+
+### `quick_add_items`
+
+On new user signup, a DB trigger (`seed_quick_add_items`) auto-inserts 8 default items.
+
+| Column       | Type      | Description                           |
+| ------------ | --------- | ------------------------------------- |
+| `id`         | text      | Unique ID (`default-*` or `custom-*`) |
+| `user_id`    | uuid (FK) | Owner                                 |
+| `name`       | text      | Food name                             |
+| `calories`   | integer   | Calories (kcal)                       |
+| `protein`    | integer   | Protein (g)                           |
+| `carbs`      | integer   | Carbohydrates (g)                     |
+| `fat`        | integer   | Fat (g)                               |
+| `sugar`      | integer   | Sugar (g)                             |
+| `icon`       | text      | Emoji icon                            |
+| `sort_order` | integer   | Display order                         |
+
+### `meal_records.items` — JSONB element schema
+
+```json
+{
+  "name_zh": "蛋撻",
+  "name_en": "Egg Tart",
+  "type": "food",
+  "portion_size": 1,
+  "portion_unit": "piece",
+  "portion_grams": 75,
+  "portion_ml": null,
+  "calories": 220,
+  "protein": 4,
+  "carbs": 28,
+  "fat": 10,
+  "sugar": 12,
+  "confidence": 0.95
+}
+```
+
+> `type` is `"food"` or `"drink"`. `portion_grams` is for solid food; `portion_ml` is for drinks — they must not both be non-zero for the same item.
+
+The source of truth is [`supabase/schema.sql`](supabase/schema.sql). See [.github/copilot-instructions.md](.github/copilot-instructions.md) for full coding conventions and visual style guidelines.
