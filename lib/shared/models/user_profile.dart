@@ -6,6 +6,7 @@ class UserProfile {
   final String? gender; // 'male' | 'female' | 'other'
   final String?
       activityLevel; // 'sedentary' | 'light' | 'moderate' | 'active' | 'very-active'
+  final String? unitSystem; // 'metric' | 'imperial'
 
   UserProfile({
     this.birthdate,
@@ -14,6 +15,7 @@ class UserProfile {
     this.waistline,
     this.gender,
     this.activityLevel,
+    this.unitSystem,
   });
 
   /// Age computed from birthdate.
@@ -37,6 +39,7 @@ class UserProfile {
     'waistline': waistline,
     'gender': gender,
     'activityLevel': activityLevel,
+    'unitSystem': unitSystem,
   };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
@@ -48,6 +51,7 @@ class UserProfile {
         : null,
     gender: json['gender'] as String?,
     activityLevel: json['activityLevel'] as String?,
+    unitSystem: json['unitSystem'] as String?,
   );
 
   UserProfile copyWith({
@@ -57,6 +61,7 @@ class UserProfile {
     double? waistline,
     String? gender,
     String? activityLevel,
+    String? unitSystem,
   }) {
     return UserProfile(
       birthdate: birthdate ?? this.birthdate,
@@ -65,6 +70,7 @@ class UserProfile {
       waistline: waistline ?? this.waistline,
       gender: gender ?? this.gender,
       activityLevel: activityLevel ?? this.activityLevel,
+      unitSystem: unitSystem ?? this.unitSystem,
     );
   }
 

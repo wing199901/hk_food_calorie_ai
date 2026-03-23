@@ -193,7 +193,7 @@ The project follows a **feature-first** layout under `lib/`. See [README.md](../
 
 See [`lib/shared/models/user_profile.dart`](../lib/shared/models/user_profile.dart) for the full model. Key rules:
 
-- Fields: `birthdate` (YYYY-MM-DD), `weight`, `height`, `waistline`, `gender`, `activityLevel`.
+- Fields: `birthdate` (YYYY-MM-DD), `weight`, `height`, `waistline`, `gender`, `activityLevel`, `unitSystem` (`'metric'` | `'imperial'`, default `'metric'`).
 - `age` is a **computed getter** derived from `birthdate`; never store or accept it as input.
 - `isProfileComplete` (`birthdate != null && gender != null && height != null && weight != null`) drives the onboarding redirect in `AppShell`.
 
@@ -227,7 +227,9 @@ See [`lib/shared/models/user_profile.dart`](../lib/shared/models/user_profile.da
 - Animated progress dots (pill-style) at the top — 3 dots total
 - **No skip buttons** — "Continue" advances Step 1 → Step 2 (after validation) and Step 2 → Step 3; Step 3 has a single "Save & Start Tracking" button
 - On complete: `AppShell` navigates directly to `MainScaffold` (no check-in step)
-- Widgets extracted into `features/onboarding/widgets/`: `ProfileProgressDots`, `ProfileFieldLabel`, `ProfileInputField`, `ProfileGenderSelector`, `ProfileActivitySelector`
+- Widgets extracted into `features/onboarding/widgets/`: `ProfileProgressDots`, `ProfileFieldLabel`, `ProfileInputField`, `ProfileActivitySelector`
+- `GenderSelector` lives in `shared/widgets/gender_selector.dart` — used by both onboarding and profile pages
+- `UnitSystemSelector` lives in `shared/widgets/unit_system_selector.dart` — used by both onboarding and profile pages
 
 ---
 

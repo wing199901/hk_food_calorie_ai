@@ -24,6 +24,7 @@ delete cascade,
 (5,2),
   gender            text,          -- 'male' | 'female' | 'other'
   activity_level    integer default 2, -- 0=sedentary | 1=light | 2=moderate | 3=active | 4=very-active
+  unit_system       text default 'metric', -- 'metric' | 'imperial'
   calorie_target    integer default 2000,
   last_check_in_date date,         -- date type (YYYY-MM-DD)
   created_at        timestamptz default now

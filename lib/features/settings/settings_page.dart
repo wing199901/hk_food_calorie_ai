@@ -7,6 +7,7 @@ import '../../shared/providers/providers.dart';
 import '../../shared/models/user_profile.dart';
 import '../../shared/models/body_metric.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/unit_converter.dart';
 import '../profile/profile_page.dart';
 import 'widgets/body_metrics_section.dart';
 import 'widgets/data_management_section.dart';
@@ -58,11 +59,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (!mounted) return;
     final storage = ref.read(storageProvider);
     final profile = storage.getUserProfile();
+    final isMetric = (profile.unitSystem ?? 'metric') == 'metric';
     setState(() {
       _profile = profile;
-      _weightCtrl.text = profile.weight?.toString() ?? '';
-      _heightCtrl.text = profile.height?.toString() ?? '';
-      _waistlineCtrl.text = profile.waistline?.toString() ?? '';
+      _weightCtrl.text = UnitConverter.weightToDisplay(profile.weight, isMetric: isMetric);
+      _heightCtrl.text = UnitConverter.lengthToDisplay(profile.height, isMetric: isMetric);
+      _waistlineCtrl.text = UnitConverter.lengthToDisplay(profile.waistline, isMetric: isMetric);
       _activityLevel = profile.activityLevel ?? 'moderate';
     });
   }
@@ -124,9 +126,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _handleUpdateToday() {
     final storage = ref.read(storageProvider);
-    final newWeight = double.tryParse(_weightCtrl.text);
-    final newHeight = double.tryParse(_heightCtrl.text);
-    final newWaistline = double.tryParse(_waistlineCtrl.text);
+    final isMetric = (_profile.unitSystem ?? 'metric') == 'metric';
+    final newWeight = UnitConverter.parseWeight(_weightCtrl.text, isMetric: isMetric);
+    final newHeight = UnitConverter.parseLength(_heightCtrl.text, isMetric: isMetric);
+    final newWaistline = UnitConverter.parseLength(_waistlineCtrl.text, isMetric: isMetric);
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     // Update profile with latest body values
@@ -268,6 +271,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     onActivityChanged: (v) =>
                         setState(() => _activityLevel = v),
                     onUpdateToday: _handleUpdateToday,
+                    isMetric: (_profile.unitSystem ?? 'metric') == 'metric',
                   ),
                   const SizedBox(height: 24),
                   DataManagementSection(onClearData: _handleClearData),

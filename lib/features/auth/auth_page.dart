@@ -80,10 +80,14 @@ class _AuthPageState extends ConsumerState<AuthPage> {
       if (mounted) widget.onAuthenticated();
     } on AuthException catch (e) {
       debugPrint('[Auth] AuthException → code=${e.statusCode} message=${e.message}');
-      setState(() => _errorMessage = '[${e.statusCode}] ${e.message}');
+      setState(
+        () => _errorMessage = e.message.isNotEmpty
+            ? e.message
+            : 'Unable to sign in right now. Please try again.',
+      );
     } catch (e, st) {
       debugPrint('[Auth] unexpected error → $e\n$st');
-      setState(() => _errorMessage = 'Unexpected: $e');
+      setState(() => _errorMessage = 'Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -306,12 +310,17 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 16),
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: AppTheme.destructive,
-                                size: 16,
+                              const SizedBox(
+                                height: 20,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.error_outline,
+                                    color: AppTheme.destructive,
+                                    size: 16,
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(

@@ -3,6 +3,9 @@ import '../../../core/theme/app_theme.dart';
 
 class ChartCard extends StatelessWidget {
   final String title;
+  final IconData? titleIcon;
+  final Color? titleColor;
+  final bool showTitleBadge;
   final Widget child;
   final Widget? header;
   final Widget? summary;
@@ -12,6 +15,9 @@ class ChartCard extends StatelessWidget {
   const ChartCard({
     super.key,
     required this.title,
+    this.titleIcon,
+    this.titleColor,
+    this.showTitleBadge = true,
     required this.child,
     this.header,
     this.summary,
@@ -21,13 +27,16 @@ class ChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = showTitleBadge ? 24.0 : 16.0;
+    final topMargin = showTitleBadge ? 8.0 : 0.0;
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-          margin: const EdgeInsets.only(top: 8),
+          padding: EdgeInsets.fromLTRB(16, topPadding, 16, 16),
+          margin: EdgeInsets.only(top: topMargin),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -54,26 +63,40 @@ class ChartCard extends StatelessWidget {
             ],
           ),
         ),
-        Positioned(
-          top: 0,
-          left: 16,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.border),
-            ),
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.mutedForeground,
+        if (showTitleBadge)
+          Positioned(
+            top: 0,
+            left: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (titleIcon != null) ...[
+                    Icon(
+                      titleIcon,
+                      size: 14,
+                      color: titleColor ?? AppTheme.mutedForeground,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: titleColor ?? AppTheme.mutedForeground,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ),
       ],
     );
   }

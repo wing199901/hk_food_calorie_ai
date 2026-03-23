@@ -13,6 +13,7 @@ class BodyMetricsSection extends StatelessWidget {
     required this.activityLevel,
     required this.onActivityChanged,
     required this.onUpdateToday,
+    required this.isMetric,
   });
 
   final TextEditingController weightCtrl;
@@ -21,6 +22,7 @@ class BodyMetricsSection extends StatelessWidget {
   final String activityLevel;
   final ValueChanged<String> onActivityChanged;
   final VoidCallback onUpdateToday;
+  final bool isMetric;
 
   @override
   Widget build(BuildContext context) {
@@ -34,26 +36,26 @@ class BodyMetricsSection extends StatelessWidget {
             children: [
               Expanded(
                 child: SettingsNumberField(
-                  label: 'Weight (kg)',
+                  label: 'Weight (${isMetric ? 'kg' : 'lbs'})',
                   controller: weightCtrl,
-                  hint: '70',
+                  hint: isMetric ? '70' : '154',
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: SettingsNumberField(
-                  label: 'Height (cm)',
+                  label: 'Height (${isMetric ? 'cm' : 'in'})',
                   controller: heightCtrl,
-                  hint: '175',
+                  hint: isMetric ? '175' : '69',
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           SettingsNumberField(
-            label: 'Waistline (cm)',
+            label: 'Waistline (${isMetric ? 'cm' : 'in'})',
             controller: waistlineCtrl,
-            hint: '80',
+            hint: isMetric ? '80' : '31',
           ),
           const SizedBox(height: 12),
           SettingsDropdownField(

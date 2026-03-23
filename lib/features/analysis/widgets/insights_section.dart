@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers/providers.dart';
-import '../../../shared/models/user_profile.dart';
+import '../../../shared/utils/health_score_utils.dart';
 import '../../../core/theme/app_theme.dart';
 
 class InsightsSection extends ConsumerWidget {
@@ -18,20 +18,11 @@ class InsightsSection extends ConsumerWidget {
     required this.todayStats,
   });
 
-  static const _defaultWeight = 70.0;
-  static const _defaultHeight = 175.0;
-
-  double _calculateBMI(UserProfile p) {
-    final w = p.weight ?? _defaultWeight;
-    final h = p.height ?? _defaultHeight;
-    return double.parse((w / ((h / 100) * (h / 100))).toStringAsFixed(1));
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final target = todayStats['target'] ?? 2000;
     final profile = ref.read(storageProvider).getUserProfile();
-    final bmi = _calculateBMI(profile);
+    final bmi = HealthScoreUtils.calculateBMIFromProfile(profile);
 
     return Container(
       width: double.infinity,

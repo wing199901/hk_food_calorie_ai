@@ -7,7 +7,8 @@ import '../../shared/models/user_profile.dart';
 import '../../core/theme/app_theme.dart';
 import '../settings/widgets/settings_section.dart';
 import '../settings/widgets/settings_read_only_row.dart';
-import '../onboarding/widgets/profile_gender_selector.dart';
+import '../../shared/widgets/gender_selector.dart';
+import '../../shared/widgets/unit_system_selector.dart';
 import '../onboarding/widgets/profile_field_label.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
@@ -25,6 +26,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   // Edit state
   DateTime? _editBirthdate;
   String? _editGender;
+  String? _editUnitSystem;
 
   // Computed age from the in-progress edit (real-time)
   int? get _displayAge {
@@ -44,6 +46,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     _profile = ref.read(storageProvider).getUserProfile();
     _editBirthdate = _profile.birthdate != null ? DateTime.tryParse(_profile.birthdate!) : null;
     _editGender = _profile.gender;
+    _editUnitSystem = _profile.unitSystem;
   }
 
   Future<void> _pickBirthdate() async {
@@ -95,6 +98,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ? DateFormat('yyyy-MM-dd').format(_editBirthdate!)
             : _profile.birthdate,
         gender: _editGender ?? _profile.gender,
+        unitSystem: _editUnitSystem ?? _profile.unitSystem,
       );
       await ref.read(storageProvider).setUserProfile(newProfile);
       if (!mounted) return;
@@ -125,6 +129,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ? DateTime.tryParse(_profile.birthdate!)
             : null;
         _editGender = _profile.gender;
+        _editUnitSystem = _profile.unitSystem;
         _isEditing = true;
       });
     }
@@ -136,6 +141,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ? DateTime.tryParse(_profile.birthdate!)
           : null;
       _editGender = _profile.gender;
+      _editUnitSystem = _profile.unitSystem;
       _isEditing = false;
     });
   }
@@ -275,15 +281,30 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     if (_isEditing) ...[
                       ProfileFieldLabel('Gender'),
                       const SizedBox(height: 8),
-                      ProfileGenderSelector(
+                      GenderSelector(
                         value: _editGender ?? 'male',
                         onChanged: (v) => setState(() => _editGender = v),
                       ),
-                    ] else
+                      const SizedBox(height: 12),
+                      ProfileFieldLabel('Unit System'),
+                      const SizedBox(height: 8),
+                      UnitSystemSelector(
+                        value: _editUnitSystem ?? 'metric',
+                        onChanged: (v) => setState(() => _editUnitSystem = v),
+                      ),
+                    ] else ...[
                       SettingsReadOnlyRow(
                         label: 'Gender',
                         value: genderLabel[genderDisplay] ?? genderDisplay,
                       ),
+                      const SizedBox(height: 12),
+                      SettingsReadOnlyRow(
+                        label: 'Unit System',
+                        value: _profile.unitSystem == 'imperial'
+                            ? 'Imperial (lbs / in)'
+                            : 'Metric (kg / cm)',
+                      ),
+                    ],
                   ],
                 ),
               ),

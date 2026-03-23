@@ -86,6 +86,7 @@ class SupabaseService extends ChangeNotifier {
           : null,
       gender: data['gender'] as String?,
       activityLevel: _activityFromInt(data['activity_level']),
+      unitSystem: data['unit_system'] as String?,
     );
   }
 
@@ -100,6 +101,7 @@ class SupabaseService extends ChangeNotifier {
       if (profile.waistline != null) 'waistline': profile.waistline,
       if (profile.gender != null) 'gender': profile.gender,
       'activity_level': _activityToInt(profile.activityLevel),
+      if (profile.unitSystem != null) 'unit_system': profile.unitSystem,
       if (tee != null) 'calorie_target': tee,
     });
   }

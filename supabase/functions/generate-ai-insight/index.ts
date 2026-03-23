@@ -166,8 +166,8 @@ ${summaryForAI}
     console.error("generate-ai-insight error:", err);
     return errorResponse(
       "INTERNAL_ERROR",
-      err instanceof Error ? err.message : "Internal error",
-      400,
+      "Internal server error",
+      500,
     );
   }
 });

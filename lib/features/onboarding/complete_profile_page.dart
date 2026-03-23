@@ -9,7 +9,9 @@ import '../../core/theme/app_theme.dart';
 import 'widgets/profile_progress_dots.dart';
 import 'widgets/profile_field_label.dart';
 import 'widgets/profile_input_field.dart';
-import 'widgets/profile_gender_selector.dart';
+import '../../shared/widgets/gender_selector.dart';
+import '../../shared/widgets/unit_system_selector.dart';
+import '../../core/utils/unit_converter.dart';
 import 'widgets/profile_activity_selector.dart';
 
 /// Two-step onboarding page shown after first sign-up or when profile is incomplete.
@@ -35,6 +37,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
   // Step 1: Required
   DateTime? _birthdate;
   String _gender = 'male';
+  String _unitSystem = 'metric';
   final _heightCtrl = TextEditingController();
   bool _isSaving = false;
 
@@ -52,9 +55,11 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
       _birthdate = DateTime.tryParse(p.birthdate!);
     }
     if (p.gender != null) _gender = p.gender!;
-    if (p.height != null) _heightCtrl.text = p.height!.toStringAsFixed(1);
-    if (p.weight != null) _weightCtrl.text = p.weight!.toStringAsFixed(1);
-    if (p.waistline != null) _waistlineCtrl.text = p.waistline!.toStringAsFixed(1);
+    if (p.unitSystem != null) _unitSystem = p.unitSystem!;
+    final isMetric = _unitSystem == 'metric';
+    if (p.height != null) _heightCtrl.text = UnitConverter.lengthToDisplay(p.height, isMetric: isMetric);
+    if (p.weight != null) _weightCtrl.text = UnitConverter.weightToDisplay(p.weight, isMetric: isMetric);
+    if (p.waistline != null) _waistlineCtrl.text = UnitConverter.lengthToDisplay(p.waistline, isMetric: isMetric);
     if (p.activityLevel != null) _activityLevel = p.activityLevel!;
   }
 
@@ -120,9 +125,10 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
-      final height = double.tryParse(_heightCtrl.text) ?? 175.0;
-      final weight = double.tryParse(_weightCtrl.text);
-      final waistline = double.tryParse(_waistlineCtrl.text);
+      final isMetric = _unitSystem == 'metric';
+      final height = UnitConverter.parseLength(_heightCtrl.text, isMetric: isMetric) ?? 175.0;
+      final weight = UnitConverter.parseWeight(_weightCtrl.text, isMetric: isMetric);
+      final waistline = UnitConverter.parseLength(_waistlineCtrl.text, isMetric: isMetric);
 
       final profile = UserProfile(
         birthdate: _birthdate != null
@@ -133,6 +139,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         weight: weight,
         waistline: waistline,
         activityLevel: _activityLevel,
+        unitSystem: _unitSystem,
       );
       await ref.read(storageProvider).setUserProfile(profile);
 
@@ -238,6 +245,14 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
   Widget _buildStep1() {
     return Column(
       children: [
+        // Unit System
+        ProfileFieldLabel('Unit System', isRequired: false),
+        const SizedBox(height: 8),
+        UnitSystemSelector(
+          value: _unitSystem,
+          onChanged: (v) => setState(() => _unitSystem = v),
+        ),
+        const SizedBox(height: 24),
         // Birthdate
         ProfileFieldLabel('Birthdate', isRequired: true),
         const SizedBox(height: 8),
@@ -279,17 +294,17 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         // Gender
         ProfileFieldLabel('Gender', isRequired: true),
         const SizedBox(height: 8),
-        ProfileGenderSelector(
+        GenderSelector(
           value: _gender,
           onChanged: (v) => setState(() => _gender = v),
         ),
         const SizedBox(height: 24),
         // Height
-        ProfileFieldLabel('Height (cm)', isRequired: false),
+        ProfileFieldLabel('Height (${_unitSystem == 'metric' ? 'cm' : 'in'})', isRequired: false),
         const SizedBox(height: 8),
         ProfileInputField(
           controller: _heightCtrl,
-          hint: '175',
+          hint: _unitSystem == 'metric' ? '175' : '69',
           icon: Icons.height,
         ),
       ],
@@ -301,19 +316,19 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
   Widget _buildStep2() {
     return Column(
       children: [
-        ProfileFieldLabel('Weight (kg)'),
+        ProfileFieldLabel('Weight (${_unitSystem == 'metric' ? 'kg' : 'lbs'})'),
         const SizedBox(height: 8),
         ProfileInputField(
           controller: _weightCtrl,
-          hint: '70',
+          hint: _unitSystem == 'metric' ? '70' : '154',
           icon: Icons.monitor_weight_outlined,
         ),
         const SizedBox(height: 24),
-        ProfileFieldLabel('Waistline (cm)'),
+        ProfileFieldLabel('Waistline (${_unitSystem == 'metric' ? 'cm' : 'in'})'),
         const SizedBox(height: 8),
         ProfileInputField(
           controller: _waistlineCtrl,
-          hint: '80',
+          hint: _unitSystem == 'metric' ? '80' : '31',
           icon: Icons.straighten,
         ),
       ],

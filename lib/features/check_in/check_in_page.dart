@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/models/body_metric.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/unit_converter.dart';
 import 'package:intl/intl.dart';
 
 class CheckInPage extends ConsumerStatefulWidget {
@@ -20,16 +21,18 @@ class CheckInPage extends ConsumerStatefulWidget {
 class _CheckInPageState extends ConsumerState<CheckInPage> {
   final _weightController = TextEditingController();
   final _waistlineController = TextEditingController();
+  bool _isMetric = true;
 
   @override
   void initState() {
     super.initState();
     final profile = ref.read(storageProvider).getUserProfile();
+    _isMetric = (profile.unitSystem ?? 'metric') == 'metric';
     if (profile.weight != null) {
-      _weightController.text = profile.weight.toString();
+      _weightController.text = UnitConverter.weightToDisplay(profile.weight, isMetric: _isMetric);
     }
     if (profile.waistline != null) {
-      _waistlineController.text = profile.waistline.toString();
+      _waistlineController.text = UnitConverter.lengthToDisplay(profile.waistline, isMetric: _isMetric);
     }
   }
 
@@ -42,8 +45,8 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
 
   void _handleSave() {
     final storage = ref.read(storageProvider);
-    final newWeight = double.tryParse(_weightController.text);
-    final newWaistline = double.tryParse(_waistlineController.text);
+    final newWeight = UnitConverter.parseWeight(_weightController.text, isMetric: _isMetric);
+    final newWaistline = UnitConverter.parseLength(_waistlineController.text, isMetric: _isMetric);
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     storage.addBodyMetric(
@@ -95,16 +98,16 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
                   const SizedBox(height: 48),
                   _buildInputField(
                     icon: Icons.monitor_weight_outlined,
-                    label: 'Current Weight (kg)',
+                    label: 'Current Weight (${_isMetric ? 'kg' : 'lbs'})',
                     controller: _weightController,
-                    hint: '70.5',
+                    hint: _isMetric ? '70.5' : '155.4',
                   ),
                   const SizedBox(height: 24),
                   _buildInputField(
                     icon: Icons.straighten,
-                    label: 'Waistline (cm)',
+                    label: 'Waistline (${_isMetric ? 'cm' : 'in'})',
                     controller: _waistlineController,
-                    hint: '80',
+                    hint: _isMetric ? '80' : '31.5',
                   ),
                   const SizedBox(height: 48),
                   SizedBox(

@@ -11,6 +11,9 @@ import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_TIMEOUT_MS = 20_000;
+const GEMINI_MAX_RETRIES = 2;
+const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 
 // ── System Instruction (behavioural / domain knowledge only) ─
 const SYSTEM_INSTRUCTION = `You are a professional nutritionist specialising in analysing food and drink photos from any cuisine.
@@ -156,6 +159,97 @@ interface AnalysisResult {
   error?: string;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function redactSecrets(value: string): string {
+  return value.replace(/([?&]key=)[^&\s]+/gi, "$1REDACTED");
+}
+
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  return String(err);
+}
+
+function isRetryableNetworkError(err: unknown): boolean {
+  const message = extractErrorMessage(err).toLowerCase();
+  const retryHints = [
+    "connection error",
+    "unexpected-eof",
+    "unexpected eof",
+    "tls close_notify",
+    "peer closed connection",
+    "sendrequest",
+    "temporarily unavailable",
+    "timed out",
+  ];
+  return retryHints.some((hint) => message.includes(hint));
+}
+
+async function callGeminiWithRetry(
+  imageBase64: string,
+  geminiKey: string,
+): Promise<Response> {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= GEMINI_MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: SYSTEM_INSTRUCTION }],
+          },
+          contents: [
+            {
+              parts: [
+                {
+                  text: "Analyse all food and drink items visible in this photo.",
+                },
+                {
+                  inline_data: {
+                    mime_type: "image/jpeg",
+                    data: imageBase64,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 2048,
+            responseMimeType: "application/json",
+            responseSchema: RESPONSE_SCHEMA,
+          },
+        }),
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      });
+
+      if (response.ok) return response;
+
+      if (
+        RETRYABLE_STATUS_CODES.has(response.status) &&
+        attempt < GEMINI_MAX_RETRIES
+      ) {
+        await sleep(300 * 2 ** attempt);
+        continue;
+      }
+
+      return response;
+    } catch (err) {
+      lastError = err;
+      if (!isRetryableNetworkError(err) || attempt >= GEMINI_MAX_RETRIES) {
+        throw err;
+      }
+      await sleep(300 * 2 ** attempt);
+    }
+  }
+
+  throw lastError ?? new Error("Gemini request failed");
+}
+
 // ── Main handler ─────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleCors();
@@ -190,44 +284,30 @@ Deno.serve(async (req: Request) => {
         500,
       );
 
-    const geminiRes = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: SYSTEM_INSTRUCTION }],
-        },
-        contents: [
-          {
-            parts: [
-              {
-                text: "Analyse all food and drink items visible in this photo.",
-              },
-              {
-                inline_data: {
-                  mime_type: "image/jpeg",
-                  data: image_base64,
-                },
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 2048,
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-        },
-      }),
-    });
+    let geminiRes: Response;
+    try {
+      geminiRes = await callGeminiWithRetry(image_base64, geminiKey);
+    } catch (err) {
+      console.error("Gemini network error:", redactSecrets(extractErrorMessage(err)));
+      return errorResponse(
+        "AI_UNAVAILABLE",
+        "AI service temporarily unavailable. Please retry in a moment.",
+        503,
+      );
+    }
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error("Gemini API error:", errText);
+      console.error(
+        `Gemini API error (${geminiRes.status}):`,
+        redactSecrets(errText),
+      );
       return errorResponse(
         "AI_ERROR",
-        `Gemini API error: ${geminiRes.status}`,
-        502,
+        geminiRes.status === 429 || geminiRes.status >= 500
+          ? "AI service is busy. Please retry shortly."
+          : "Failed to analyze image. Please retake and try again.",
+        geminiRes.status === 429 || geminiRes.status >= 500 ? 503 : 502,
       );
     }
 
@@ -324,11 +404,11 @@ Deno.serve(async (req: Request) => {
       total_sugar: totalSugar,
     });
   } catch (err) {
-    console.error("analyze-meal error:", err);
+    console.error("analyze-meal error:", redactSecrets(extractErrorMessage(err)));
     return errorResponse(
       "INTERNAL_ERROR",
-      err instanceof Error ? err.message : "Internal error",
-      400,
+      "Internal server error",
+      500,
     );
   }
 });

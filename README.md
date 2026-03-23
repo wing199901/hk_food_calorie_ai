@@ -33,7 +33,7 @@ AI-powered food calorie tracking app built with Flutter, Supabase, and Google Ge
 3. Run `flutter pub get && dart run build_runner build`
 4. Execute `supabase/schema.sql` in your Supabase SQL Editor
 5. Deploy edge functions: `supabase functions deploy`
-6. Run the app: `flutter run`
+6. Run the app: `make run`
 
 ## Project Structure
 
