@@ -6,7 +6,7 @@
 // Tech Spec: TypeScript (Deno 2.x) | Timeout 30s | Memory 256MB | Max 5MB image
 // Uses Gemini Structured Output (responseSchema) for guaranteed valid JSON.
 
-import { createAdminClient } from "../_shared/auth.ts";
+import { createUserClient, requireUserId } from "../_shared/auth.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
@@ -256,16 +256,11 @@ Deno.serve(async (req: Request) => {
 
   try {
     // ── Parse body ────────────────────────────
-    const {
-      image_base64,
-      user_id,
-      date = new Date().toISOString().split("T")[0],
-    } = await req.json();
+    const { image_base64, date = new Date().toISOString().split("T")[0] } = await req.json();
 
     if (!image_base64)
       return errorResponse("MISSING_IMAGE", "Missing image_base64");
-    if (!user_id) return errorResponse("MISSING_USER_ID", "Missing user_id");
-
+    
     // Validate image size (~5 MB after base64 ≈ ~6.67 MB string)
     if (image_base64.length > 7_000_000) {
       return errorResponse(
@@ -288,7 +283,10 @@ Deno.serve(async (req: Request) => {
     try {
       geminiRes = await callGeminiWithRetry(image_base64, geminiKey);
     } catch (err) {
-      console.error("Gemini network error:", redactSecrets(extractErrorMessage(err)));
+      console.error(
+        "Gemini network error:",
+        redactSecrets(extractErrorMessage(err)),
+      );
       return errorResponse(
         "AI_UNAVAILABLE",
         "AI service temporarily unavailable. Please retry in a moment.",
@@ -369,7 +367,14 @@ Deno.serve(async (req: Request) => {
     );
 
     // ── Insert into meal_records (service role, bypasses RLS) ─
-    const supabase = createAdminClient();
+    const supabase = createUserClient(req);
+    let user_id: string;
+    try {
+      user_id = await requireUserId(supabase);
+    } catch (e) {
+      return errorResponse("UNAUTHORIZED", "Unauthorized", 401);
+    }
+
 
     const { data: record, error: insertErr } = await supabase
       .from("meal_records")
@@ -404,11 +409,10 @@ Deno.serve(async (req: Request) => {
       total_sugar: totalSugar,
     });
   } catch (err) {
-    console.error("analyze-meal error:", redactSecrets(extractErrorMessage(err)));
-    return errorResponse(
-      "INTERNAL_ERROR",
-      "Internal server error",
-      500,
+    console.error(
+      "analyze-meal error:",
+      redactSecrets(extractErrorMessage(err)),
     );
+    return errorResponse("INTERNAL_ERROR", "Internal server error", 500);
   }
 });

@@ -5,7 +5,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import '../../shared/providers/providers.dart';
-import '../../shared/models/meal.dart';
 import '../../core/theme/app_theme.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -18,28 +17,10 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  Map<String, int> stats = {'consumed': 0, 'target': 2000, 'remaining': 2000};
-  List<Meal> meals = [];
   DateTime _date = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
 
   void _setDate(DateTime d) {
     setState(() => _date = d);
-    _loadData();
-  }
-
-  void _loadData() {
-    if (!mounted) return;
-    final storage = ref.read(storageProvider);
-    setState(() {
-      stats = storage.getStatsForDate(_date);
-      meals = storage.getMealsForDate(_date);
-    });
   }
 
   bool get _isToday {
@@ -52,7 +33,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     // Rebuild when storage notifies.
-    ref.watch(storageProvider);
+    final storage = ref.watch(storageProvider);
+    final stats = storage.getStatsForDate(_date);
+    final meals = storage.getMealsForDate(_date);
+
     final consumed = stats['consumed'] ?? 0;
     final target = stats['target'] ?? 2000;
     final remaining = stats['remaining'] ?? 2000;

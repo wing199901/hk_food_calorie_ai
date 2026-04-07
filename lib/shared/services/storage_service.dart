@@ -6,14 +6,12 @@ import '../models/meal.dart';
 import '../models/user_profile.dart';
 import '../models/body_metric.dart';
 import '../models/quick_add_item.dart';
-import 'demo_data.dart';
 import 'supabase_service.dart';
 
 class StorageService extends ChangeNotifier {
   static const _mealsKey = 'fitcalorie_meals';
   static const _targetKey = 'fitcalorie_target';
   static const _profileKey = 'fitcalorie_profile';
-  static const _demoInitializedKey = 'fitcalorie_demo_initialized_v2';
   static const _bodyHistoryKey = 'fitcalorie_body_history';
   static const _lastCheckInKey = 'fitcalorie_last_checkin';
   static const _shortcutsKey = 'fitcalorie_shortcuts';
@@ -92,47 +90,11 @@ class StorageService extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
   }
 
-  // ─── Demo Data ───────────────────────────────────────────────
-
-  void initializeDemoData() {
-    final bodyHistory = getBodyHistory();
-    if (bodyHistory.isEmpty) {
-      _prefs.setString(
-        _bodyHistoryKey,
-        jsonEncode(DemoData.buildBodyHistory().map((e) => e.toJson()).toList()),
-      );
-      notifyListeners();
-    }
-
-    final initialized = _prefs.getString(_demoInitializedKey);
-    if (initialized == null) {
-      // Replace any stale demo meals with fresh today-relative timestamps.
-      final existing = getMeals();
-      final nonDemo = existing.where((m) => !m.id.startsWith('demo-')).toList();
-      final freshDemo = DemoData.buildMeals();
-      _prefs.setString(
-        _mealsKey,
-        jsonEncode([...nonDemo, ...freshDemo].map((e) => e.toJson()).toList()),
-      );
-      _prefs.setString(_demoInitializedKey, 'true');
-      notifyListeners();
-    }
-  }
-
-  void clearDemoData() {
-    _prefs.remove(_mealsKey);
-    _prefs.remove(_demoInitializedKey);
-    _prefs.remove('fitcalorie_demo_initialized'); // remove legacy v1 key
-    notifyListeners();
-  }
-
   /// Clear ALL local data (used when signing into a real account).
   void clearAllLocalData() {
     _prefs.remove(_mealsKey);
     _prefs.remove(_targetKey);
     _prefs.remove(_profileKey);
-    _prefs.remove(_demoInitializedKey);
-    _prefs.remove('fitcalorie_demo_initialized');
     _prefs.remove(_bodyHistoryKey);
     _prefs.remove(_lastCheckInKey);
     _prefs.remove(_shortcutsKey);
@@ -172,6 +134,10 @@ class StorageService extends ChangeNotifier {
         _mealsKey,
         jsonEncode(meals.map((e) => e.toJson()).toList()),
       );
+      final dateStr = DateFormat(
+        'yyyy-MM-dd',
+      ).format(DateTime.fromMillisecondsSinceEpoch(updatedMeal.timestamp));
+      _syncAsync(() => _supabase.addMeal(updatedMeal, date: dateStr));
       notifyListeners();
     }
   }
@@ -240,6 +206,12 @@ class StorageService extends ChangeNotifier {
       final carbs = dayMeals.fold<int>(0, (s, m) => s + (m.carbs ?? 0));
       final fat = dayMeals.fold<int>(0, (s, m) => s + (m.fat ?? 0));
 
+      DateTime? lastUpdate;
+      if (dayMeals.isNotEmpty) {
+        final timestamps = dayMeals.map((m) => m.timestamp).toList()..sort();
+        lastUpdate = DateTime.fromMillisecondsSinceEpoch(timestamps.last);
+      }
+
       data.add({
         'fullDate': date,
         'dateStr': DateFormat('dd/MM').format(date),
@@ -248,6 +220,7 @@ class StorageService extends ChangeNotifier {
         'carbs': carbs,
         'fat': fat,
         'target': getDailyTarget(),
+        'lastUpdate': lastUpdate,
       });
     }
     return data;
@@ -355,24 +328,25 @@ class StorageService extends ChangeNotifier {
     if (waist != null && height != null && height > 0) {
       whtr = double.parse((waist / height).toStringAsFixed(2));
     }
-    tee = calculateTEE(
-      profile.copyWith(weight: weight ?? profile.weight),
-    );
+    tee = calculateTEE(profile.copyWith(weight: weight ?? profile.weight));
 
     final enriched = BodyMetric(
       date: metric.date,
-      weight: metric.weight ?? (history.isNotEmpty
-          ? history.lastWhere(
-              (m) => m.weight != null,
-              orElse: () => metric,
-            ).weight
-          : null),
-      waistline: metric.waistline ?? (history.isNotEmpty
-          ? history.lastWhere(
-              (m) => m.waistline != null,
-              orElse: () => metric,
-            ).waistline
-          : null),
+      createdAt: DateTime.now().toUtc().toIso8601String(),
+      weight:
+          metric.weight ??
+          (history.isNotEmpty
+              ? history
+                    .lastWhere((m) => m.weight != null, orElse: () => metric)
+                    .weight
+              : null),
+      waistline:
+          metric.waistline ??
+          (history.isNotEmpty
+              ? history
+                    .lastWhere((m) => m.waistline != null, orElse: () => metric)
+                    .waistline
+              : null),
       bmi: bmi,
       whtr: whtr,
       tee: tee,

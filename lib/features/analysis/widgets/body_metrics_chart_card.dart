@@ -73,9 +73,7 @@ class _BodyMetricsChartCardState extends ConsumerState<BodyMetricsChartCard> {
           Text(
             hasWeight
                 ? '${weight.toStringAsFixed(1)} kg'
-                : (hasWaist
-                    ? '${waistline.toStringAsFixed(1)} cm'
-                    : 'No data'),
+                : (hasWaist ? '${waistline.toStringAsFixed(1)} cm' : 'No data'),
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
@@ -271,9 +269,7 @@ class _BodyMetricsChartCardState extends ConsumerState<BodyMetricsChartCard> {
                         showTitles: true,
                         interval: 1,
                         getTitlesWidget: (value, meta) {
-                          const dowLabels = [
-                            'S', 'M', 'T', 'W', 'T', 'F', 'S',
-                          ];
+                          const dowLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
                           final i = value.toInt();
                           if (i < 0 || i >= chartData.length) {
                             return const SizedBox();
@@ -352,9 +348,7 @@ class _BodyMetricsChartCardState extends ConsumerState<BodyMetricsChartCard> {
                       if (event is FlTapUpEvent &&
                           response?.lineBarSpots != null &&
                           response!.lineBarSpots!.isNotEmpty) {
-                        _handleBodyTap(
-                          response.lineBarSpots!.first.x.toInt(),
-                        );
+                        _handleBodyTap(response.lineBarSpots!.first.x.toInt());
                       }
                     },
                     touchTooltipData: LineTouchTooltipData(

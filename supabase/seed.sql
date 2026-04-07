@@ -73,16 +73,52 @@ insert into auth.identities (
 
 -- ─────────────────────────────────────────────────────────────
 -- Default quick-add items for test user
--- (trigger only fires on INSERT, not on seed — so we insert manually)
+-- (Handled automatically by the trigger on auth.users when a new user is inserted)
 -- ─────────────────────────────────────────────────────────────
-insert into public.quick_add_items (id, user_id, name, calories, protein, carbs, fat, sugar, icon, sort_order)
+
+-- ─────────────────────────────────────────────────────────────
+-- Demo Data: Body Metrics
+-- ─────────────────────────────────────────────────────────────
+insert into public.body_metrics (user_id, date, weight, waistline)
 values
-  ('default-white-rice',     '00000000-0000-0000-0000-000000000001', 'White Rice',       230,  4, 50,  0,  0, '🍚', 0),
-  ('default-egg',            '00000000-0000-0000-0000-000000000001', 'Egg',               78,  6,  0,  5,  0, '🥚', 1),
-  ('default-banana',         '00000000-0000-0000-0000-000000000001', 'Banana',           105,  1, 27,  0, 14, '🍌', 2),
-  ('default-toast',          '00000000-0000-0000-0000-000000000001', 'Toast (2 slices)', 160,  6, 30,  2,  4, '🍞', 3),
-  ('default-coffee',         '00000000-0000-0000-0000-000000000001', 'Coffee with Milk', 120,  4, 10,  6,  8, '☕', 4),
-  ('default-chicken-breast', '00000000-0000-0000-0000-000000000001', 'Chicken Breast',   165, 31,  0,  4,  0, '🍗', 5),
-  ('default-apple',          '00000000-0000-0000-0000-000000000001', 'Apple',             95,  0, 25,  0, 19, '🍎', 6),
-  ('default-greek-yogurt',   '00000000-0000-0000-0000-000000000001', 'Greek Yogurt',     100, 10,  6,  3,  5, '🥛', 7)
-on conflict (user_id, id) do nothing;
+  ('00000000-0000-0000-0000-000000000001', current_date - interval '30 days', 72.5, 85),
+  ('00000000-0000-0000-0000-000000000001', current_date - interval '20 days', 71.8, 84),
+  ('00000000-0000-0000-0000-000000000001', current_date - interval '10 days', 71.2, 83),
+  ('00000000-0000-0000-0000-000000000001', current_date - interval '5 days', 70.8, 82.5),
+  ('00000000-0000-0000-0000-000000000001', current_date - interval '1 day', 70.5, 82)
+on conflict (user_id, date) do nothing;
+
+-- ─────────────────────────────────────────────────────────────
+-- Demo Data: Meal Records
+-- ─────────────────────────────────────────────────────────────
+insert into public.meal_records (
+  id, user_id, date, created_at, image_base64,
+  total_calories, total_protein, total_carbs, total_fat, total_sugar,
+  items
+)
+values
+  (
+    'demo-1', '00000000-0000-0000-0000-000000000001', current_date, (current_date + interval '8 hours'),
+    'https://images.unsplash.com/photo-1555126634-323283e090fa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
+    520, 8, 62, 26, 28,
+    '[{"name": "Pineapple Bun + Milk Tea", "calories": 520, "protein": 8, "carbs": 62, "fat": 26, "sugar": 28, "portion": "1 serving", "confidence": 1.0}]'::jsonb
+  ),
+  (
+    'demo-2', '00000000-0000-0000-0000-000000000001', current_date, (current_date + interval '12 hours'),
+    'https://images.unsplash.com/photo-1569058242567-93de6f36f8eb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
+    680, 32, 85, 22, 8,
+    '[{"name": "Char Siu Rice", "calories": 680, "protein": 32, "carbs": 85, "fat": 22, "sugar": 8, "portion": "1 serving", "confidence": 1.0}]'::jsonb
+  ),
+  (
+    'demo-3', '00000000-0000-0000-0000-000000000001', current_date - interval '1 day', (current_date - interval '1 day' + interval '12 hours'),
+    'https://images.unsplash.com/photo-1583032015879-e5022cb87c3b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
+    380, 18, 48, 12, 4,
+    '[{"name": "Wonton Noodles", "calories": 380, "protein": 18, "carbs": 48, "fat": 12, "sugar": 4, "portion": "1 serving", "confidence": 1.0}]'::jsonb
+  ),
+  (
+    'demo-4', '00000000-0000-0000-0000-000000000001', current_date - interval '2 days', (current_date - interval '2 days' + interval '9 hours'),
+    'https://images.unsplash.com/photo-1582106245687-cbb466a9f07f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
+    220, 4, 28, 10, 12,
+    '[{"name": "Egg Tart", "calories": 220, "protein": 4, "carbs": 28, "fat": 10, "sugar": 12, "portion": "1 serving", "confidence": 1.0}]'::jsonb
+  )
+on conflict (id) do nothing;

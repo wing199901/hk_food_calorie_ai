@@ -54,8 +54,9 @@ class GenderSelector extends StatelessWidget {
                       opt.$2,
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         color: isSelected
                             ? AppTheme.primary
                             : AppTheme.mutedForeground,

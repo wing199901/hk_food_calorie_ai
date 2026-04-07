@@ -44,7 +44,10 @@ class QuickAddItemCard extends StatelessWidget {
               children: [
                 Text(
                   item.icon,
-                  style: const TextStyle(fontSize: 24),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontFamilyFallback: ['Apple Color Emoji'],
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -88,11 +91,7 @@ class QuickAddItemCard extends StatelessWidget {
                     color: AppTheme.destructive,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 14,
-                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 14),
                 ),
               ),
             ),

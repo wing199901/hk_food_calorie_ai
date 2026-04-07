@@ -16,25 +16,10 @@ class LogPage extends ConsumerStatefulWidget {
 }
 
 class _LogPageState extends ConsumerState<LogPage> {
-  List<Meal> meals = [];
   DateTime _date = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
 
   void _setDate(DateTime d) {
     setState(() => _date = d);
-    _loadData();
-  }
-
-  void _loadData() {
-    if (!mounted) return;
-    setState(() {
-      meals = ref.read(storageProvider).getMealsForDate(_date);
-    });
   }
 
   void _showMealModal({Meal? meal}) {
@@ -42,19 +27,17 @@ class _LogPageState extends ConsumerState<LogPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => ManualMealModal(
-        date: _date,
-        initialMeal: meal,
-      ),
+      builder: (ctx) => ManualMealModal(date: _date, initialMeal: meal),
     );
   }
-
-  int get _totalCalories => meals.fold<int>(0, (s, m) => s + m.calories);
 
   @override
   Widget build(BuildContext context) {
     // Rebuild when storage notifies.
-    ref.watch(storageProvider);
+    final storage = ref.watch(storageProvider);
+    final meals = storage.getMealsForDate(_date);
+    final int totalCalories = meals.fold<int>(0, (s, m) => s + m.calories);
+
     return Column(
       children: [
         // Header
@@ -105,7 +88,7 @@ class _LogPageState extends ConsumerState<LogPage> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            '$_totalCalories',
+                            '$totalCalories',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 28,
@@ -291,4 +274,3 @@ class _LogPageState extends ConsumerState<LogPage> {
     );
   }
 }
-

@@ -10,7 +10,6 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/unit_converter.dart';
 import '../profile/profile_page.dart';
 import 'widgets/body_metrics_section.dart';
-import 'widgets/data_management_section.dart';
 import 'widgets/about_section.dart';
 import 'widgets/sign_out_button.dart';
 
@@ -62,9 +61,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final isMetric = (profile.unitSystem ?? 'metric') == 'metric';
     setState(() {
       _profile = profile;
-      _weightCtrl.text = UnitConverter.weightToDisplay(profile.weight, isMetric: isMetric);
-      _heightCtrl.text = UnitConverter.lengthToDisplay(profile.height, isMetric: isMetric);
-      _waistlineCtrl.text = UnitConverter.lengthToDisplay(profile.waistline, isMetric: isMetric);
+      _weightCtrl.text = UnitConverter.weightToDisplay(
+        profile.weight,
+        isMetric: isMetric,
+      );
+      _heightCtrl.text = UnitConverter.lengthToDisplay(
+        profile.height,
+        isMetric: isMetric,
+      );
+      _waistlineCtrl.text = UnitConverter.lengthToDisplay(
+        profile.waistline,
+        isMetric: isMetric,
+      );
       _activityLevel = profile.activityLevel ?? 'moderate';
     });
   }
@@ -99,16 +107,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 color: AppTheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.person, size: 20, color: AppTheme.primary),
+              child: const Icon(
+                Icons.person,
+                size: 20,
+                color: AppTheme.primary,
+              ),
             ),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
                 'Account Profile',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
             const Icon(
@@ -127,9 +136,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   void _handleUpdateToday() {
     final storage = ref.read(storageProvider);
     final isMetric = (_profile.unitSystem ?? 'metric') == 'metric';
-    final newWeight = UnitConverter.parseWeight(_weightCtrl.text, isMetric: isMetric);
-    final newHeight = UnitConverter.parseLength(_heightCtrl.text, isMetric: isMetric);
-    final newWaistline = UnitConverter.parseLength(_waistlineCtrl.text, isMetric: isMetric);
+    final newWeight = UnitConverter.parseWeight(
+      _weightCtrl.text,
+      isMetric: isMetric,
+    );
+    final newHeight = UnitConverter.parseLength(
+      _heightCtrl.text,
+      isMetric: isMetric,
+    );
+    final newWaistline = UnitConverter.parseLength(
+      _waistlineCtrl.text,
+      isMetric: isMetric,
+    );
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     // Update profile with latest body values
@@ -154,34 +172,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         backgroundColor: AppTheme.primary,
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
-  // ─── Data Management ─────────────────────────────────────────
-
-  void _handleClearData() {
-    showCupertinoDialog(
-      context: context,
-      builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('Clear Data'),
-        content: const Text(
-          'Are you sure you want to clear all meal data? This cannot be undone.',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () {
-              ref.read(storageProvider).clearDemoData();
-              Navigator.pop(ctx);
-            },
-            child: const Text('Clear'),
-          ),
-        ],
       ),
     );
   }
@@ -274,8 +264,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     isMetric: (_profile.unitSystem ?? 'metric') == 'metric',
                   ),
                   const SizedBox(height: 24),
-                  DataManagementSection(onClearData: _handleClearData),
-                  const SizedBox(height: 24),
+
                   AboutSection(appVersion: _appVersion),
                   const SizedBox(height: 24),
                   SignOutButton(onSignOut: _handleSignOut),

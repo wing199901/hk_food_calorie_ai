@@ -7,9 +7,8 @@ import '../../core/theme/app_theme.dart';
 
 class AuthPage extends ConsumerStatefulWidget {
   final VoidCallback onAuthenticated;
-  final VoidCallback? onSkip;
 
-  const AuthPage({super.key, required this.onAuthenticated, this.onSkip});
+  const AuthPage({super.key, required this.onAuthenticated});
 
   @override
   ConsumerState<AuthPage> createState() => _AuthPageState();
@@ -66,11 +65,15 @@ class _AuthPageState extends ConsumerState<AuthPage> {
       if (_isSignIn) {
         debugPrint('[Auth] signIn → email=$email');
         final res = await supabase.signIn(email: email, password: password);
-        debugPrint('[Auth] signIn success → user=${res.user?.id} session=${res.session?.accessToken != null}');
+        debugPrint(
+          '[Auth] signIn success → user=${res.user?.id} session=${res.session?.accessToken != null}',
+        );
       } else {
         debugPrint('[Auth] signUp → email=$email');
         final res = await supabase.signUp(email: email, password: password);
-        debugPrint('[Auth] signUp → user=${res.user?.id} session=${res.session?.accessToken != null} emailConfirmed=${res.user?.emailConfirmedAt}');
+        debugPrint(
+          '[Auth] signUp → user=${res.user?.id} session=${res.session?.accessToken != null} emailConfirmed=${res.user?.emailConfirmedAt}',
+        );
         if (res.user != null && res.session == null) {
           if (mounted) _showConfirmationDialog();
           setState(() => _loading = false);
@@ -79,7 +82,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
       }
       if (mounted) widget.onAuthenticated();
     } on AuthException catch (e) {
-      debugPrint('[Auth] AuthException → code=${e.statusCode} message=${e.message}');
+      debugPrint(
+        '[Auth] AuthException → code=${e.statusCode} message=${e.message}',
+      );
       setState(
         () => _errorMessage = e.message.isNotEmpty
             ? e.message
@@ -245,8 +250,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                           controller: _emailCtrl,
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
-                          onSubmitted: (_) =>
-                              FocusScope.of(context).requestFocus(_passwordFocus),
+                          onSubmitted: (_) => FocusScope.of(
+                            context,
+                          ).requestFocus(_passwordFocus),
                           decoration: _outlinedDecoration(label: 'Email'),
                         ),
 
@@ -262,7 +268,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                               : TextInputAction.next,
                           onSubmitted: (_) => _isSignIn
                               ? _submit()
-                              : FocusScope.of(context).requestFocus(_confirmFocus),
+                              : FocusScope.of(
+                                  context,
+                                ).requestFocus(_confirmFocus),
                           decoration: _outlinedDecoration(
                             label: 'Password',
                             suffixIcon: IconButton(
@@ -412,51 +420,6 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                       ),
                     ],
                   ),
-
-                  // Skip / guest access
-                  if (widget.onSkip != null) ...[
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: AppTheme.border,
-                            thickness: 0.8,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'or',
-                            style: TextStyle(
-                              color: AppTheme.mutedForeground,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: AppTheme.border,
-                            thickness: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: TextButton(
-                        onPressed: widget.onSkip,
-                        child: const Text(
-                          'Continue without account',
-                          style: TextStyle(
-                            color: AppTheme.mutedForeground,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
 
                   const SizedBox(height: 32),
                 ],

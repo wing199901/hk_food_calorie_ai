@@ -91,10 +91,6 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     console.error("cleanup-old-records error:", err);
-    return errorResponse(
-      "INTERNAL_ERROR",
-      "Internal server error",
-      500,
-    );
+    return errorResponse("INTERNAL_ERROR", "Internal server error", 500);
   }
 });

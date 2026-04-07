@@ -68,8 +68,7 @@ void showAddQuickAddSheet({
                     final icon = availableIcons[index];
                     final isSelected = icon == selectedIcon;
                     return GestureDetector(
-                      onTap: () =>
-                          setSheetState(() => selectedIcon = icon),
+                      onTap: () => setSheetState(() => selectedIcon = icon),
                       child: Container(
                         width: 48,
                         height: 48,
@@ -85,7 +84,10 @@ void showAddQuickAddSheet({
                         alignment: Alignment.center,
                         child: Text(
                           icon,
-                          style: const TextStyle(fontSize: 24),
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontFamilyFallback: ['Apple Color Emoji'],
+                          ),
                         ),
                       ),
                     );
@@ -280,10 +282,7 @@ class _ManualField extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             errorText!,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.destructive,
-            ),
+            style: const TextStyle(fontSize: 12, color: AppTheme.destructive),
           ),
         ],
       ],

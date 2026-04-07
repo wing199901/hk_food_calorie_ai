@@ -46,8 +46,9 @@ class UnitSystemSelector extends StatelessWidget {
                       opt.$2,
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         color: isSelected
                             ? AppTheme.primary
                             : AppTheme.foreground,

@@ -11,6 +11,7 @@ body:
   content: |-
     {
         "user_id": "{{userId}}",
-        "period": "week"
+        "period": "week",
+        "focus": "general"
     }
 order: 6000

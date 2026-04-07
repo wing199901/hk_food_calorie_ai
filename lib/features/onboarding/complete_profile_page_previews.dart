@@ -21,13 +21,8 @@ class PreviewStorageService extends StorageService {
 
 Widget completeProfilePreviewWrapper(Widget child) {
   return ProviderScope(
-    overrides: [
-      storageProvider.overrideWith((ref) => PreviewStorageService()),
-    ],
-    child: MaterialApp(
-      theme: AppTheme.lightTheme,
-      home: child,
-    ),
+    overrides: [storageProvider.overrideWith((ref) => PreviewStorageService())],
+    child: MaterialApp(theme: AppTheme.lightTheme, home: child),
   );
 }
 

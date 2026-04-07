@@ -5,7 +5,7 @@ class UserProfile {
   final double? waistline;
   final String? gender; // 'male' | 'female' | 'other'
   final String?
-      activityLevel; // 'sedentary' | 'light' | 'moderate' | 'active' | 'very-active'
+  activityLevel; // 'sedentary' | 'light' | 'moderate' | 'active' | 'very-active'
   final String? unitSystem; // 'metric' | 'imperial'
 
   UserProfile({
@@ -25,8 +25,7 @@ class UserProfile {
     if (bd == null) return null;
     final now = DateTime.now();
     int years = now.year - bd.year;
-    if (now.month < bd.month ||
-        (now.month == bd.month && now.day < bd.day)) {
+    if (now.month < bd.month || (now.month == bd.month && now.day < bd.day)) {
       years--;
     }
     return years;

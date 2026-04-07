@@ -5,6 +5,7 @@ class BodyMetric {
   final double? bmi;
   final double? whtr;
   final int? tee;
+  final String? createdAt; // ISO8601 string for real update time
 
   BodyMetric({
     required this.date,
@@ -13,6 +14,7 @@ class BodyMetric {
     this.bmi,
     this.whtr,
     this.tee,
+    this.createdAt,
   });
 
   Map<String, dynamic> toJson() => {
@@ -22,6 +24,7 @@ class BodyMetric {
     'bmi': bmi,
     'whtr': whtr,
     'tee': tee,
+    'created_at': createdAt,
   };
 
   factory BodyMetric.fromJson(Map<String, dynamic> json) => BodyMetric(
@@ -33,6 +36,7 @@ class BodyMetric {
     bmi: json['bmi'] != null ? (json['bmi'] as num).toDouble() : null,
     whtr: json['whtr'] != null ? (json['whtr'] as num).toDouble() : null,
     tee: json['tee'] != null ? (json['tee'] as num).toInt() : null,
+    createdAt: json['created_at'] as String?,
   );
 
   BodyMetric copyWith({
@@ -42,6 +46,7 @@ class BodyMetric {
     double? bmi,
     double? whtr,
     int? tee,
+    String? createdAt,
   }) {
     return BodyMetric(
       date: date ?? this.date,
@@ -50,6 +55,7 @@ class BodyMetric {
       bmi: bmi ?? this.bmi,
       whtr: whtr ?? this.whtr,
       tee: tee ?? this.tee,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

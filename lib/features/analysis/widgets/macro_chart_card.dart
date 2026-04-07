@@ -25,8 +25,7 @@ class _MacroChartCardState extends State<MacroChartCard> {
   void _handleMacroTap(int index) {
     if (index < widget.weeklyData.length) {
       setState(() {
-        _selectedMacroIndex =
-            (_selectedMacroIndex == index) ? null : index;
+        _selectedMacroIndex = (_selectedMacroIndex == index) ? null : index;
       });
     }
   }

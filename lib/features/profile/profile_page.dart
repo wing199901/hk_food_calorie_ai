@@ -30,7 +30,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   // Computed age from the in-progress edit (real-time)
   int? get _displayAge {
-    final dt = _isEditing ? _editBirthdate : (_profile.birthdate != null ? DateTime.tryParse(_profile.birthdate!) : null);
+    final dt = _isEditing
+        ? _editBirthdate
+        : (_profile.birthdate != null
+              ? DateTime.tryParse(_profile.birthdate!)
+              : null);
     if (dt == null) return null;
     final now = DateTime.now();
     int years = now.year - dt.year;
@@ -44,7 +48,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   void initState() {
     super.initState();
     _profile = ref.read(storageProvider).getUserProfile();
-    _editBirthdate = _profile.birthdate != null ? DateTime.tryParse(_profile.birthdate!) : null;
+    _editBirthdate = _profile.birthdate != null
+        ? DateTime.tryParse(_profile.birthdate!)
+        : null;
     _editGender = _profile.gender;
     _editUnitSystem = _profile.unitSystem;
   }
@@ -150,19 +156,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget build(BuildContext context) {
     final birthdateDisplay = _isEditing
         ? (_editBirthdate != null
-            ? DateFormat('yyyy-MM-dd').format(_editBirthdate!)
-            : 'Tap to select')
+              ? DateFormat('yyyy-MM-dd').format(_editBirthdate!)
+              : 'Tap to select')
         : (_profile.birthdate ?? '—');
 
     final genderDisplay = _isEditing
         ? (_editGender ?? 'male')
         : (_profile.gender ?? '—');
 
-    final genderLabel = {
-      'male': 'Male',
-      'female': 'Female',
-      'other': 'Other',
-    };
+    final genderLabel = {'male': 'Male', 'female': 'Female', 'other': 'Other'};
 
     return Scaffold(
       backgroundColor: AppTheme.background,

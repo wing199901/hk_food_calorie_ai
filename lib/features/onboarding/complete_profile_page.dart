@@ -57,9 +57,24 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     if (p.gender != null) _gender = p.gender!;
     if (p.unitSystem != null) _unitSystem = p.unitSystem!;
     final isMetric = _unitSystem == 'metric';
-    if (p.height != null) _heightCtrl.text = UnitConverter.lengthToDisplay(p.height, isMetric: isMetric);
-    if (p.weight != null) _weightCtrl.text = UnitConverter.weightToDisplay(p.weight, isMetric: isMetric);
-    if (p.waistline != null) _waistlineCtrl.text = UnitConverter.lengthToDisplay(p.waistline, isMetric: isMetric);
+    if (p.height != null) {
+      _heightCtrl.text = UnitConverter.lengthToDisplay(
+        p.height,
+        isMetric: isMetric,
+      );
+    }
+    if (p.weight != null) {
+      _weightCtrl.text = UnitConverter.weightToDisplay(
+        p.weight,
+        isMetric: isMetric,
+      );
+    }
+    if (p.waistline != null) {
+      _waistlineCtrl.text = UnitConverter.lengthToDisplay(
+        p.waistline,
+        isMetric: isMetric,
+      );
+    }
     if (p.activityLevel != null) _activityLevel = p.activityLevel!;
   }
 
@@ -126,9 +141,17 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     setState(() => _isSaving = true);
     try {
       final isMetric = _unitSystem == 'metric';
-      final height = UnitConverter.parseLength(_heightCtrl.text, isMetric: isMetric) ?? 175.0;
-      final weight = UnitConverter.parseWeight(_weightCtrl.text, isMetric: isMetric);
-      final waistline = UnitConverter.parseLength(_waistlineCtrl.text, isMetric: isMetric);
+      final height =
+          UnitConverter.parseLength(_heightCtrl.text, isMetric: isMetric) ??
+          175.0;
+      final weight = UnitConverter.parseWeight(
+        _weightCtrl.text,
+        isMetric: isMetric,
+      );
+      final waistline = UnitConverter.parseLength(
+        _waistlineCtrl.text,
+        isMetric: isMetric,
+      );
 
       final profile = UserProfile(
         birthdate: _birthdate != null
@@ -300,7 +323,10 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         ),
         const SizedBox(height: 24),
         // Height
-        ProfileFieldLabel('Height (${_unitSystem == 'metric' ? 'cm' : 'in'})', isRequired: false),
+        ProfileFieldLabel(
+          'Height (${_unitSystem == 'metric' ? 'cm' : 'in'})',
+          isRequired: false,
+        ),
         const SizedBox(height: 8),
         ProfileInputField(
           controller: _heightCtrl,
@@ -324,7 +350,9 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
           icon: Icons.monitor_weight_outlined,
         ),
         const SizedBox(height: 24),
-        ProfileFieldLabel('Waistline (${_unitSystem == 'metric' ? 'cm' : 'in'})'),
+        ProfileFieldLabel(
+          'Waistline (${_unitSystem == 'metric' ? 'cm' : 'in'})',
+        ),
         const SizedBox(height: 8),
         ProfileInputField(
           controller: _waistlineCtrl,
@@ -441,7 +469,9 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                     child: Text(
                       'Save & Start Tracking',
                       style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

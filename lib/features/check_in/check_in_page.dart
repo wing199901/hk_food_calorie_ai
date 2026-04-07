@@ -9,10 +9,7 @@ import 'package:intl/intl.dart';
 class CheckInPage extends ConsumerStatefulWidget {
   final VoidCallback onComplete;
 
-  const CheckInPage({
-    super.key,
-    required this.onComplete,
-  });
+  const CheckInPage({super.key, required this.onComplete});
 
   @override
   ConsumerState<CheckInPage> createState() => _CheckInPageState();
@@ -29,10 +26,16 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
     final profile = ref.read(storageProvider).getUserProfile();
     _isMetric = (profile.unitSystem ?? 'metric') == 'metric';
     if (profile.weight != null) {
-      _weightController.text = UnitConverter.weightToDisplay(profile.weight, isMetric: _isMetric);
+      _weightController.text = UnitConverter.weightToDisplay(
+        profile.weight,
+        isMetric: _isMetric,
+      );
     }
     if (profile.waistline != null) {
-      _waistlineController.text = UnitConverter.lengthToDisplay(profile.waistline, isMetric: _isMetric);
+      _waistlineController.text = UnitConverter.lengthToDisplay(
+        profile.waistline,
+        isMetric: _isMetric,
+      );
     }
   }
 
@@ -45,8 +48,14 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
 
   void _handleSave() {
     final storage = ref.read(storageProvider);
-    final newWeight = UnitConverter.parseWeight(_weightController.text, isMetric: _isMetric);
-    final newWaistline = UnitConverter.parseLength(_waistlineController.text, isMetric: _isMetric);
+    final newWeight = UnitConverter.parseWeight(
+      _weightController.text,
+      isMetric: _isMetric,
+    );
+    final newWaistline = UnitConverter.parseLength(
+      _waistlineController.text,
+      isMetric: _isMetric,
+    );
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     storage.addBodyMetric(
@@ -142,7 +151,7 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
                   TextButton(
                     onPressed: _handleSkip,
                     child: const Text(
-                      'Skip for today',
+                      'Skip',
                       style: TextStyle(
                         color: AppTheme.mutedForeground,
                         fontSize: 16,

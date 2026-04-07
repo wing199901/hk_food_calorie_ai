@@ -11,7 +11,7 @@ import 'features/onboarding/complete_profile_page.dart';
 import 'features/auth/auth_page.dart';
 import 'features/check_in/check_in_page.dart';
 import 'features/home/home_page.dart';
-import 'features/food_analysis/add_food_page.dart';
+import 'features/add_food/add_food_page.dart';
 import 'features/analysis/analysis_page.dart';
 import 'features/log/log_page.dart';
 import 'features/settings/settings_page.dart';
@@ -26,9 +26,7 @@ Future<void> main() async {
 
   runApp(
     ProviderScope(
-      overrides: [
-        storageProvider.overrideWith((ref) => storage),
-      ],
+      overrides: [storageProvider.overrideWith((ref) => storage)],
       child: const FitCalorieApp(),
     ),
   );
@@ -75,48 +73,55 @@ class _AppLoaderState extends ConsumerState<AppLoader> {
   }
 
   Future<void> _init() async {
-    final storage = ref.read(storageProvider);
-    final supabase = ref.read(supabaseProvider);
+    try {
+      final storage = ref.read(storageProvider);
+      final supabase = ref.read(supabaseProvider);
 
-    final isAuth = supabase.isAuthenticated;
-    // Mark that the upcoming session-restore signedIn event should be skipped.
-    _skipNextSignIn = isAuth;
+      final isAuth = supabase.isAuthenticated;
+      // Mark that the upcoming session-restore signedIn event should be skipped.
+      _skipNextSignIn = isAuth;
 
-    // React to future sign-in / sign-out events automatically.
-    supabase.authStateChanges.listen((event) {
-      if (!mounted) return;
-      if (event.event == AuthChangeEvent.signedIn) {
-        if (_skipNextSignIn) {
-          // This is the session-restore event — data is already being synced
-          // via the isAuth path below. Skip to avoid a race condition.
+      // React to future sign-in / sign-out events automatically.
+      supabase.authStateChanges.listen((event) {
+        if (!mounted) return;
+        if (event.event == AuthChangeEvent.signedIn) {
+          if (_skipNextSignIn) {
+            // This is the session-restore event — data is already being synced
+            // via the isAuth path below. Skip to avoid a race condition.
+            _skipNextSignIn = false;
+            return;
+          }
+          // Fresh login: clear any stale local/demo data, then sync cloud data.
+          storage.clearAllLocalData();
+          storage.syncFromSupabase().then((_) {
+            if (mounted) setState(() => _phase = _Phase.app);
+          });
+        } else if (event.event == AuthChangeEvent.signedOut) {
           _skipNextSignIn = false;
-          return;
+          setState(() => _phase = _Phase.landing);
         }
-        // Fresh login: clear any stale local/demo data, then sync cloud data.
-        storage.clearAllLocalData();
-        storage.syncFromSupabase().then((_) {
-          if (mounted) setState(() => _phase = _Phase.app);
-        });
-      } else if (event.event == AuthChangeEvent.signedOut) {
-        _skipNextSignIn = false;
-        setState(() => _phase = _Phase.landing);
-      }
-    });
+      });
 
-    if (isAuth) {
-      // Already logged in: sync first, then show app.
-      await storage.syncFromSupabase();
+      if (isAuth) {
+        // Already logged in: sync first, then show app.
+        await storage.syncFromSupabase();
+      }
+      if (!mounted) return;
+      setState(() {
+        _phase = isAuth ? _Phase.app : _Phase.landing;
+      });
+    } catch (e) {
+      debugPrint('AppLoader initialization error: $e');
+      if (!mounted) return;
+      // Fallback in case of initialization error
+      setState(() {
+        _phase = _Phase.landing;
+      });
     }
-    if (!mounted) return;
-    setState(() {
-      _phase = isAuth ? _Phase.app : _Phase.landing;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final storage = ref.read(storageProvider);
-
     switch (_phase) {
       case _Phase.loading:
         return const Scaffold(
@@ -131,10 +136,6 @@ class _AppLoaderState extends ConsumerState<AppLoader> {
       case _Phase.auth:
         return AuthPage(
           onAuthenticated: () => setState(() => _phase = _Phase.app),
-          onSkip: () {
-            storage.initializeDemoData();
-            setState(() => _phase = _Phase.app);
-          },
         );
       case _Phase.app:
         return const AppShell();
@@ -234,6 +235,26 @@ class MainScaffold extends ConsumerStatefulWidget {
 class _MainScaffoldState extends ConsumerState<MainScaffold> {
   int _currentIndex = 0;
 
+  late final List<Widget> _pages = [
+    HomePage(
+      onNavigate: (page) {
+        if (page == 'camera') {
+          _onNavTap(2);
+        } else if (page == 'analysis') {
+          setState(() => _currentIndex = 1);
+        } else if (page == 'log') {
+          setState(() => _currentIndex = 3);
+        } else if (page == 'settings') {
+          setState(() => _currentIndex = 4);
+        }
+      },
+    ),
+    const AnalysisPage(),
+    const SizedBox(), // placeholder for camera tab
+    const LogPage(),
+    const SettingsPage(),
+  ];
+
   void _onNavTap(int index) {
     if (index == 2) {
       // Center "+" button → Camera page as modal
@@ -255,29 +276,9 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      HomePage(
-        onNavigate: (page) {
-          if (page == 'camera') {
-            _onNavTap(2);
-          } else if (page == 'analysis') {
-            setState(() => _currentIndex = 1);
-          } else if (page == 'log') {
-            setState(() => _currentIndex = 3);
-          } else if (page == 'settings') {
-            setState(() => _currentIndex = 4);
-          }
-        },
-      ),
-      const AnalysisPage(),
-      const SizedBox(), // placeholder for camera tab
-      const LogPage(),
-      const SettingsPage(),
-    ];
-
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: IndexedStack(index: _currentIndex, children: pages),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,

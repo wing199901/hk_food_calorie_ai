@@ -14,10 +14,7 @@ import 'widgets/add_quick_add_sheet.dart';
 class AddFoodPage extends ConsumerStatefulWidget {
   final Function(String) onNavigate;
 
-  const AddFoodPage({
-    super.key,
-    required this.onNavigate,
-  });
+  const AddFoodPage({super.key, required this.onNavigate});
 
   @override
   ConsumerState<AddFoodPage> createState() => _AddFoodPageState();
@@ -31,10 +28,36 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
   List<QuickAddItem> _quickAddItems = [];
 
   static const _availableIcons = [
-    '🍚', '🥚', '🍌', '🍞', '☕', '🍗', '🍎', '🥛',
-    '🍜', '🥗', '🍕', '🍔', '🌮', '🍣', '🍱', '🥟',
-    '🍝', '🥩', '🍰', '🧁', '🍩', '🥤', '🍵', '🥐',
-    '🍙', '🥪', '🍲', '🥘', '🫕', '🍽️',
+    '🍚',
+    '🥚',
+    '🍌',
+    '🍞',
+    '☕',
+    '🍗',
+    '🍎',
+    '🥛',
+    '🍜',
+    '🥗',
+    '🍕',
+    '🍔',
+    '🌮',
+    '🍣',
+    '🍱',
+    '🥟',
+    '🍝',
+    '🥩',
+    '🍰',
+    '🧁',
+    '🍩',
+    '🥤',
+    '🍵',
+    '🥐',
+    '🍙',
+    '🥪',
+    '🍲',
+    '🥘',
+    '🫕',
+    '🍽️',
   ];
 
   static const _foodDatabase = [
@@ -158,6 +181,8 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
 
   void _handleQuickAdd(QuickAddItem item) {
     if (_isEditMode) return;
+
+    // Set the result to show confirmation screen
     setState(() {
       _selectedImage = null;
       _result = {
@@ -166,6 +191,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
         'protein': item.protein,
         'carbs': item.carbs,
         'fat': item.fat,
+        'sugar': item.sugar,
       };
     });
   }
@@ -412,7 +438,13 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
             ),
             child: Column(
               children: [
-                const Text('🍽️', style: TextStyle(fontSize: 32)),
+                const Text(
+                  '🍽️',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontFamilyFallback: ['Apple Color Emoji'],
+                  ),
+                ),
                 const SizedBox(height: 12),
                 const Text(
                   'No quick add items',

@@ -4,7 +4,7 @@
 // 重新計算 totals，防止 client 繞過驗證
 // ─────────────────────────────────────────────
 
-import { createAdminClient } from "../_shared/auth.ts";
+import { createUserClient, requireUserId } from "../_shared/auth.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 
 interface FoodItem {
@@ -27,15 +27,21 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleCors();
 
   try {
-    const { record_id, user_id, updated_items } = await req.json();
+    const { record_id, updated_items } = await req.json();
 
     if (!record_id) return errorResponse("MISSING_PARAM", "Missing record_id");
-    if (!user_id) return errorResponse("MISSING_USER_ID", "Missing user_id");
-    if (!updated_items || !Array.isArray(updated_items)) {
+        if (!updated_items || !Array.isArray(updated_items)) {
       return errorResponse("INVALID_PARAM", "updated_items must be an array");
     }
 
-    const supabase = createAdminClient();
+    const supabase = createUserClient(req);
+    let user_id: string;
+    try {
+      user_id = await requireUserId(supabase);
+    } catch (e) {
+      return errorResponse("UNAUTHORIZED", "Unauthorized", 401);
+    }
+
 
     // ── Verify record belongs to user ────────
     const { data: existing, error: fetchErr } = await supabase
@@ -107,10 +113,6 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     console.error("update-record error:", err);
-    return errorResponse(
-      "INTERNAL_ERROR",
-      "Internal server error",
-      500,
-    );
+    return errorResponse("INTERNAL_ERROR", "Internal server error", 500);
   }
 });

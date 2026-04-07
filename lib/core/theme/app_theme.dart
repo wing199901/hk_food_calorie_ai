@@ -38,7 +38,7 @@ class AppTheme {
         onSurface: foreground,
         onError: Colors.white,
       ),
-      fontFamily: 'SF Pro Display',
+      // Removed fontFamily: 'SF Pro Display' to prevent emoji fallback issues
       appBarTheme: const AppBarTheme(
         backgroundColor: primary,
         foregroundColor: Colors.white,

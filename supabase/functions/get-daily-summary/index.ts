@@ -4,19 +4,24 @@
 // 包含熱量、營養素、AI 簡單提示
 // ─────────────────────────────────────────────
 
-import { createAdminClient } from "../_shared/auth.ts";
+import { createUserClient, requireUserId } from "../_shared/auth.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleCors();
 
   try {
-    const { user_id, date = new Date().toISOString().split("T")[0] } =
-      await req.json();
+    const { date = new Date().toISOString().split("T")[0] } = await req.json();
 
-    if (!user_id) return errorResponse("MISSING_USER_ID", "Missing user_id");
+    
+    const supabase = createUserClient(req);
+    let user_id: string;
+    try {
+      user_id = await requireUserId(supabase);
+    } catch (e) {
+      return errorResponse("UNAUTHORIZED", "Unauthorized", 401);
+    }
 
-    const supabase = createAdminClient();
 
     // ── Fetch meal_records (AI 分析) ─────────
     const { data: records, error: recErr } = await supabase
@@ -94,11 +99,7 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     console.error("get-daily-summary error:", err);
-    return errorResponse(
-      "INTERNAL_ERROR",
-      "Internal server error",
-      500,
-    );
+    return errorResponse("INTERNAL_ERROR", "Internal server error", 500);
   }
 });
 
