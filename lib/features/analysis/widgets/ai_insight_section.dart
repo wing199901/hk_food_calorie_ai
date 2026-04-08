@@ -39,11 +39,7 @@ class _AiInsightSectionState extends State<AiInsightSection> {
 
       final response = await Supabase.instance.client.functions.invoke(
         'generate-ai-insight',
-        body: {
-
-          'period': widget.period,
-          'focus': widget.focus,
-        },
+        body: {'period': widget.period, 'focus': widget.focus},
       );
 
       if (response.status == 200) {
@@ -153,7 +149,7 @@ class _AiInsightSectionState extends State<AiInsightSection> {
               _fetchInsight();
             },
             child: const Text('Try Again'),
-          )
+          ),
         ],
       );
     }
@@ -172,10 +168,7 @@ class _AiInsightSectionState extends State<AiInsightSection> {
               SizedBox(height: 16),
               Text(
                 'AI 正在分析數據...',
-                style: TextStyle(
-                  color: AppTheme.mutedForeground,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: AppTheme.mutedForeground, fontSize: 14),
               ),
             ],
           ),
@@ -213,7 +206,10 @@ class _AiInsightSectionState extends State<AiInsightSection> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('• ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          const Text(
+            '• ',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
           Expanded(child: Text(text, style: _textStyle)),
         ],
       ),

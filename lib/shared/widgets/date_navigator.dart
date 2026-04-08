@@ -66,10 +66,16 @@ class _DateNavigatorState extends State<DateNavigator> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today, size: 16, color: Colors.white),
+                  const Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: Colors.white,
+                  ),
                   const SizedBox(width: 6),
                   Text(
-                    _isToday ? 'Today' : DateFormat('MMM d').format(widget.date),
+                    _isToday
+                        ? 'Today'
+                        : DateFormat('MMM d').format(widget.date),
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ],

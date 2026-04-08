@@ -35,6 +35,19 @@ AI-powered food calorie tracking app built with Flutter, Supabase, and Google Ge
 5. Deploy edge functions: `supabase functions deploy`
 6. Run the app: `make run`
 
+## Testing
+
+Run static analysis and all tests before merging changes:
+
+1. `dart analyze`
+2. `flutter test`
+3. `flutter test test/e2e/app_test.dart`
+
+Notes:
+
+- Unit and widget tests are organized in `test/unit` and `test/widget`.
+- End-to-end coverage is in `test/e2e/app_test.dart` using `integration_test`.
+
 ## Developer Guidelines & Rules
 
 All deep architectural rules, database schema details, and UI flow constraints have been extracted to instructions for AI agents and developer reference.

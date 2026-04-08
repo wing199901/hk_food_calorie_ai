@@ -36,12 +36,13 @@ class AccountProfileSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final birthdateDisplay = isEditing
         ? (editBirthdate != null
-            ? DateFormat('yyyy-MM-dd').format(editBirthdate!)
-            : 'Tap to select')
+              ? DateFormat('yyyy-MM-dd').format(editBirthdate!)
+              : 'Tap to select')
         : (profile.birthdate ?? '—');
 
-    final genderDisplay =
-        isEditing ? (editGender ?? 'male') : (profile.gender ?? '—');
+    final genderDisplay = isEditing
+        ? (editGender ?? 'male')
+        : (profile.gender ?? '—');
 
     return SettingsSection(
       icon: Icons.person,
@@ -63,8 +64,7 @@ class AccountProfileSection extends StatelessWidget {
               Icon(
                 isEditing ? Icons.check : Icons.edit,
                 size: 16,
-                color:
-                    isEditing ? AppTheme.primary : AppTheme.mutedForeground,
+                color: isEditing ? AppTheme.primary : AppTheme.mutedForeground,
               ),
               const SizedBox(width: 4),
               Text(
@@ -107,10 +107,7 @@ class AccountProfileSection extends StatelessWidget {
             ),
           if (profile.age != null) ...[
             const SizedBox(height: 12),
-            SettingsReadOnlyRow(
-              label: 'Age',
-              value: '${profile.age} years',
-            ),
+            SettingsReadOnlyRow(label: 'Age', value: '${profile.age} years'),
           ],
         ],
       ),

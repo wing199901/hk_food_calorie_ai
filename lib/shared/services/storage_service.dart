@@ -9,6 +9,9 @@ import '../models/quick_add_item.dart';
 import 'supabase_service.dart';
 
 class StorageService extends ChangeNotifier {
+  StorageService({SupabaseService? supabaseService})
+    : _supabase = supabaseService ?? SupabaseService();
+
   static const _mealsKey = 'fitcalorie_meals';
   static const _targetKey = 'fitcalorie_target';
   static const _profileKey = 'fitcalorie_profile';
@@ -18,7 +21,7 @@ class StorageService extends ChangeNotifier {
   static const _quickAddKey = 'fitcalorie_quick_add_items';
 
   late SharedPreferences _prefs;
-  final _supabase = SupabaseService();
+  final SupabaseService _supabase;
 
   /// Fire-and-forget Supabase write — silently ignored if not authenticated.
   void _syncAsync(Future<void> Function() fn) {

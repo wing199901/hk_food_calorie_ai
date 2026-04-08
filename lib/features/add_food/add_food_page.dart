@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/models/meal.dart';
 import '../../shared/models/quick_add_item.dart';
+import '../../shared/services/food_analysis_service.dart';
 import '../../core/theme/app_theme.dart';
 import 'widgets/quick_add_item_card.dart';
 import 'widgets/result_view.dart';
@@ -13,8 +13,13 @@ import 'widgets/add_quick_add_sheet.dart';
 
 class AddFoodPage extends ConsumerStatefulWidget {
   final Function(String) onNavigate;
+  final bool showTestControls;
 
-  const AddFoodPage({super.key, required this.onNavigate});
+  const AddFoodPage({
+    super.key,
+    required this.onNavigate,
+    this.showTestControls = false,
+  });
 
   @override
   ConsumerState<AddFoodPage> createState() => _AddFoodPageState();
@@ -60,89 +65,6 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
     '🍽️',
   ];
 
-  static const _foodDatabase = [
-    {
-      'name': 'BBQ Combo Rice',
-      'calories': 750,
-      'protein': 35,
-      'carbs': 88,
-      'fat': 28,
-      'sugar': 6,
-    },
-    {
-      'name': 'Pineapple Bun + Iced Milk Tea',
-      'calories': 520,
-      'protein': 8,
-      'carbs': 62,
-      'fat': 26,
-      'sugar': 28,
-    },
-    {
-      'name': 'Wonton Noodles',
-      'calories': 380,
-      'protein': 18,
-      'carbs': 48,
-      'fat': 12,
-      'sugar': 4,
-    },
-    {
-      'name': 'Char Siu Rice',
-      'calories': 680,
-      'protein': 32,
-      'carbs': 85,
-      'fat': 22,
-      'sugar': 8,
-    },
-    {
-      'name': 'Egg Tart',
-      'calories': 220,
-      'protein': 4,
-      'carbs': 28,
-      'fat': 10,
-      'sugar': 12,
-    },
-    {
-      'name': 'Dim Sum Platter (Har Gow, Siu Mai, Cheung Fun)',
-      'calories': 580,
-      'protein': 24,
-      'carbs': 52,
-      'fat': 28,
-      'sugar': 6,
-    },
-    {
-      'name': 'Pork Chop Bun',
-      'calories': 450,
-      'protein': 22,
-      'carbs': 38,
-      'fat': 24,
-      'sugar': 4,
-    },
-    {
-      'name': 'Fish Ball Noodles',
-      'calories': 320,
-      'protein': 16,
-      'carbs': 42,
-      'fat': 10,
-      'sugar': 2,
-    },
-    {
-      'name': 'Iced Lemon Tea',
-      'calories': 120,
-      'protein': 0,
-      'carbs': 30,
-      'fat': 0,
-      'sugar': 28,
-    },
-    {
-      'name': 'Claypot Rice',
-      'calories': 620,
-      'protein': 28,
-      'carbs': 78,
-      'fat': 22,
-      'sugar': 6,
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -161,22 +83,36 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
     if (picked != null) {
       setState(() {
         _selectedImage = picked.path;
+        _result = null;
         _isEditMode = false;
       });
-      _analyzeImage(picked.path);
+      await _analyzeImage(picked.path);
     }
   }
 
-  void _analyzeImage(String imagePath) {
-    setState(() => _analyzing = true);
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      final randomFood = _foodDatabase[Random().nextInt(_foodDatabase.length)];
-      setState(() {
-        _result = Map<String, dynamic>.from(randomFood);
-        _analyzing = false;
-      });
+  Future<void> _analyzeImage(String imagePath) async {
+    setState(() {
+      _analyzing = true;
+      _result = null;
     });
+
+    try {
+      final result = await ref
+          .read(foodAnalysisServiceProvider)
+          .analyzeImage(imagePath);
+      if (!mounted) return;
+      setState(() => _result = result);
+    } on FoodAnalysisException catch (error) {
+      if (!mounted) return;
+      _showError(error.message);
+    } catch (_) {
+      if (!mounted) return;
+      _showError('Unable to analyze this meal right now. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _analyzing = false);
+      }
+    }
   }
 
   void _handleQuickAdd(QuickAddItem item) {
@@ -199,6 +135,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
   void _handleDeleteQuickAdd(QuickAddItem item) {
     HapticFeedback.mediumImpact();
     ref.read(storageProvider).removeQuickAddItem(item.id);
+    _loadQuickAddItems();
   }
 
   void _handleSave() {
@@ -214,6 +151,9 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
             ? (_result!['carbs'] as num).toInt()
             : null,
         fat: _result!['fat'] != null ? (_result!['fat'] as num).toInt() : null,
+        sugar: _result!['sugar'] != null
+            ? (_result!['sugar'] as num).toInt()
+            : null,
         timestamp: DateTime.now().millisecondsSinceEpoch,
         image: _selectedImage,
       );
@@ -237,6 +177,16 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
 
   void _exitEditMode() {
     setState(() => _isEditMode = false);
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.destructive,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -362,6 +312,28 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
             ),
           ],
         ),
+        if (widget.showTestControls) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  key: const Key('test_analyze_valid_photo'),
+                  onPressed: () => _analyzeImage('meal.jpg'),
+                  child: const Text('Test Analyze Valid Photo'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  key: const Key('test_analyze_invalid_photo'),
+                  onPressed: () => _analyzeImage('meal.txt'),
+                  child: const Text('Test Analyze Invalid Photo'),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 32),
         // Quick Add section header
         Row(
@@ -466,6 +438,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
           )
         else
           GridView.count(
+            key: const Key('quick_add_grid'),
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,

@@ -226,7 +226,9 @@ class _AppShellState extends ConsumerState<AppShell> {
 
 /// Main app scaffold with bottom navigation.
 class MainScaffold extends ConsumerStatefulWidget {
-  const MainScaffold({super.key});
+  final bool showTestControls;
+
+  const MainScaffold({super.key, this.showTestControls = false});
 
   @override
   ConsumerState<MainScaffold> createState() => _MainScaffoldState();
@@ -261,6 +263,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => AddFoodPage(
+            showTestControls: widget.showTestControls,
             onNavigate: (page) {
               Navigator.of(context).pop();
               if (page == 'home') setState(() => _currentIndex = 0);
@@ -341,6 +344,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
   Widget _addButton() {
     return InkWell(
+      key: const Key('main_nav_add_button'),
       onTap: () => _onNavTap(2),
       child: Container(
         width: 56,

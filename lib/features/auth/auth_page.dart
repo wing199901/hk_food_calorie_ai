@@ -385,8 +385,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                   const SizedBox(height: 24),
 
                   // ── Toggle sign in / sign up ──────────────────────────
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
                         _isSignIn

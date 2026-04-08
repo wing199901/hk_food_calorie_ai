@@ -8,7 +8,14 @@
 
 - **Language:** Reply to the user in **Chinese (Hong Kong / Cantonese)**. Keep technical terms in English. All generated code and comments must be in English.
 - **Verification:** Always run `dart analyze` after editing `.dart` files and ensure zero errors.
+- **Testing After Edits:** After any agent edits to the app code, also add or update corresponding unit tests (in `test/`) and e2e (in `test/e2e`) where applicable. Run `flutter test` (and integration tests if set up) to verify and ensure zero failures. If e2e tests cannot be added due to technical constraints, note the reason in code comments.
 - **Documentation Updates:** Always check and propose updates to `README.md` and instruction files whenever making major changes or adding new features.
+
+## Testing Conventions
+
+- **Feature-first test layout:** Keep tests grouped by type and feature under `test/unit/`, `test/widget/`, and `test/e2e/`.
+- **Deterministic UI flow testing:** Prefer provider overrides with fake services for widget/e2e tests to avoid external dependencies.
+- **Photo analysis flow tests:** Use deterministic test controls (for example, test-only triggers in `AddFoodPage`) for predictable valid/invalid/network error scenarios.
 
 ## Code Readability & Commenting
 

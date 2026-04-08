@@ -38,8 +38,10 @@ class WeekNavigator extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _chevron(Icons.chevron_left,
-              () => onWeekChanged(weekStart.subtract(const Duration(days: 7)))),
+          _chevron(
+            Icons.chevron_left,
+            () => onWeekChanged(weekStart.subtract(const Duration(days: 7))),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(

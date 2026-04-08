@@ -11,11 +11,7 @@ class ManualMealModal extends ConsumerStatefulWidget {
   final DateTime date;
   final Meal? initialMeal;
 
-  const ManualMealModal({
-    super.key,
-    required this.date,
-    this.initialMeal,
-  });
+  const ManualMealModal({super.key, required this.date, this.initialMeal});
 
   @override
   ConsumerState<ManualMealModal> createState() => _ManualMealModalState();
@@ -84,29 +80,33 @@ class _ManualMealModalState extends ConsumerState<ManualMealModal> {
     final fat = int.tryParse(_fatCtrl.text);
 
     if (widget.initialMeal != null) {
-      ref.read(storageProvider).updateMeal(
-        widget.initialMeal!.copyWith(
-          name: name,
-          calories: calories,
-          protein: protein,
-          carbs: carbs,
-          fat: fat,
-          image: _image,
-        ),
-      );
+      ref
+          .read(storageProvider)
+          .updateMeal(
+            widget.initialMeal!.copyWith(
+              name: name,
+              calories: calories,
+              protein: protein,
+              carbs: carbs,
+              fat: fat,
+              image: _image,
+            ),
+          );
     } else {
-      ref.read(storageProvider).saveMeal(
-        Meal(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: name,
-          calories: calories,
-          protein: protein,
-          carbs: carbs,
-          fat: fat,
-          timestamp: widget.date.millisecondsSinceEpoch,
-          image: _image,
-        ),
-      );
+      ref
+          .read(storageProvider)
+          .saveMeal(
+            Meal(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              name: name,
+              calories: calories,
+              protein: protein,
+              carbs: carbs,
+              fat: fat,
+              timestamp: widget.date.millisecondsSinceEpoch,
+              image: _image,
+            ),
+          );
     }
     Navigator.pop(context);
   }

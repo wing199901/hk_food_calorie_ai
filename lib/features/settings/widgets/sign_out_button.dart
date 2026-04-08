@@ -17,9 +17,7 @@ class SignOutButton extends StatelessWidget {
         label: const Text('Sign Out'),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.destructive,
-          side: BorderSide(
-            color: AppTheme.destructive.withValues(alpha: 0.4),
-          ),
+          side: BorderSide(color: AppTheme.destructive.withValues(alpha: 0.4)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),

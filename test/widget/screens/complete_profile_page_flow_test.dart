@@ -86,7 +86,7 @@ Future<void> tapSaveButton(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await tester.pump();
   await tester.tap(finder);
-  await tester.pump();                              // kick off async
+  await tester.pump(); // kick off async
   await tester.pump(const Duration(milliseconds: 300)); // complete save
 }
 
@@ -117,27 +117,41 @@ void main() {
     testWidgets('Step 1 is shown on first load', (tester) async {
       usePhoneSize(tester);
       await tester.pumpWidget(
-          buildPage(storage: fakeStorage, onComplete: () => completeCalled = true));
+        buildPage(
+          storage: fakeStorage,
+          onComplete: () => completeCalled = true,
+        ),
+      );
       expect(find.text('Complete Your Profile'), findsOneWidget);
       expect(find.text('Select your birthdate'), findsOneWidget);
     });
 
-    testWidgets('Step 1 Continue without birthdate shows validation error',
-        (tester) async {
+    testWidgets('Step 1 Continue without birthdate shows validation error', (
+      tester,
+    ) async {
       usePhoneSize(tester);
       await tester.pumpWidget(
-          buildPage(storage: fakeStorage, onComplete: () => completeCalled = true));
+        buildPage(
+          storage: fakeStorage,
+          onComplete: () => completeCalled = true,
+        ),
+      );
       await scrollAndTap(tester, find.text('Continue'));
       expect(find.text('Please enter your birthdate.'), findsOneWidget);
       // Still on step 1
       expect(find.text('Complete Your Profile'), findsOneWidget);
     });
 
-    testWidgets('Step 1 Continue with birthdate advances to Step 2',
-        (tester) async {
+    testWidgets('Step 1 Continue with birthdate advances to Step 2', (
+      tester,
+    ) async {
       usePhoneSize(tester);
       await tester.pumpWidget(
-          buildPage(storage: fakeStorage, onComplete: () => completeCalled = true));
+        buildPage(
+          storage: fakeStorage,
+          onComplete: () => completeCalled = true,
+        ),
+      );
       await confirmBirthdate(tester);
       await scrollAndTap(tester, find.text('Continue'));
       expect(find.text('Almost There!'), findsOneWidget);
@@ -148,7 +162,11 @@ void main() {
     testWidgets('Step 2 Continue advances to Step 3', (tester) async {
       usePhoneSize(tester);
       await tester.pumpWidget(
-          buildPage(storage: fakeStorage, onComplete: () => completeCalled = true));
+        buildPage(
+          storage: fakeStorage,
+          onComplete: () => completeCalled = true,
+        ),
+      );
       await confirmBirthdate(tester);
       await scrollAndTap(tester, find.text('Continue'));
       // On Step 2
@@ -159,48 +177,69 @@ void main() {
 
     // ── Step 3 ──────────────────────────────────────────────────────────────
 
-    testWidgets('Step 3 "Save & Start Tracking" saves profile and calls onComplete',
-        (tester) async {
-      usePhoneSize(tester);
-      await tester.pumpWidget(
-          buildPage(storage: fakeStorage, onComplete: () => completeCalled = true));
-      await confirmBirthdate(tester);
-      await scrollAndTap(tester, find.text('Continue'));
-      await scrollAndTap(tester, find.text('Continue'));
-      // On Step 3
-      await tapSaveButton(tester, find.text('Save & Start Tracking'));
+    testWidgets(
+      'Step 3 "Save & Start Tracking" saves profile and calls onComplete',
+      (tester) async {
+        usePhoneSize(tester);
+        await tester.pumpWidget(
+          buildPage(
+            storage: fakeStorage,
+            onComplete: () => completeCalled = true,
+          ),
+        );
+        await confirmBirthdate(tester);
+        await scrollAndTap(tester, find.text('Continue'));
+        await scrollAndTap(tester, find.text('Continue'));
+        // On Step 3
+        await tapSaveButton(tester, find.text('Save & Start Tracking'));
 
-      expect(completeCalled, isTrue);
-      expect(fakeStorage.savedProfiles, isNotEmpty);
-    });
+        expect(completeCalled, isTrue);
+        expect(fakeStorage.savedProfiles, isNotEmpty);
+      },
+    );
 
     // ── Regression: null weight/waistline when Step 2 fields left empty ──────
 
     testWidgets(
-        'Empty Step 2 saves null weight and waistline (no default injection)',
-        (tester) async {
-      usePhoneSize(tester);
-      await tester.pumpWidget(
-          buildPage(storage: fakeStorage, onComplete: () => completeCalled = true));
-      await confirmBirthdate(tester);
-      await scrollAndTap(tester, find.text('Continue'));
-      // Continue on Step 2 with empty weight/waistline fields
-      await scrollAndTap(tester, find.text('Continue'));
-      // Save on Step 3
-      await tapSaveButton(tester, find.text('Save & Start Tracking'));
+      'Empty Step 2 saves null weight and waistline (no default injection)',
+      (tester) async {
+        usePhoneSize(tester);
+        await tester.pumpWidget(
+          buildPage(
+            storage: fakeStorage,
+            onComplete: () => completeCalled = true,
+          ),
+        );
+        await confirmBirthdate(tester);
+        await scrollAndTap(tester, find.text('Continue'));
+        // Continue on Step 2 with empty weight/waistline fields
+        await scrollAndTap(tester, find.text('Continue'));
+        // Save on Step 3
+        await tapSaveButton(tester, find.text('Save & Start Tracking'));
 
-      expect(fakeStorage.savedProfiles, isNotEmpty);
-      final saved = fakeStorage.savedProfiles.last;
-      expect(saved.weight, isNull,
-          reason: 'Weight should be null when left empty on Step 2');
-      expect(saved.waistline, isNull,
-          reason: 'Waistline should be null when left empty on Step 2');
-    });
+        expect(fakeStorage.savedProfiles, isNotEmpty);
+        final saved = fakeStorage.savedProfiles.last;
+        expect(
+          saved.weight,
+          isNull,
+          reason: 'Weight should be null when left empty on Step 2',
+        );
+        expect(
+          saved.waistline,
+          isNull,
+          reason: 'Waistline should be null when left empty on Step 2',
+        );
+      },
+    );
 
     testWidgets('Entering weight on Step 2 saves it correctly', (tester) async {
       usePhoneSize(tester);
       await tester.pumpWidget(
-          buildPage(storage: fakeStorage, onComplete: () => completeCalled = true));
+        buildPage(
+          storage: fakeStorage,
+          onComplete: () => completeCalled = true,
+        ),
+      );
       await confirmBirthdate(tester);
       await scrollAndTap(tester, find.text('Continue'));
       // Enter weight on Step 2

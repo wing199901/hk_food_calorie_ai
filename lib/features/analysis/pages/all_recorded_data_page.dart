@@ -70,20 +70,24 @@ class AllRecordedDataPage extends ConsumerWidget {
       if (data.isEmpty && dataType != DataType.height) {
         return const Center(child: Text('No data available'));
       }
-      
+
       if (dataType == DataType.height && data.isEmpty) {
-         if (profile.height != null) {
-           // Create a fake entry for today so at least current height is shown
-           return _sectionCard(
-             title: 'All-Time History',
-             child: Column(
-               children: [
-                 _historyRowBody(null, isLast: true, overrideHeight: profile.height),
-               ],
-             ),
-           );
-         }
-         return const Center(child: Text('No data available'));
+        if (profile.height != null) {
+          // Create a fake entry for today so at least current height is shown
+          return _sectionCard(
+            title: 'All-Time History',
+            child: Column(
+              children: [
+                _historyRowBody(
+                  null,
+                  isLast: true,
+                  overrideHeight: profile.height,
+                ),
+              ],
+            ),
+          );
+        }
+        return const Center(child: Text('No data available'));
       }
 
       return _sectionCard(
@@ -91,7 +95,11 @@ class AllRecordedDataPage extends ConsumerWidget {
         child: Column(
           children: [
             for (int i = 0; i < data.length; i++)
-              _historyRowBody(data[i], isLast: i == data.length - 1, overrideHeight: profile.height),
+              _historyRowBody(
+                data[i],
+                isLast: i == data.length - 1,
+                overrideHeight: profile.height,
+              ),
           ],
         ),
       );
@@ -168,7 +176,11 @@ class AllRecordedDataPage extends ConsumerWidget {
     return d ?? DateTime.now();
   }
 
-  Widget _historyRowBody(dynamic item, {required bool isLast, double? overrideHeight}) {
+  Widget _historyRowBody(
+    dynamic item, {
+    required bool isLast,
+    double? overrideHeight,
+  }) {
     // Parse date
     DateTime date = _parseBodyMetricDate(item);
 
@@ -183,7 +195,9 @@ class AllRecordedDataPage extends ConsumerWidget {
     } else if (dataType == DataType.bmi) {
       if (item?.bmi != null) {
         valueStr = item.bmi.toStringAsFixed(1);
-      } else if (overrideHeight != null && item?.weight != null && overrideHeight > 0) {
+      } else if (overrideHeight != null &&
+          item?.weight != null &&
+          overrideHeight > 0) {
         final heightInM = overrideHeight / 100;
         final bmi = item.weight / (heightInM * heightInM);
         valueStr = bmi.toStringAsFixed(1);
