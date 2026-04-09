@@ -123,8 +123,6 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('test_analyze_valid_photo')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add Meal'));
-      await tester.pumpAndSettle();
 
       // Quick add flow
       await tester.tap(find.byKey(const Key('main_nav_add_button')));

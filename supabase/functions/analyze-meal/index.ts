@@ -1,12 +1,15 @@
 // supabase/functions/analyze-meal/index.ts
-// ─────────────────────────────────────────────
-// Core: Receive food/drink photo → Call Gemini AI
-//       → Structured JSON output → Save to meal_records
-// ─────────────────────────────────────────────
-// Tech Spec: TypeScript (Deno 2.x) | Timeout 30s | Memory 256MB | Max 5MB image
-// Uses Gemini Structured Output (responseSchema) for guaranteed valid JSON.
+// -------------------------------------------------------------
+// Core: Receive storage image path -> Call Gemini AI
+//       -> Structured JSON output for the mobile app
+// -------------------------------------------------------------
+// Tech Spec: TypeScript (Deno 2.x) | Timeout 30s | Memory 256MB
 
-import { createUserClient, requireUserId } from "../_shared/auth.ts";
+import {
+  createAdminClient,
+  createUserClient,
+  requireUserId,
+} from "../_shared/auth.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
@@ -15,7 +18,19 @@ const GEMINI_TIMEOUT_MS = 20_000;
 const GEMINI_MAX_RETRIES = 2;
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 
-// ── System Instruction (behavioural / domain knowledge only) ─
+const IMAGE_BUCKET = "meal-images";
+const MAX_IMAGE_BYTES = 1_500_000;
+const ALLOWED_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+];
+
+let bucketEnsured = false;
+
+// -- System Instruction (behavioural / domain knowledge only) --
 const SYSTEM_INSTRUCTION = `You are a professional nutritionist specialising in analysing food and drink photos from any cuisine.
 
 Core capabilities:
@@ -30,9 +45,7 @@ Analysis rules:
 - For uncertain items, provide the most reasonable estimate with a lower confidence score
 - If the photo contains no food or is unclear, return an empty items array and populate the error field`;
 
-// ── Response Schema (Gemini Structured Output) ───────────────
-// Gemini guarantees the response matches this schema exactly.
-// See: https://ai.google.dev/api/generate-content#json_controlled_generation
+// -- Response Schema (Gemini Structured Output) ---------------
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -132,7 +145,6 @@ const RESPONSE_SCHEMA = {
   ],
 };
 
-// ── Types ────────────────────────────────────────────────────
 interface FoodItem {
   name_zh: string;
   name_en: string;
@@ -187,8 +199,82 @@ function isRetryableNetworkError(err: unknown): boolean {
   return retryHints.some((hint) => message.includes(hint));
 }
 
+function inferMimeType(imagePath: string): string {
+  const normalized = imagePath.toLowerCase();
+  if (normalized.endsWith(".png")) return "image/png";
+  if (normalized.endsWith(".webp")) return "image/webp";
+  if (normalized.endsWith(".heic")) return "image/heic";
+  if (normalized.endsWith(".heif")) return "image/heif";
+  return "image/jpeg";
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    return bytes;
+  } catch {
+    throw new Error("INVALID_IMAGE_BASE64");
+  }
+}
+
+async function ensureImageBucket(): Promise<void> {
+  if (bucketEnsured) return;
+
+  const admin = createAdminClient();
+  const { data: buckets, error: listError } = await admin.storage.listBuckets();
+
+  if (listError) {
+    throw new Error(`Failed to list storage buckets: ${listError.message}`);
+  }
+
+  const bucketExists = (buckets ?? []).some((bucket) =>
+    bucket.id === IMAGE_BUCKET || bucket.name === IMAGE_BUCKET
+  );
+
+  if (!bucketExists) {
+    const { error: createError } = await admin.storage.createBucket(
+      IMAGE_BUCKET,
+      {
+        public: true,
+        fileSizeLimit: `${MAX_IMAGE_BYTES}`,
+        allowedMimeTypes: ALLOWED_IMAGE_MIME_TYPES,
+      },
+    );
+
+    if (createError) {
+      const message = createError.message.toLowerCase();
+      if (!message.includes("already exists")) {
+        throw new Error(
+          `Failed to create storage bucket ${IMAGE_BUCKET}: ${createError.message}`,
+        );
+      }
+    }
+  }
+
+  bucketEnsured = true;
+}
+
 async function callGeminiWithRetry(
   imageBase64: string,
+  mimeType: string,
   geminiKey: string,
 ): Promise<Response> {
   let lastError: unknown = null;
@@ -210,7 +296,7 @@ async function callGeminiWithRetry(
                 },
                 {
                   inline_data: {
-                    mime_type: "image/jpeg",
+                    mime_type: mimeType,
                     data: imageBase64,
                   },
                 },
@@ -250,38 +336,124 @@ async function callGeminiWithRetry(
   throw lastError ?? new Error("Gemini request failed");
 }
 
-// ── Main handler ─────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleCors();
 
   try {
-    // ── Parse body ────────────────────────────
-    const { image_base64, date = new Date().toISOString().split("T")[0] } = await req.json();
+    const body = await req.json();
+    const imagePath = typeof body?.image_path === "string"
+      ? body.image_path.trim()
+      : "";
+    const imageBase64Input = typeof body?.image_base64 === "string"
+      ? body.image_base64.trim()
+      : "";
+    const date = typeof body?.date === "string" && body.date.length > 0
+      ? body.date
+      : new Date().toISOString().split("T")[0];
 
-    if (!image_base64)
-      return errorResponse("MISSING_IMAGE", "Missing image_base64");
-    
-    // Validate image size (~5 MB after base64 ≈ ~6.67 MB string)
-    if (image_base64.length > 7_000_000) {
+    if (!imagePath && !imageBase64Input) {
       return errorResponse(
-        "IMAGE_TOO_LARGE",
-        "Image too large, max 5 MB after compression",
-        413,
+        "MISSING_IMAGE",
+        "Missing image_path or image_base64",
       );
     }
 
-    // ── Call Gemini API (Structured Output) ───
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiKey)
+    const supabase = createUserClient(req);
+    let user_id: string;
+    try {
+      user_id = await requireUserId(supabase);
+    } catch {
+      return errorResponse("UNAUTHORIZED", "Unauthorized", 401);
+    }
+
+    if (imagePath && !imagePath.startsWith(`${user_id}/`)) {
       return errorResponse(
-        "CONFIG_ERROR",
-        "GEMINI_API_KEY not configured",
-        500,
+        "FORBIDDEN_IMAGE_PATH",
+        "Image path does not belong to the authenticated user",
+        403,
       );
+    }
+
+    if (imagePath) {
+      await ensureImageBucket();
+    }
+
+    let imageBytes: Uint8Array;
+    let imageBase64: string;
+    const mimeType = imagePath ? inferMimeType(imagePath) : "image/jpeg";
+    let imageUrl: string | null = null;
+
+    if (imagePath) {
+      const { data: publicData } = supabase.storage
+        .from(IMAGE_BUCKET)
+        .getPublicUrl(imagePath);
+      imageUrl = publicData.publicUrl;
+    }
+
+    if (imageBase64Input) {
+      try {
+        imageBytes = base64ToBytes(imageBase64Input);
+      } catch (error) {
+        if (extractErrorMessage(error).includes("INVALID_IMAGE_BASE64")) {
+          return errorResponse(
+            "INVALID_IMAGE_BASE64",
+            "Invalid image_base64 payload",
+            400,
+          );
+        }
+        throw error;
+      }
+
+      if (imageBytes.byteLength == 0) {
+        return errorResponse("IMAGE_EMPTY", "Uploaded image is empty", 400);
+      }
+
+      if (imageBytes.byteLength > MAX_IMAGE_BYTES) {
+        return errorResponse(
+          "IMAGE_TOO_LARGE",
+          "Image too large, max 1.5 MB after compression",
+          413,
+        );
+      }
+
+      imageBase64 = imageBase64Input;
+    } else {
+      const { data: imageBlob, error: downloadError } = await supabase.storage
+        .from(IMAGE_BUCKET)
+        .download(imagePath);
+
+      if (downloadError || !imageBlob) {
+        return errorResponse(
+          "IMAGE_NOT_FOUND",
+          "Uploaded image not found",
+          404,
+        );
+      }
+
+      imageBytes = new Uint8Array(await imageBlob.arrayBuffer());
+      if (imageBytes.byteLength == 0) {
+        return errorResponse("IMAGE_EMPTY", "Uploaded image is empty", 400);
+      }
+
+      if (imageBytes.byteLength > MAX_IMAGE_BYTES) {
+        return errorResponse(
+          "IMAGE_TOO_LARGE",
+          "Image too large, max 1.5 MB after compression",
+          413,
+        );
+      }
+
+      imageBase64 = bytesToBase64(imageBytes);
+    }
+
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!geminiKey) {
+      return errorResponse("CONFIG_ERROR", "GEMINI_API_KEY not configured", 500);
+    }
 
     let geminiRes: Response;
     try {
-      geminiRes = await callGeminiWithRetry(image_base64, geminiKey);
+      geminiRes = await callGeminiWithRetry(imageBase64, mimeType, geminiKey);
     } catch (err) {
       console.error(
         "Gemini network error:",
@@ -313,7 +485,6 @@ Deno.serve(async (req: Request) => {
     const rawText =
       geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
 
-    // Structured Output guarantees valid JSON — no markdown fence stripping needed
     let analysis: AnalysisResult;
     try {
       analysis = JSON.parse(rawText);
@@ -328,79 +499,48 @@ Deno.serve(async (req: Request) => {
 
     const items: FoodItem[] = analysis.items ?? [];
 
-    // ── Handle AI error (e.g. no food detected) ─────────────
     if (analysis.error || items.length === 0) {
       return jsonResponse({
         success: false,
         code: "NO_FOOD_DETECTED",
         error: analysis.error ?? "No food or drink detected",
+        image_path: imagePath || null,
+        image_url: imageUrl,
         items: [],
       });
     }
 
-    // ── Calculate totals (prefer AI totals, fallback to sum) ──
-    // Use > 0 check (not ||) to avoid incorrect fallback when AI returns 0
     const totalCalories = Math.round(
       (analysis.total_calories ?? 0) > 0
         ? analysis.total_calories
-        : items.reduce((s, i) => s + (i.calories || 0), 0),
+        : items.reduce((sum, item) => sum + (item.calories || 0), 0),
     );
     const totalProtein = Math.round(
       (analysis.total_protein ?? 0) > 0
         ? analysis.total_protein
-        : items.reduce((s, i) => s + (i.protein || 0), 0),
+        : items.reduce((sum, item) => sum + (item.protein || 0), 0),
     );
     const totalCarbs = Math.round(
       (analysis.total_carbs ?? 0) > 0
         ? analysis.total_carbs
-        : items.reduce((s, i) => s + (i.carbs || 0), 0),
+        : items.reduce((sum, item) => sum + (item.carbs || 0), 0),
     );
     const totalFat = Math.round(
       (analysis.total_fat ?? 0) > 0
         ? analysis.total_fat
-        : items.reduce((s, i) => s + (i.fat || 0), 0),
+        : items.reduce((sum, item) => sum + (item.fat || 0), 0),
     );
     const totalSugar = Math.round(
       (analysis.total_sugar ?? 0) > 0
         ? analysis.total_sugar
-        : items.reduce((s, i) => s + (i.sugar || 0), 0),
+        : items.reduce((sum, item) => sum + (item.sugar || 0), 0),
     );
-
-    // ── Insert into meal_records (service role, bypasses RLS) ─
-    const supabase = createUserClient(req);
-    let user_id: string;
-    try {
-      user_id = await requireUserId(supabase);
-    } catch (e) {
-      return errorResponse("UNAUTHORIZED", "Unauthorized", 401);
-    }
-
-
-    const { data: record, error: insertErr } = await supabase
-      .from("meal_records")
-      .insert({
-        id: crypto.randomUUID(),
-        user_id,
-        date,
-        items,
-        total_calories: totalCalories,
-        total_protein: totalProtein,
-        total_carbs: totalCarbs,
-        total_fat: totalFat,
-        total_sugar: totalSugar,
-        image_base64,
-      })
-      .select()
-      .single();
-
-    if (insertErr) {
-      console.error("DB insert error:", insertErr);
-      return errorResponse("DB_INSERT_ERROR", "Failed to save record", 500);
-    }
 
     return jsonResponse({
       success: true,
-      record_id: record.id,
+      date,
+      image_path: imagePath || null,
+      image_url: imageUrl,
       items,
       total_calories: totalCalories,
       total_protein: totalProtein,

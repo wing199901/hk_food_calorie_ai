@@ -4,7 +4,7 @@
 
 | Priority   | Function              | 目的                            | Auth  | DB Table       | Secrets          |
 | ---------- | --------------------- | ------------------------------- | ----- | -------------- | ---------------- |
-| **V1 MVP** | `analyze-meal`        | AI 相片辨識食物/飲品 → 儲存紀錄 | JWT   | `meal_records` | `GEMINI_API_KEY` |
+| **V1 MVP** | `analyze-meal`        | AI 相片辨識食物/飲品（支援 `image_path` / `image_base64`） | JWT   | – | `GEMINI_API_KEY` |
 | **V1**     | `update-record`       | Server-side 更新份量 & totals   | JWT   | `meal_records` | –                |
 | **V1**     | `get-daily-summary`   | 拉取每日總結 + AI tip           | JWT   | `meal_records` | –                |
 | **V1**     | `delete-record`       | 軟/硬刪除紀錄                   | JWT   | `meal_records` | –                |
@@ -56,21 +56,30 @@ make serve-functions
 
 ```json
 {
-  "image_base64": "base64 encoded image (max 5MB)",
+  "image_path": "<user_id>/20260409/1712661234567.jpg",
+  "image_base64": "<optional_base64_jpeg_under_1.5mb>",
   "date": "2026-02-28"
 }
 ```
+
+`image_path` 與 `image_base64` 至少要提供其中一個。App 生產流程會同時提交兩者：
+
+- `image_path`：已上傳到 `meal-images` bucket 的物件路徑
+- `image_base64`：前端壓縮後圖片（作為分析即時 payload，避免等待 Storage download）
 
 **Response:**
 
 ```json
 {
   "success": true,
-  "record_id": "uuid",
+  "date": "2026-02-28",
+  "image_path": "<user_id>/20260409/1712661234567.jpg",
+  "image_url": "https://<project>.supabase.co/storage/v1/object/public/meal-images/<user_id>/20260409/1712661234567.jpg",
   "items": [
     {
       "name_zh": "叉燒飯",
       "name_en": "Char Siu Rice",
+      "type": "food",
       "portion_size": 1,
       "portion_unit": "plate",
       "portion_grams": 450,
@@ -79,15 +88,19 @@ make serve-functions
       "protein": 35,
       "carbs": 80,
       "fat": 20,
+      "sugar": 8,
       "confidence": 0.92
     }
   ],
   "total_calories": 650,
   "total_protein": 35,
   "total_carbs": 80,
-  "total_fat": 20
+  "total_fat": 20,
+  "total_sugar": 8
 }
 ```
+
+若只傳 `image_base64`（沒有 `image_path`），回應中的 `image_path` 會是 `null`。
 
 ---
 
@@ -304,7 +317,9 @@ make serve-functions
 
 ## DB 架構
 
-Edge functions 主要使用 `meal_records` 表：
+`analyze-meal` 會接收 `image_path` / `image_base64`，回傳分析結果給 App；相片分析流程在成功後會由 App 自動寫入 `meal_records`（無需額外手動 Save）。
+
+`meal_records` 建議欄位如下：
 
 ```
 meal_records
@@ -316,7 +331,8 @@ meal_records
 ├── total_protein (integer)
 ├── total_carbs (integer)
 ├── total_fat (integer)
-├── image_url (text, nullable)
+├── image_base64 (text, nullable, legacy)
+├── image_url (text, nullable, Supabase Storage public URL)
 ├── deleted_at (timestamptz, nullable, soft delete)
 ├── created_at (timestamptz)
 └── updated_at (timestamptz, auto-trigger)
@@ -334,8 +350,15 @@ echo "GEMINI_API_KEY=your_key_here" > .env.local
 make serve-functions
 
 # 測試 (用 curl)
+# 方式 A: 用已上傳 Storage 路徑
 curl -X POST http://localhost:54321/functions/v1/analyze-meal \
   -H "Authorization: Bearer <your_jwt>" \
   -H "Content-Type: application/json" \
-  -d '{"image_base64":"...","date":"2026-02-28"}'
+  -d '{"image_path":"<user_id>/20260409/1712661234567.jpg","date":"2026-02-28"}'
+
+# 方式 B: 直接提交 base64
+curl -X POST http://localhost:54321/functions/v1/analyze-meal \
+  -H "Authorization: Bearer <your_jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"image_base64":"<base64>","date":"2026-02-28"}'
 ```

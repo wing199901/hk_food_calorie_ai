@@ -60,9 +60,13 @@ if not exists public.body_metrics
   bmi        numeric(4,1),
   whtr       numeric(3,2),
   tee        integer,
-  created_at timestamptz default now(),
-  primary key (user_id, date)
+  created_at timestamptz not null default now(),
+  primary key (user_id, date, created_at)
 );
+
+create index
+if not exists body_metrics_user_date_idx
+on public.body_metrics(user_id, date);
 
 alter table public.body_metrics enable row level security;
 
@@ -88,7 +92,8 @@ create table if not exists public.meal_records (
   date            date          not null,              -- YYYY-MM-DD
 
   -- input
-  image_base64    text,                               -- original photo stored as base64
+  image_base64    text,                               -- legacy base64 column
+  image_url       text,                               -- Supabase Storage public URL
 
   -- AI output
   items           jsonb         not null default '[]', -- array of food/drink items
@@ -136,7 +141,64 @@ create policy "Users can delete their own meal records"
   using ((select auth.uid()) = user_id);
 
 -- ─────────────────────────────────────────────────────────────
--- 4. quick_add_items  (用戶自訂快捷食物)
+-- 4. Storage bucket (meal photo uploads)
+-- ─────────────────────────────────────────────────────────────
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'meal-images',
+  'meal-images',
+  true,
+  1500000,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Users can view their own meal images" on storage.objects;
+create policy "Users can view their own meal images"
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'meal-images'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+drop policy if exists "Users can upload their own meal images" on storage.objects;
+create policy "Users can upload their own meal images"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'meal-images'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+drop policy if exists "Users can update their own meal images" on storage.objects;
+create policy "Users can update their own meal images"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'meal-images'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  )
+  with check (
+    bucket_id = 'meal-images'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+drop policy if exists "Users can delete their own meal images" on storage.objects;
+create policy "Users can delete their own meal images"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'meal-images'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- 5. quick_add_items  (用戶自訂快捷食物)
 -- ─────────────────────────────────────────────────────────────
 create table
 if not exists public.quick_add_items
@@ -199,7 +261,7 @@ create or replace trigger on_auth_user_created_seed_quick_add
 execute procedure public.seed_quick_add_items();
 
 -- ─────────────────────────────────────────────────────────────
--- 5. Helper: auto-update updated_at
+-- 6. Helper: auto-update updated_at
 -- ─────────────────────────────────────────────────────────────
 create or replace function public.handle_updated_at()
 returns trigger language plpgsql

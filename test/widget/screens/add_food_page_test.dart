@@ -33,11 +33,6 @@ void main() {
     await tester.tap(find.byKey(const Key('test_analyze_valid_photo')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Test Chicken Rice'), findsOneWidget);
-
-    await tester.tap(find.text('Add Meal'));
-    await tester.pumpAndSettle();
-
     expect(destination, 'home');
     expect(fakeStorage.getMeals(), hasLength(1));
   });

@@ -131,13 +131,23 @@ class FakeStorageService extends StorageService {
 
   @override
   void addBodyMetric(BodyMetric metric) {
-    final index = _bodyHistory.indexWhere((m) => m.date == metric.date);
-    if (index == -1) {
-      _bodyHistory.add(metric);
-    } else {
-      _bodyHistory[index] = metric;
-    }
-    _bodyHistory.sort((a, b) => a.date.compareTo(b.date));
+    _bodyHistory.add(metric);
+    _bodyHistory.sort((a, b) {
+      final dateCompare = a.date.compareTo(b.date);
+      if (dateCompare != 0) return dateCompare;
+
+      final aCreated = a.createdAt != null
+          ? DateTime.tryParse(a.createdAt!)
+          : null;
+      final bCreated = b.createdAt != null
+          ? DateTime.tryParse(b.createdAt!)
+          : null;
+
+      if (aCreated == null && bCreated == null) return 0;
+      if (aCreated == null) return -1;
+      if (bCreated == null) return 1;
+      return aCreated.compareTo(bCreated);
+    });
     notifyListeners();
   }
 

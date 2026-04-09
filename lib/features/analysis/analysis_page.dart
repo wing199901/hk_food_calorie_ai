@@ -10,7 +10,6 @@ import 'widgets/height_preview.dart';
 import 'widgets/bmi_preview.dart';
 import 'widgets/energy_preview.dart';
 import 'widgets/macro_preview.dart';
-import 'widgets/ai_insight_section.dart';
 import 'pages/energy_intake_detail_page.dart';
 import 'pages/weight_detail_page.dart';
 import 'pages/height_detail_page.dart';
@@ -333,12 +332,6 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
                     },
                     child: MacroPreview(weeklyData: weeklyData),
                   ),
-
-                  const SizedBox(height: AppSpacing.lg),
-                  const AiInsightSection(focus: 'general'),
-                  const SizedBox(height: AppSpacing.xxxl),
-                  // --- Show All Data Action ---
-                  // Moved to detail pages.
                 ],
               ),
             ),

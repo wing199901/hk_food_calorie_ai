@@ -79,14 +79,14 @@ insert into auth.identities (
 -- ─────────────────────────────────────────────────────────────
 -- Demo Data: Body Metrics
 -- ─────────────────────────────────────────────────────────────
-insert into public.body_metrics (user_id, date, weight, waistline)
+insert into public.body_metrics (user_id, date, created_at, weight, waistline)
 values
-  ('00000000-0000-0000-0000-000000000001', current_date - interval '30 days', 72.5, 85),
-  ('00000000-0000-0000-0000-000000000001', current_date - interval '20 days', 71.8, 84),
-  ('00000000-0000-0000-0000-000000000001', current_date - interval '10 days', 71.2, 83),
-  ('00000000-0000-0000-0000-000000000001', current_date - interval '5 days', 70.8, 82.5),
-  ('00000000-0000-0000-0000-000000000001', current_date - interval '1 day', 70.5, 82)
-on conflict (user_id, date) do nothing;
+  ('00000000-0000-0000-0000-000000000001', (current_date - interval '30 days')::date, (current_date - interval '30 days')::date + time '09:00', 72.5, 85),
+  ('00000000-0000-0000-0000-000000000001', (current_date - interval '20 days')::date, (current_date - interval '20 days')::date + time '09:00', 71.8, 84),
+  ('00000000-0000-0000-0000-000000000001', (current_date - interval '10 days')::date, (current_date - interval '10 days')::date + time '09:00', 71.2, 83),
+  ('00000000-0000-0000-0000-000000000001', (current_date - interval '5 days')::date, (current_date - interval '5 days')::date + time '09:00', 70.8, 82.5),
+  ('00000000-0000-0000-0000-000000000001', (current_date - interval '1 day')::date, (current_date - interval '1 day')::date + time '09:00', 70.5, 82)
+on conflict (user_id, date, created_at) do nothing;
 
 -- ─────────────────────────────────────────────────────────────
 -- Demo Data: Meal Records

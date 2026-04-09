@@ -301,13 +301,31 @@ class StorageService extends ChangeNotifier {
 
   // ─── Body History ────────────────────────────────────────────
 
+  static DateTime _metricSortDateTime(BodyMetric metric) {
+    final createdAt = metric.createdAt != null
+        ? DateTime.tryParse(metric.createdAt!)?.toUtc()
+        : null;
+    if (createdAt != null) return createdAt;
+
+    final parsedDate = DateTime.tryParse(metric.date)?.toUtc();
+    return parsedDate ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+  }
+
+  static int _compareMetricsByHistoryTime(BodyMetric a, BodyMetric b) {
+    final dateComparison = a.date.compareTo(b.date);
+    if (dateComparison != 0) return dateComparison;
+    return _metricSortDateTime(a).compareTo(_metricSortDateTime(b));
+  }
+
   List<BodyMetric> getBodyHistory() {
     final data = _prefs.getString(_bodyHistoryKey);
     if (data == null) return [];
     final list = jsonDecode(data) as List;
-    return list
+    final history = list
         .map((e) => BodyMetric.fromJson(e as Map<String, dynamic>))
         .toList();
+    history.sort(_compareMetricsByHistoryTime);
+    return history;
   }
 
   void addBodyMetric(BodyMetric metric) {
@@ -355,13 +373,8 @@ class StorageService extends ChangeNotifier {
       tee: tee,
     );
 
-    final index = history.indexWhere((m) => m.date == metric.date);
-    if (index != -1) {
-      history[index] = enriched;
-    } else {
-      history.add(enriched);
-    }
-    history.sort((a, b) => a.date.compareTo(b.date));
+    history.add(enriched);
+    history.sort(_compareMetricsByHistoryTime);
     _prefs.setString(
       _bodyHistoryKey,
       jsonEncode(history.map((e) => e.toJson()).toList()),

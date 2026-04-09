@@ -101,7 +101,17 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
           .read(foodAnalysisServiceProvider)
           .analyzeImage(imagePath);
       if (!mounted) return;
-      setState(() => _result = result);
+      setState(() {
+        _result = result;
+        final imageUrl = result['image_url'] as String?;
+        if (imageUrl != null && imageUrl.isNotEmpty) {
+          _selectedImage = imageUrl;
+        }
+      });
+
+      // User confirmed upload when selecting the photo, so persist immediately.
+      _saveAnalyzedMeal(result);
+      widget.onNavigate('home');
     } on FoodAnalysisException catch (error) {
       if (!mounted) return;
       _showError(error.message);
@@ -113,6 +123,24 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
         setState(() => _analyzing = false);
       }
     }
+  }
+
+  void _saveAnalyzedMeal(Map<String, dynamic> result) {
+    final imageUrl = result['image_url'] as String?;
+    final meal = Meal(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: result['name'] as String,
+      calories: (result['calories'] as num).toInt(),
+      protein: result['protein'] != null
+          ? (result['protein'] as num).toInt()
+          : null,
+      carbs: result['carbs'] != null ? (result['carbs'] as num).toInt() : null,
+      fat: result['fat'] != null ? (result['fat'] as num).toInt() : null,
+      sugar: result['sugar'] != null ? (result['sugar'] as num).toInt() : null,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      image: imageUrl ?? _selectedImage,
+    );
+    ref.read(storageProvider).saveMeal(meal);
   }
 
   void _handleQuickAdd(QuickAddItem item) {
@@ -140,6 +168,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
 
   void _handleSave() {
     if (_result != null) {
+      final imageUrl = _result!['image_url'] as String?;
       final meal = Meal(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: _result!['name'] as String,
@@ -155,7 +184,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
             ? (_result!['sugar'] as num).toInt()
             : null,
         timestamp: DateTime.now().millisecondsSinceEpoch,
-        image: _selectedImage,
+        image: imageUrl ?? _selectedImage,
       );
       ref.read(storageProvider).saveMeal(meal);
       widget.onNavigate('home');

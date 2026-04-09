@@ -253,7 +253,8 @@ class SupabaseService extends ChangeNotifier {
         .from('body_metrics')
         .select()
         .eq('user_id', uid)
-        .order('date', ascending: true);
+        .order('date', ascending: true)
+        .order('created_at', ascending: true);
     return (data as List<dynamic>)
         .map((e) => BodyMetric.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -261,7 +262,7 @@ class SupabaseService extends ChangeNotifier {
 
   Future<void> saveBodyMetric(BodyMetric metric) async {
     final uid = _requireUid();
-    await _client.from('body_metrics').upsert({
+    await _client.from('body_metrics').insert({
       'user_id': uid,
       'date': metric.date,
       'weight': metric.weight,
@@ -269,6 +270,7 @@ class SupabaseService extends ChangeNotifier {
       'bmi': metric.bmi,
       'whtr': metric.whtr,
       'tee': metric.tee,
+      if (metric.createdAt != null) 'created_at': metric.createdAt,
     });
   }
 

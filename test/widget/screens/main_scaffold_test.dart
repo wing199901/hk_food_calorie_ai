@@ -59,8 +59,6 @@ void main() {
 
     await tester.tap(find.byKey(const Key('test_analyze_valid_photo')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add Meal'));
-    await tester.pumpAndSettle();
 
     expect(fakeStorage.getMeals(), hasLength(1));
   });

@@ -4,7 +4,7 @@ AI-powered food calorie tracking app built with Flutter, Supabase, and Google Ge
 
 ## Features
 
-- **AI Meal Scanning** — Take a photo of your meal; Gemini AI identifies dishes, estimates portions, and calculates calories & macros
+- **AI Meal Scanning** — Take a photo of your meal; app uploads to Supabase Storage and sends compressed base64 to edge function in parallel for faster analysis, then auto-saves successful scan results
 - **Quick Add** — Customizable quick-add food shortcuts with emoji icons; long-press to delete (iOS-style)
 - **Daily Tracking** — Track calories, protein, carbs, fat, and sugar throughout the day
 - **Weekly Analysis** — Charts showing energy intake, macros, and body metrics over 7 days
@@ -31,9 +31,10 @@ AI-powered food calorie tracking app built with Flutter, Supabase, and Google Ge
 1. Clone the repo
 2. Copy `.env.example` to `lib/env/` and set your Supabase + Gemini keys
 3. Run `flutter pub get && dart run build_runner build`
-4. Execute `supabase/schema.sql` in your Supabase SQL Editor
-5. Deploy edge functions: `supabase functions deploy`
-6. Run the app: `make run`
+4. Execute `supabase/schema.sql` in your Supabase SQL Editor (or run all files in `supabase/migrations/`)
+5. Confirm `meal-images` bucket exists (it is auto-created by SQL migration)
+6. Deploy edge functions: `supabase functions deploy`
+7. Run the app: `make run`
 
 ## Testing
 

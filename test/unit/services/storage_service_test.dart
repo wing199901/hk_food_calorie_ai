@@ -87,6 +87,34 @@ void main() {
       expect(history.first.tee, isNotNull);
     });
 
+    test('addBodyMetric keeps same-day changes in history', () async {
+      await storage.setUserProfile(
+        UserProfile(
+          birthdate: '1990-01-01',
+          gender: 'female',
+          height: 170,
+          weight: 65,
+          waistline: 78,
+          activityLevel: 'light',
+        ),
+      );
+
+      storage.addBodyMetric(
+        BodyMetric(date: '2026-04-08', weight: 68, waistline: 84),
+      );
+      storage.addBodyMetric(BodyMetric(date: '2026-04-08', weight: 67.5));
+
+      final sameDayHistory = storage
+          .getBodyHistory()
+          .where((m) => m.date == '2026-04-08')
+          .toList();
+
+      expect(sameDayHistory, hasLength(2));
+      expect(sameDayHistory.last.weight, closeTo(67.5, 0.01));
+      expect(sameDayHistory.last.waistline, closeTo(84, 0.01));
+      expect(sameDayHistory.last.createdAt, isNotNull);
+    });
+
     test('getQuickAddItems seeds defaults and enforces dedupe on add', () {
       final initial = storage.getQuickAddItems();
       final duplicate = QuickAddItem(
