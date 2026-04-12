@@ -16,19 +16,23 @@ const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     summary: { type: "STRING", description: "Overall summary of the period" },
-    analysis: { type: "STRING", description: "Detailed analysis focusing on the requested area" },
+    analysis: {
+      type: "STRING",
+      description: "Detailed analysis focusing on the requested area",
+    },
     trends: {
       type: "ARRAY",
       items: { type: "STRING" },
-      description: "List of key observations or trends"
+      description: "List of key observations or trends",
     },
     recommendations: {
       type: "ARRAY",
       items: { type: "STRING" },
-      description: "2-3 specific, actionable recommendations tailored to Hong Kong diet context"
-    }
+      description:
+        "2-3 specific, actionable recommendations tailored to Hong Kong diet context",
+    },
   },
-  required: ["summary", "analysis", "trends", "recommendations"]
+  required: ["summary", "analysis", "trends", "recommendations"],
 };
 
 function sleep(ms: number): Promise<void> {
@@ -145,12 +149,15 @@ Deno.serve(async (req: Request) => {
   try {
     const { period, focus = "general" } = await req.json();
 
-        if (!period || !["week", "month"].includes(period)) {
+    if (!period || !["week", "month"].includes(period)) {
       return errorResponse("INVALID_PARAM", "period must be 'week' or 'month'");
     }
     const validFocuses = ["general", "bmi", "macronutrients", "energy"];
     if (!validFocuses.includes(focus)) {
-      return errorResponse("INVALID_PARAM", `focus must be one of: ${validFocuses.join(", ")}`);
+      return errorResponse(
+        "INVALID_PARAM",
+        `focus must be one of: ${validFocuses.join(", ")}`,
+      );
     }
 
     const supabase = createUserClient(req);
@@ -160,7 +167,6 @@ Deno.serve(async (req: Request) => {
     } catch (e) {
       return errorResponse("UNAUTHORIZED", "Unauthorized", 401);
     }
-
 
     // ── Calculate date range ─────────────────
     const now = new Date();
@@ -174,13 +180,13 @@ Deno.serve(async (req: Request) => {
     const { data: records, error: recErr } = await supabase
       .from("meal_records")
       .select(
-        "date, items, total_calories, total_protein, total_carbs, total_fat, total_sugar",
+        "meal_date, items, total_calories, total_protein, total_carbs, total_fat, total_sugar",
       )
       .eq("user_id", user_id)
-      .gte("date", startStr)
-      .lte("date", endStr)
+      .gte("meal_date", startStr)
+      .lte("meal_date", endStr)
       .is("deleted_at", null)
-      .order("date", { ascending: true });
+      .order("meal_date", { ascending: true });
 
     if (recErr) {
       console.error("Fetch records error:", recErr);
@@ -209,7 +215,7 @@ Deno.serve(async (req: Request) => {
     >();
 
     for (const rec of records ?? []) {
-      const day = dailyMap.get(rec.date) ?? {
+      const day = dailyMap.get(rec.meal_date) ?? {
         calories: 0,
         protein: 0,
         carbs: 0,
@@ -221,12 +227,12 @@ Deno.serve(async (req: Request) => {
       day.carbs += rec.total_carbs || 0;
       day.fat += rec.total_fat || 0;
       day.sugar += rec.total_sugar || 0;
-      dailyMap.set(rec.date, day);
+      dailyMap.set(rec.meal_date, day);
     }
 
     const chartsData = Array.from(dailyMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, data]) => ({ date, ...data }));
+      .map(([meal_date, data]) => ({ meal_date, ...data }));
 
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiKey)
@@ -271,7 +277,11 @@ ${summaryForAI}`;
 
     let geminiRes: Response;
     try {
-      geminiRes = await callGeminiWithRetry(insightPrompt, systemInstruction, geminiKey);
+      geminiRes = await callGeminiWithRetry(
+        insightPrompt,
+        systemInstruction,
+        geminiKey,
+      );
     } catch (err) {
       console.error(
         "Gemini network error:",
@@ -292,11 +302,19 @@ ${summaryForAI}`;
       );
       switch (geminiRes.status) {
         case 400:
-          return errorResponse("BAD_REQUEST", "Invalid request format to AI service", 500);
+          return errorResponse(
+            "BAD_REQUEST",
+            "Invalid request format to AI service",
+            500,
+          );
         case 403:
           return errorResponse("FORBIDDEN", "AI service access denied", 500);
         case 429:
-          return errorResponse("RATE_LIMIT", "AI service rate limit exceeded", 429);
+          return errorResponse(
+            "RATE_LIMIT",
+            "AI service rate limit exceeded",
+            429,
+          );
         default:
           return errorResponse(
             "AI_ERROR",
@@ -307,25 +325,37 @@ ${summaryForAI}`;
     }
 
     const geminiData = await geminiRes.json();
-    let rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+    let rawText =
+      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
 
     let report_data;
     try {
       report_data = parseGeminiJson(rawText);
     } catch (firstErr) {
       // One best-effort retry for truncated/invalid JSON responses.
-      console.error("Failed to parse Gemini JSON output (first attempt)", firstErr);
+      console.error(
+        "Failed to parse Gemini JSON output (first attempt)",
+        firstErr,
+      );
       try {
-        const retryRes = await callGeminiWithRetry(insightPrompt, systemInstruction, geminiKey);
+        const retryRes = await callGeminiWithRetry(
+          insightPrompt,
+          systemInstruction,
+          geminiKey,
+        );
         if (retryRes.ok) {
           const retryData = await retryRes.json();
-          rawText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+          rawText =
+            retryData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
           report_data = parseGeminiJson(rawText);
         } else {
           throw new Error(`Retry status ${retryRes.status}`);
         }
       } catch (secondErr) {
-        console.error("Failed to parse Gemini JSON output (retry attempt)", secondErr);
+        console.error(
+          "Failed to parse Gemini JSON output (retry attempt)",
+          secondErr,
+        );
         report_data = {
           summary: "未能成功解析報告資料",
           analysis: "分析產生失敗",
@@ -355,7 +385,10 @@ ${summaryForAI}`;
       },
     });
   } catch (err) {
-    console.error("generate-ai-insight error:", redactSecrets(extractErrorMessage(err)));
+    console.error(
+      "generate-ai-insight error:",
+      redactSecrets(extractErrorMessage(err)),
+    );
     return errorResponse("INTERNAL_ERROR", "Internal server error", 500);
   }
 });

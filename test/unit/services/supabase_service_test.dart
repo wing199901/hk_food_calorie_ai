@@ -45,7 +45,7 @@ void main() {
               calories: 100,
               timestamp: DateTime.now().millisecondsSinceEpoch,
             ),
-            date: '2026-04-08',
+            mealDate: '2026-04-08',
           ),
           throwsA(isA<StateError>()),
         );

@@ -85,10 +85,10 @@ create table if not exists public.meal_records (
   -- identity
   id              text          primary key,           -- client or server generated UUID
   user_id         uuid          not null references auth.users (id) on delete cascade,
-  date            date          not null,              -- YYYY-MM-DD
+  meal_date       date          not null,              -- YYYY-MM-DD
 
   -- input
-  image_base64    text,                               -- original photo stored as base64
+  image_url       text,                               -- Supabase Storage public URL
 
   -- AI output
   items           jsonb         not null default '[]', -- array of food/drink items
@@ -107,9 +107,9 @@ create table if not exists public.meal_records (
 
 
 create index
-if not exists meal_records_user_date_idx
+if not exists meal_records_user_meal_date_idx
   on public.meal_records
-(user_id, date);
+(user_id, meal_date);
 
 -- Supports fetchMeals ORDER BY created_at DESC
 create index

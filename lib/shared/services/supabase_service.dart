@@ -8,6 +8,8 @@ import '../../env/env.dart';
 
 class SupabaseService extends ChangeNotifier {
   static SupabaseClient get _client => Supabase.instance.client;
+  static const _mealImageBucket = 'meal-images';
+  static const _mealImageSignedUrlExpiresInSeconds = 60 * 60 * 24 * 7;
 
   // ─── Initialisation ────────────────────────────────────────────────────────
 
@@ -148,21 +150,23 @@ class SupabaseService extends ChangeNotifier {
 
   // ─── Meals (stored in meal_records table) ──────────────────────────────────
 
-  /// Fetch all meals from meal_records, optionally filtered by date.
-  Future<List<Meal>> fetchMeals({String? date}) async {
+  /// Fetch all meals from meal_records, optionally filtered by meal date.
+  Future<List<Meal>> fetchMeals({String? mealDate}) async {
     final uid = _requireUid();
     var query = _client
         .from('meal_records')
         .select()
         .eq('user_id', uid)
         .isFilter('deleted_at', null);
-    if (date != null) {
-      query = query.eq('date', date);
+    if (mealDate != null) {
+      query = query.eq('meal_date', mealDate);
     }
     final data = await query.order('created_at', ascending: false);
     final list = <Meal>[];
     for (final row in data as List<dynamic>) {
       final rec = row as Map<String, dynamic>;
+      final imagePath = rec['image_path'] as String?;
+      final imageUrl = await _resolveMealImageUrl(rec);
       final items = rec['items'] as List<dynamic>? ?? [];
       if (items.length == 1) {
         // Single-item record → map directly to a Meal
@@ -180,7 +184,8 @@ class SupabaseService extends ChangeNotifier {
                     rec['created_at'] as String,
                   ).millisecondsSinceEpoch
                 : DateTime.now().millisecondsSinceEpoch,
-            image: rec['image_url'] as String?,
+            image: imageUrl,
+            imagePath: imagePath,
           ),
         );
       } else {
@@ -203,7 +208,8 @@ class SupabaseService extends ChangeNotifier {
                     rec['created_at'] as String,
                   ).millisecondsSinceEpoch
                 : DateTime.now().millisecondsSinceEpoch,
-            image: rec['image_url'] as String?,
+            image: imageUrl,
+            imagePath: imagePath,
           ),
         );
       }
@@ -212,12 +218,12 @@ class SupabaseService extends ChangeNotifier {
   }
 
   /// Save a Meal as a single-item meal_record.
-  Future<void> addMeal(Meal meal, {required String date}) async {
+  Future<void> addMeal(Meal meal, {required String mealDate}) async {
     final uid = _requireUid();
     await _client.from('meal_records').upsert({
       'id': meal.id,
       'user_id': uid,
-      'date': date,
+      'meal_date': mealDate,
       'items': [
         {
           'name': meal.name,
@@ -234,6 +240,7 @@ class SupabaseService extends ChangeNotifier {
       'total_carbs': meal.carbs ?? 0,
       'total_fat': meal.fat ?? 0,
       'image_url': meal.image,
+      'image_path': meal.imagePath,
     });
   }
 
@@ -243,6 +250,24 @@ class SupabaseService extends ChangeNotifier {
         .from('meal_records')
         .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', mealId);
+  }
+
+  /// Persist user confirmation feedback for one AI analysis result.
+  Future<void> saveAiMealAnalysisFeedback({
+    required String analysisId,
+    required String mealRecordId,
+    required bool isCorrect,
+    required Map<String, dynamic> finalResult,
+  }) async {
+    await _client.functions.invoke(
+      'submit-analysis-feedback',
+      body: {
+        'analysis_id': analysisId,
+        'meal_record_id': mealRecordId,
+        'is_correct': isCorrect,
+        'final_result': finalResult,
+      },
+    );
   }
 
   // ─── Body Metrics ──────────────────────────────────────────────────────────
@@ -336,6 +361,38 @@ class SupabaseService extends ChangeNotifier {
       'bodyHistory': results[4] as List<BodyMetric>,
       'quickAddItems': results[5] as List<QuickAddItem>,
     };
+  }
+
+  Future<String?> _resolveMealImageUrl(Map<String, dynamic> record) async {
+    final imagePath = record['image_path'] as String?;
+    final fallbackImageUrl = record['image_url'] as String?;
+
+    if (imagePath == null || imagePath.isEmpty) {
+      return fallbackImageUrl;
+    }
+
+    try {
+      final signedUrl = await _client.storage
+          .from(_mealImageBucket)
+          .createSignedUrl(imagePath, _mealImageSignedUrlExpiresInSeconds);
+
+      return _normalizeStorageUrl(signedUrl);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[SupabaseService] createSignedUrl failed: $error');
+      }
+      return fallbackImageUrl;
+    }
+  }
+
+  String _normalizeStorageUrl(String url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    final baseUrl = Env.supabaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final normalizedPath = url.startsWith('/') ? url : '/$url';
+    return '$baseUrl$normalizedPath';
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────

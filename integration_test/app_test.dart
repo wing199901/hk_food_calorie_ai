@@ -10,10 +10,10 @@ import 'package:hk_food_calorie_ai/shared/models/user_profile.dart';
 import 'package:hk_food_calorie_ai/shared/providers/providers.dart';
 import 'package:integration_test/integration_test.dart';
 
-import '../helpers/fake_food_analysis_service.dart';
-import '../helpers/fake_storage_service.dart';
-import '../helpers/fake_supabase_service.dart';
-import '../helpers/plugin_mocks.dart';
+import '../test/helpers/fake_food_analysis_service.dart';
+import '../test/helpers/fake_storage_service.dart';
+import '../test/helpers/fake_supabase_service.dart';
+import '../test/helpers/plugin_mocks.dart';
 
 enum _FlowStep { login, completeProfile, checkIn, main }
 
@@ -122,6 +122,8 @@ void main() {
       await tester.tap(find.byKey(const Key('main_nav_add_button')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('test_analyze_valid_photo')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add Meal'));
       await tester.pumpAndSettle();
 
       // Quick add flow

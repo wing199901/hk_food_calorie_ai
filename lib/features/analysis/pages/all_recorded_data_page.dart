@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/unit_converter.dart';
 import '../../../shared/providers/providers.dart';
+import 'data_item_detail_page.dart';
 
 enum DataType { bmi, weight, height, energy, macro }
 
@@ -23,9 +25,9 @@ class AllRecordedDataPage extends ConsumerWidget {
         foregroundColor: AppTheme.foreground,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text(
-          _getTitle(),
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+        title: const Text(
+          'All Recorded Data',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
       ),
       body: SafeArea(
@@ -37,28 +39,33 @@ class AllRecordedDataPage extends ConsumerWidget {
     );
   }
 
-  String _getTitle() {
+  bool _isMetric(String? unitSystem) => (unitSystem ?? 'metric') == 'metric';
+
+  String _sectionUnitTitle(bool isMetric) {
     switch (dataType) {
       case DataType.bmi:
-        return 'All Recorded BMI';
+        return 'BMI';
       case DataType.weight:
-        return 'All Recorded Weight';
+        return isMetric ? 'kg' : 'lbs';
       case DataType.height:
-        return 'All Recorded Height';
+        return isMetric ? 'cm' : 'in';
       case DataType.energy:
-        return 'All Recorded Energy Intake';
+        return 'kcal';
       case DataType.macro:
-        return 'All Recorded Macronutrients';
+        return 'g';
     }
   }
 
   Widget _buildDataSection(BuildContext context, dynamic storage) {
+    final profile = storage.getUserProfile();
+    final isMetric = _isMetric(profile.unitSystem);
+    final sectionTitle = _sectionUnitTitle(isMetric);
+
     if (dataType == DataType.weight ||
         dataType == DataType.height ||
         dataType == DataType.bmi) {
       final List<dynamic> rawData = storage.getBodyHistory();
       final data = List.from(rawData);
-      final profile = storage.getUserProfile();
 
       // Sort body data by date descending
       data.sort((a, b) {
@@ -70,29 +77,45 @@ class AllRecordedDataPage extends ConsumerWidget {
       if (data.isEmpty && dataType != DataType.height) {
         return const Center(child: Text('No data available'));
       }
-      
+
       if (dataType == DataType.height && data.isEmpty) {
-         if (profile.height != null) {
-           // Create a fake entry for today so at least current height is shown
-           return _sectionCard(
-             title: 'All-Time History',
-             child: Column(
-               children: [
-                 _historyRowBody(null, isLast: true, overrideHeight: profile.height),
-               ],
-             ),
-           );
-         }
-         return const Center(child: Text('No data available'));
+        if (profile.height != null) {
+          // Create a fake entry for today so at least current height is shown
+          return _buildSectionWithUnit(
+            unitTitle: sectionTitle,
+            child: _sectionCard(
+              child: Column(
+                children: [
+                  _historyRowBody(
+                    context,
+                    null,
+                    isLast: true,
+                    overrideHeight: profile.height,
+                    isMetric: isMetric,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return const Center(child: Text('No data available'));
       }
 
-      return _sectionCard(
-        title: 'All-Time History',
-        child: Column(
-          children: [
-            for (int i = 0; i < data.length; i++)
-              _historyRowBody(data[i], isLast: i == data.length - 1, overrideHeight: profile.height),
-          ],
+      return _buildSectionWithUnit(
+        unitTitle: sectionTitle,
+        child: _sectionCard(
+          child: Column(
+            children: [
+              for (int i = 0; i < data.length; i++)
+                _historyRowBody(
+                  context,
+                  data[i],
+                  isLast: i == data.length - 1,
+                  overrideHeight: profile.height,
+                  isMetric: isMetric,
+                ),
+            ],
+          ),
         ),
       );
     } else {
@@ -112,13 +135,21 @@ class AllRecordedDataPage extends ConsumerWidget {
         if (!dailyMap.containsKey(dateKey)) {
           dailyMap[dateKey] = {
             'fullDate': DateTime(mealDate.year, mealDate.month, mealDate.day),
+            'latestDateTime': mealDate,
             'calories': 0,
             'target': storage.getDailyTarget(),
             'protein': 0,
             'carbs': 0,
             'fat': 0,
+            'meals': <dynamic>[],
           };
+        } else {
+          final latest = dailyMap[dateKey]!['latestDateTime'] as DateTime;
+          if (mealDate.isAfter(latest)) {
+            dailyMap[dateKey]!['latestDateTime'] = mealDate;
+          }
         }
+        (dailyMap[dateKey]!['meals'] as List<dynamic>).add(meal);
         dailyMap[dateKey]!['calories'] += meal.calories;
         dailyMap[dateKey]!['protein'] += meal.protein;
         dailyMap[dateKey]!['carbs'] += meal.carbs;
@@ -131,24 +162,173 @@ class AllRecordedDataPage extends ConsumerWidget {
               (b['fullDate'] as DateTime).compareTo(a['fullDate'] as DateTime),
         );
 
-      return _sectionCard(
-        title: 'All-Time History',
-        child: Column(
-          children: [
-            for (int i = 0; i < dailyList.length; i++)
-              dataType == DataType.energy
-                  ? _historyRowEnergy(
-                      dailyList[i],
-                      isLast: i == dailyList.length - 1,
-                    )
-                  : _historyRowMacro(
-                      dailyList[i],
-                      isLast: i == dailyList.length - 1,
-                    ),
-          ],
+      return _buildSectionWithUnit(
+        unitTitle: sectionTitle,
+        child: _sectionCard(
+          child: Column(
+            children: [
+              for (int i = 0; i < dailyList.length; i++)
+                dataType == DataType.energy
+                    ? _historyRowEnergy(
+                        context,
+                        dailyList[i],
+                        isLast: i == dailyList.length - 1,
+                      )
+                    : _historyRowMacro(
+                        context,
+                        dailyList[i],
+                        isLast: i == dailyList.length - 1,
+                      ),
+            ],
+          ),
         ),
       );
     }
+  }
+
+  Widget _buildSectionWithUnit({
+    required String unitTitle,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          key: const Key('all_recorded_unit_title_padding'),
+          padding: const EdgeInsets.only(left: AppSpacing.md),
+          child: Text(
+            unitTitle,
+            key: const Key('all_recorded_unit_title'),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.foreground,
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        child,
+      ],
+    );
+  }
+
+  String _formatHistoryDate(DateTime date) {
+    final now = DateTime.now();
+    final pattern = date.year == now.year
+        ? "dd MMM 'at' HH:mm"
+        : "dd MMM yyyy 'at' HH:mm";
+    return DateFormat(pattern).format(date);
+  }
+
+  String _formatDetailDate(DateTime date) {
+    final now = DateTime.now();
+    final pattern = date.year == now.year
+        ? "dd MMM 'at' HH:mm:ss"
+        : "dd MMM yyyy 'at' HH:mm:ss";
+    return DateFormat(pattern).format(date);
+  }
+
+  String _detailValueLabel() {
+    switch (dataType) {
+      case DataType.bmi:
+        return 'BMI';
+      case DataType.weight:
+        return 'Weight';
+      case DataType.height:
+        return 'Height';
+      case DataType.energy:
+        return 'Energy Intake';
+      case DataType.macro:
+        return 'Macronutrients';
+    }
+  }
+
+  String _bodyDisplayValue(
+    dynamic item, {
+    required bool isMetric,
+    double? overrideHeight,
+    required bool includeUnit,
+  }) {
+    if (dataType == DataType.weight) {
+      final weightKg = (item?.weight as num?)?.toDouble();
+      if (weightKg == null) return '--';
+
+      final displayValue = isMetric
+          ? weightKg
+          : UnitConverter.kgToLbs(weightKg);
+      final value = displayValue.toStringAsFixed(1);
+      if (!includeUnit) return value;
+      return '$value ${isMetric ? 'kg' : 'lbs'}';
+    }
+
+    if (dataType == DataType.height) {
+      if (overrideHeight == null) return '--';
+
+      final displayValue = isMetric
+          ? overrideHeight
+          : UnitConverter.cmToIn(overrideHeight);
+      final value = displayValue.toStringAsFixed(1);
+      if (!includeUnit) return value;
+      return '$value ${isMetric ? 'cm' : 'in'}';
+    }
+
+    if (item?.bmi != null) {
+      return item.bmi.toStringAsFixed(1);
+    }
+
+    if (overrideHeight != null && item?.weight != null && overrideHeight > 0) {
+      final heightInM = overrideHeight / 100;
+      final bmi = item.weight / (heightInM * heightInM);
+      return bmi.toStringAsFixed(1);
+    }
+
+    return 'N/A';
+  }
+
+  DateTime _parseBodyMetricCreatedAt(dynamic item) {
+    if (item?.createdAt != null) {
+      final createdAt = DateTime.tryParse(item.createdAt!);
+      if (createdAt != null) return createdAt;
+    }
+    return _parseBodyMetricDate(item);
+  }
+
+  bool _isMealUserEntered(dynamic meal) {
+    final name = (meal?.name as String? ?? '').toLowerCase();
+    final isLikelyAiName =
+        name.contains('ai scanned meal') ||
+        RegExp(r'\+\s\d+\s+more').hasMatch(name);
+    if (isLikelyAiName) return false;
+
+    final image = meal?.image as String?;
+    if (image == null || image.isEmpty) return true;
+    return !image.startsWith('http');
+  }
+
+  bool _isDayUserEntered(Map<String, dynamic> day) {
+    final meals = day['meals'] as List<dynamic>?;
+    if (meals == null || meals.isEmpty) return true;
+    return meals.every(_isMealUserEntered);
+  }
+
+  void _openDataDetail(
+    BuildContext context, {
+    required String value,
+    required DateTime date,
+    required DateTime dateAdded,
+    required bool isUserEntered,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DataItemDetailPage(
+          valueLabel: _detailValueLabel(),
+          value: value,
+          dateText: _formatDetailDate(date),
+          dateAddedText: _formatDetailDate(dateAdded),
+          isUserEntered: isUserEntered,
+        ),
+      ),
+    );
   }
 
   DateTime _parseBodyMetricDate(dynamic item) {
@@ -168,74 +348,92 @@ class AllRecordedDataPage extends ConsumerWidget {
     return d ?? DateTime.now();
   }
 
-  Widget _historyRowBody(dynamic item, {required bool isLast, double? overrideHeight}) {
+  Widget _historyRowBody(
+    BuildContext context,
+    dynamic item, {
+    required bool isLast,
+    double? overrideHeight,
+    required bool isMetric,
+  }) {
     // Parse date
-    DateTime date = _parseBodyMetricDate(item);
+    final date = _parseBodyMetricDate(item);
 
-    final dateLabel = DateFormat('EEE, dd MMM yyyy').format(date);
+    final dateLabel = _formatHistoryDate(date);
+    final valueStr = _bodyDisplayValue(
+      item,
+      isMetric: isMetric,
+      overrideHeight: overrideHeight,
+      includeUnit: false,
+    );
+    final detailValue = _bodyDisplayValue(
+      item,
+      isMetric: isMetric,
+      overrideHeight: overrideHeight,
+      includeUnit: true,
+    );
+    final dateAdded = _parseBodyMetricCreatedAt(item);
 
-    String valueStr = '';
-
-    if (dataType == DataType.weight) {
-      valueStr = '${item?.weight ?? '-- '} kg';
-    } else if (dataType == DataType.height) {
-      valueStr = '${overrideHeight ?? '--'} cm';
-    } else if (dataType == DataType.bmi) {
-      if (item?.bmi != null) {
-        valueStr = item.bmi.toStringAsFixed(1);
-      } else if (overrideHeight != null && item?.weight != null && overrideHeight > 0) {
-        final heightInM = overrideHeight / 100;
-        final bmi = item.weight / (heightInM * heightInM);
-        valueStr = bmi.toStringAsFixed(1);
-      } else {
-        valueStr = 'N/A';
-      }
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: isLast
-              ? BorderSide.none
-              : const BorderSide(color: AppTheme.border),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openDataDetail(
+          context,
+          value: detailValue,
+          date: date,
+          dateAdded: dateAdded,
+          isUserEntered: true,
         ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  dateLabel,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.foreground,
-                  ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: isLast
+                  ? BorderSide.none
+                  : const BorderSide(color: AppTheme.border),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dateLabel,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.foreground,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Text(
+                valueStr,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.foreground,
+                ),
+              ),
+            ],
           ),
-          Text(
-            valueStr,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.foreground,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _historyRowEnergy(Map<String, dynamic> day, {required bool isLast}) {
-    final date = day['fullDate'] as DateTime;
+  Widget _historyRowEnergy(
+    BuildContext context,
+    Map<String, dynamic> day, {
+    required bool isLast,
+  }) {
+    final date =
+        (day['latestDateTime'] as DateTime?) ?? (day['fullDate'] as DateTime);
     final calories = day['calories'] as int;
     final target = day['target'] as int;
-    final dateLabel = DateFormat('EEE, dd MMM yyyy').format(date);
+    final dateLabel = _formatHistoryDate(date);
     final ratio = target > 0 ? (calories / target) : 0;
     final status = ratio >= 0.9 && ratio <= 1.1
         ? 'On target'
@@ -243,110 +441,140 @@ class AllRecordedDataPage extends ConsumerWidget {
         ? 'High'
         : 'Low';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: isLast
-              ? BorderSide.none
-              : const BorderSide(color: AppTheme.border),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openDataDetail(
+          context,
+          value: '$calories / $target kcal',
+          date: date,
+          dateAdded: date,
+          isUserEntered: _isDayUserEntered(day),
         ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  dateLabel,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.foreground,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  '$calories kcal / $target kcal',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.mutedForeground,
-                  ),
-                ),
-              ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: isLast
+                  ? BorderSide.none
+                  : const BorderSide(color: AppTheme.border),
             ),
           ),
-          Text(
-            status,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: status == 'On target'
-                  ? AppTheme.primary
-                  : status == 'High'
-                  ? AppTheme.accent
-                  : AppTheme.warning,
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dateLabel,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      '$calories / $target',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                status,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: status == 'On target'
+                      ? AppTheme.primary
+                      : status == 'High'
+                      ? AppTheme.accent
+                      : AppTheme.warning,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _historyRowMacro(Map<String, dynamic> day, {required bool isLast}) {
-    final date = day['fullDate'] as DateTime;
+  Widget _historyRowMacro(
+    BuildContext context,
+    Map<String, dynamic> day, {
+    required bool isLast,
+  }) {
+    final date =
+        (day['latestDateTime'] as DateTime?) ?? (day['fullDate'] as DateTime);
     final p = day['protein'] as int;
     final c = day['carbs'] as int;
     final f = day['fat'] as int;
-    final dateLabel = DateFormat('EEE, dd MMM yyyy').format(date);
+    final dateLabel = _formatHistoryDate(date);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: isLast
-              ? BorderSide.none
-              : const BorderSide(color: AppTheme.border),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openDataDetail(
+          context,
+          value: 'Protein: $p g  •  Carbs: $c g  •  Fat: $f g',
+          date: date,
+          dateAdded: date,
+          isUserEntered: _isDayUserEntered(day),
         ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  dateLabel,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.foreground,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  'Protein: $p g  •  Carbs: $c g  •  Fat: $f g',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.mutedForeground,
-                  ),
-                ),
-              ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: isLast
+                  ? BorderSide.none
+                  : const BorderSide(color: AppTheme.border),
             ),
           ),
-        ],
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dateLabel,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      'Protein: $p  •  Carbs: $c  •  Fat: $f',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _sectionCard({required String title, required Widget child}) {
+  Widget _sectionCard({required Widget child}) {
     return Container(
+      key: const Key('all_recorded_list_card'),
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(
@@ -359,18 +587,7 @@ class AllRecordedDataPage extends ConsumerWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.foreground,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          child,
-        ],
+        children: [child],
       ),
     );
   }

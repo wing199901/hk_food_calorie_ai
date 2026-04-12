@@ -11,7 +11,7 @@ body:
   content: >-
     {
         "image_path": "{{userId}}/postman/egg-tart-3.jpg",
-        "date": "{{date}}"
+        "meal_date": "{{date}}"
     }
 order: 1053
 examples: ./.resources/analyze-meal-3-egg-tarts.resources/examples

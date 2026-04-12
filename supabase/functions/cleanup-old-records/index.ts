@@ -67,7 +67,7 @@ Deno.serve(async (req: Request) => {
       const { data: ancient, error: ancientErr } = await supabase
         .from("meal_records")
         .delete()
-        .lt("date", ancientStr)
+        .lt("meal_date", ancientStr)
         .select("id");
 
       if (ancientErr) {

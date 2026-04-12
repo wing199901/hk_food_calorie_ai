@@ -28,7 +28,9 @@ class AddFoodPage extends ConsumerStatefulWidget {
 class _AddFoodPageState extends ConsumerState<AddFoodPage> {
   String? _selectedImage;
   bool _analyzing = false;
+  bool _saving = false;
   Map<String, dynamic>? _result;
+  bool _analysisEdited = false;
   bool _isEditMode = false;
   List<QuickAddItem> _quickAddItems = [];
 
@@ -84,6 +86,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       setState(() {
         _selectedImage = picked.path;
         _result = null;
+        _analysisEdited = false;
         _isEditMode = false;
       });
       await _analyzeImage(picked.path);
@@ -93,6 +96,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
   Future<void> _analyzeImage(String imagePath) async {
     setState(() {
       _analyzing = true;
+      _saving = false;
       _result = null;
     });
 
@@ -103,15 +107,12 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       if (!mounted) return;
       setState(() {
         _result = result;
+        _analysisEdited = false;
         final imageUrl = result['image_url'] as String?;
         if (imageUrl != null && imageUrl.isNotEmpty) {
           _selectedImage = imageUrl;
         }
       });
-
-      // User confirmed upload when selecting the photo, so persist immediately.
-      _saveAnalyzedMeal(result);
-      widget.onNavigate('home');
     } on FoodAnalysisException catch (error) {
       if (!mounted) return;
       _showError(error.message);
@@ -125,9 +126,10 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
     }
   }
 
-  void _saveAnalyzedMeal(Map<String, dynamic> result) {
+  Meal _buildMealFromResult(Map<String, dynamic> result) {
     final imageUrl = result['image_url'] as String?;
-    final meal = Meal(
+    final imagePath = result['image_path'] as String?;
+    return Meal(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: result['name'] as String,
       calories: (result['calories'] as num).toInt(),
@@ -139,8 +141,8 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       sugar: result['sugar'] != null ? (result['sugar'] as num).toInt() : null,
       timestamp: DateTime.now().millisecondsSinceEpoch,
       image: imageUrl ?? _selectedImage,
+      imagePath: imagePath,
     );
-    ref.read(storageProvider).saveMeal(meal);
   }
 
   void _handleQuickAdd(QuickAddItem item) {
@@ -149,6 +151,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
     // Set the result to show confirmation screen
     setState(() {
       _selectedImage = null;
+      _analysisEdited = false;
       _result = {
         'name': item.name,
         'calories': item.calories,
@@ -166,29 +169,34 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
     _loadQuickAddItems();
   }
 
-  void _handleSave() {
-    if (_result != null) {
-      final imageUrl = _result!['image_url'] as String?;
-      final meal = Meal(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: _result!['name'] as String,
-        calories: (_result!['calories'] as num).toInt(),
-        protein: _result!['protein'] != null
-            ? (_result!['protein'] as num).toInt()
-            : null,
-        carbs: _result!['carbs'] != null
-            ? (_result!['carbs'] as num).toInt()
-            : null,
-        fat: _result!['fat'] != null ? (_result!['fat'] as num).toInt() : null,
-        sugar: _result!['sugar'] != null
-            ? (_result!['sugar'] as num).toInt()
-            : null,
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        image: imageUrl ?? _selectedImage,
-      );
-      ref.read(storageProvider).saveMeal(meal);
-      widget.onNavigate('home');
+  Future<void> _handleSave() async {
+    if (_result == null || _saving) return;
+
+    setState(() => _saving = true);
+    final meal = _buildMealFromResult(_result!);
+    ref.read(storageProvider).saveMeal(meal);
+
+    try {
+      final analysisId = (_result!['analysis_id'] as String?)?.trim();
+      if (analysisId != null && analysisId.isNotEmpty) {
+        await ref
+            .read(supabaseProvider)
+            .saveAiMealAnalysisFeedback(
+              analysisId: analysisId,
+              mealRecordId: meal.id,
+              isCorrect: !_analysisEdited,
+              finalResult: _result!,
+            );
+      }
+    } catch (_) {
+      if (mounted) {
+        _showError('Meal saved, but failed to sync AI feedback.');
+      }
     }
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+    widget.onNavigate('home');
   }
 
   void _handleReset() {
@@ -196,7 +204,150 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       _selectedImage = null;
       _result = null;
       _analyzing = false;
+      _saving = false;
+      _analysisEdited = false;
     });
+  }
+
+  Future<void> _handleEditResult() async {
+    if (_result == null || _saving) return;
+
+    final edited = await _openEditDialog(_result!);
+    if (!mounted || edited == null) return;
+
+    setState(() {
+      _result = edited;
+      _analysisEdited = true;
+    });
+  }
+
+  Future<Map<String, dynamic>?> _openEditDialog(
+    Map<String, dynamic> currentResult,
+  ) async {
+    final nameController = TextEditingController(
+      text: currentResult['name'] as String? ?? '',
+    );
+    final caloriesController = TextEditingController(
+      text: '${currentResult['calories'] ?? 0}',
+    );
+    final proteinController = TextEditingController(
+      text: '${currentResult['protein'] ?? 0}',
+    );
+    final carbsController = TextEditingController(
+      text: '${currentResult['carbs'] ?? 0}',
+    );
+    final fatController = TextEditingController(
+      text: '${currentResult['fat'] ?? 0}',
+    );
+    final sugarController = TextEditingController(
+      text: '${currentResult['sugar'] ?? 0}',
+    );
+
+    final updated = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit AI Result'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Meal name'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: caloriesController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Calories'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: proteinController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Protein (g)'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: carbsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Carbs (g)'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: fatController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Fat (g)'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: sugarController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Sugar (g)'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final updatedName = nameController.text.trim();
+                if (updatedName.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Meal name is required.')),
+                  );
+                  return;
+                }
+
+                final updatedCalories =
+                    int.tryParse(caloriesController.text.trim()) ?? 0;
+                final updatedProtein =
+                    int.tryParse(proteinController.text.trim()) ?? 0;
+                final updatedCarbs =
+                    int.tryParse(carbsController.text.trim()) ?? 0;
+                final updatedFat = int.tryParse(fatController.text.trim()) ?? 0;
+                final updatedSugar =
+                    int.tryParse(sugarController.text.trim()) ?? 0;
+
+                final updatedResult = Map<String, dynamic>.from(currentResult)
+                  ..['name'] = updatedName
+                  ..['calories'] = updatedCalories
+                  ..['protein'] = updatedProtein
+                  ..['carbs'] = updatedCarbs
+                  ..['fat'] = updatedFat
+                  ..['sugar'] = updatedSugar;
+
+                final rawItems = currentResult['items'];
+                if (rawItems is List && rawItems.isNotEmpty) {
+                  final normalizedItems = rawItems
+                      .whereType<Map>()
+                      .map((item) => Map<String, dynamic>.from(item))
+                      .toList();
+                  final first = normalizedItems.first;
+                  first['name_en'] = updatedName;
+                  first['calories'] = updatedCalories;
+                  first['protein'] = updatedProtein;
+                  first['carbs'] = updatedCarbs;
+                  first['fat'] = updatedFat;
+                  first['sugar'] = updatedSugar;
+                  updatedResult['items'] = normalizedItems;
+                }
+
+                Navigator.of(context).pop(updatedResult);
+              },
+              child: const Text('Confirm Edit'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return updated;
   }
 
   void _enterEditMode() {
@@ -294,8 +445,11 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
                     ? ResultView(
                         isAnalyzing: _analyzing,
                         result: _result,
-                        onSave: _handleSave,
+                        onSave: () => _handleSave(),
+                        onEdit: () => _handleEditResult(),
                         onCancel: _handleReset,
+                        isEdited: _analysisEdited,
+                        isSaving: _saving,
                       )
                     : _buildCaptureView(),
               ),

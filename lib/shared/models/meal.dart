@@ -4,6 +4,7 @@ class Meal {
   final int calories;
   final int timestamp;
   final String? image;
+  final String? imagePath;
   final int? protein;
   final int? carbs;
   final int? fat;
@@ -15,6 +16,7 @@ class Meal {
     required this.calories,
     required this.timestamp,
     this.image,
+    this.imagePath,
     this.protein,
     this.carbs,
     this.fat,
@@ -27,6 +29,7 @@ class Meal {
     'calories': calories,
     'timestamp': timestamp,
     'image': image,
+    'imagePath': imagePath,
     'protein': protein,
     'carbs': carbs,
     'fat': fat,
@@ -39,6 +42,7 @@ class Meal {
     calories: (json['calories'] as num).toInt(),
     timestamp: (json['timestamp'] as num).toInt(),
     image: json['image'] as String?,
+    imagePath: json['imagePath'] as String?,
     protein: json['protein'] != null ? (json['protein'] as num).toInt() : null,
     carbs: json['carbs'] != null ? (json['carbs'] as num).toInt() : null,
     fat: json['fat'] != null ? (json['fat'] as num).toInt() : null,
@@ -51,6 +55,7 @@ class Meal {
     int? calories,
     int? timestamp,
     String? image,
+    String? imagePath,
     int? protein,
     int? carbs,
     int? fat,
@@ -62,6 +67,7 @@ class Meal {
       calories: calories ?? this.calories,
       timestamp: timestamp ?? this.timestamp,
       image: image ?? this.image,
+      imagePath: imagePath ?? this.imagePath,
       protein: protein ?? this.protein,
       carbs: carbs ?? this.carbs,
       fat: fat ?? this.fat,

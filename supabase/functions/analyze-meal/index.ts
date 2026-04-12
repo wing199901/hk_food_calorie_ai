@@ -20,6 +20,7 @@ const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 
 const IMAGE_BUCKET = "meal-images";
 const MAX_IMAGE_BYTES = 1_500_000;
+const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7;
 const ALLOWED_IMAGE_MIME_TYPES = [
   "image/jpeg",
   "image/png",
@@ -171,6 +172,16 @@ interface AnalysisResult {
   error?: string;
 }
 
+function buildSummaryName(items: FoodItem[]): string {
+  if (items.length === 0) return "AI Scanned Meal";
+
+  const firstName =
+    items[0].name_en?.trim() || items[0].name_zh?.trim() || "AI Scanned Meal";
+
+  if (items.length === 1) return firstName;
+  return `${firstName} + ${items.length - 1} more`;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -182,6 +193,21 @@ function redactSecrets(value: string): string {
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message;
   return String(err);
+}
+
+function toOptionalInt(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.round(value);
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return Math.round(parsed);
+    }
+  }
+
+  return null;
 }
 
 function isRetryableNetworkError(err: unknown): boolean {
@@ -208,7 +234,33 @@ function inferMimeType(imagePath: string): string {
   return "image/jpeg";
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
+function normalizeStorageUrl(url: string): string {
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  const baseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
+  const normalizedPath = url.startsWith("/") ? url : `/${url}`;
+  return `${baseUrl}${normalizedPath}`;
+}
+
+async function createSignedImageUrl(
+  supabase: ReturnType<typeof createUserClient>,
+  imagePath: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from(IMAGE_BUCKET)
+    .createSignedUrl(imagePath, SIGNED_URL_EXPIRES_IN_SECONDS);
+
+  if (error || !data?.signedUrl) {
+    console.warn("Failed to create signed image URL:", error?.message);
+    return null;
+  }
+
+  return normalizeStorageUrl(data.signedUrl);
+}
+
+function encodeInlineImageData(bytes: Uint8Array): string {
   const chunkSize = 0x8000;
   let binary = "";
 
@@ -218,21 +270,6 @@ function bytesToBase64(bytes: Uint8Array): string {
   }
 
   return btoa(binary);
-}
-
-function base64ToBytes(base64: string): Uint8Array {
-  try {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-
-    return bytes;
-  } catch {
-    throw new Error("INVALID_IMAGE_BASE64");
-  }
 }
 
 async function ensureImageBucket(): Promise<void> {
@@ -245,15 +282,16 @@ async function ensureImageBucket(): Promise<void> {
     throw new Error(`Failed to list storage buckets: ${listError.message}`);
   }
 
-  const bucketExists = (buckets ?? []).some((bucket) =>
-    bucket.id === IMAGE_BUCKET || bucket.name === IMAGE_BUCKET
+  const bucketExists = (buckets ?? []).some(
+    (bucket: { id?: string; name?: string }) =>
+      bucket.id === IMAGE_BUCKET || bucket.name === IMAGE_BUCKET,
   );
 
   if (!bucketExists) {
     const { error: createError } = await admin.storage.createBucket(
       IMAGE_BUCKET,
       {
-        public: true,
+        public: false,
         fileSizeLimit: `${MAX_IMAGE_BYTES}`,
         allowedMimeTypes: ALLOWED_IMAGE_MIME_TYPES,
       },
@@ -267,13 +305,28 @@ async function ensureImageBucket(): Promise<void> {
         );
       }
     }
+  } else {
+    const { error: updateError } = await admin.storage.updateBucket(
+      IMAGE_BUCKET,
+      {
+        public: false,
+        fileSizeLimit: `${MAX_IMAGE_BYTES}`,
+        allowedMimeTypes: ALLOWED_IMAGE_MIME_TYPES,
+      },
+    );
+
+    if (updateError) {
+      throw new Error(
+        `Failed to update storage bucket ${IMAGE_BUCKET}: ${updateError.message}`,
+      );
+    }
   }
 
   bucketEnsured = true;
 }
 
 async function callGeminiWithRetry(
-  imageBase64: string,
+  inlineImageData: string,
   mimeType: string,
   geminiKey: string,
 ): Promise<Response> {
@@ -297,7 +350,7 @@ async function callGeminiWithRetry(
                 {
                   inline_data: {
                     mime_type: mimeType,
-                    data: imageBase64,
+                    data: inlineImageData,
                   },
                 },
               ],
@@ -341,21 +394,15 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const imagePath = typeof body?.image_path === "string"
-      ? body.image_path.trim()
-      : "";
-    const imageBase64Input = typeof body?.image_base64 === "string"
-      ? body.image_base64.trim()
-      : "";
-    const date = typeof body?.date === "string" && body.date.length > 0
-      ? body.date
-      : new Date().toISOString().split("T")[0];
+    const imagePath =
+      typeof body?.image_path === "string" ? body.image_path.trim() : "";
+    const mealDate =
+      typeof body?.meal_date === "string" && body.meal_date.length > 0
+        ? body.meal_date
+        : new Date().toISOString().split("T")[0];
 
-    if (!imagePath && !imageBase64Input) {
-      return errorResponse(
-        "MISSING_IMAGE",
-        "Missing image_path or image_base64",
-      );
+    if (!imagePath) {
+      return errorResponse("MISSING_IMAGE_PATH", "Missing image_path", 400);
     }
 
     const supabase = createUserClient(req);
@@ -366,7 +413,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse("UNAUTHORIZED", "Unauthorized", 401);
     }
 
-    if (imagePath && !imagePath.startsWith(`${user_id}/`)) {
+    if (!imagePath.startsWith(`${user_id}/`)) {
       return errorResponse(
         "FORBIDDEN_IMAGE_PATH",
         "Image path does not belong to the authenticated user",
@@ -374,86 +421,52 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (imagePath) {
-      await ensureImageBucket();
-    }
+    await ensureImageBucket();
 
     let imageBytes: Uint8Array;
-    let imageBase64: string;
-    const mimeType = imagePath ? inferMimeType(imagePath) : "image/jpeg";
-    let imageUrl: string | null = null;
+    const mimeType = inferMimeType(imagePath);
+    const imageUrl = await createSignedImageUrl(supabase, imagePath);
 
-    if (imagePath) {
-      const { data: publicData } = supabase.storage
-        .from(IMAGE_BUCKET)
-        .getPublicUrl(imagePath);
-      imageUrl = publicData.publicUrl;
+    const { data: imageBlob, error: downloadError } = await supabase.storage
+      .from(IMAGE_BUCKET)
+      .download(imagePath);
+
+    if (downloadError || !imageBlob) {
+      return errorResponse("IMAGE_NOT_FOUND", "Uploaded image not found", 404);
     }
 
-    if (imageBase64Input) {
-      try {
-        imageBytes = base64ToBytes(imageBase64Input);
-      } catch (error) {
-        if (extractErrorMessage(error).includes("INVALID_IMAGE_BASE64")) {
-          return errorResponse(
-            "INVALID_IMAGE_BASE64",
-            "Invalid image_base64 payload",
-            400,
-          );
-        }
-        throw error;
-      }
-
-      if (imageBytes.byteLength == 0) {
-        return errorResponse("IMAGE_EMPTY", "Uploaded image is empty", 400);
-      }
-
-      if (imageBytes.byteLength > MAX_IMAGE_BYTES) {
-        return errorResponse(
-          "IMAGE_TOO_LARGE",
-          "Image too large, max 1.5 MB after compression",
-          413,
-        );
-      }
-
-      imageBase64 = imageBase64Input;
-    } else {
-      const { data: imageBlob, error: downloadError } = await supabase.storage
-        .from(IMAGE_BUCKET)
-        .download(imagePath);
-
-      if (downloadError || !imageBlob) {
-        return errorResponse(
-          "IMAGE_NOT_FOUND",
-          "Uploaded image not found",
-          404,
-        );
-      }
-
-      imageBytes = new Uint8Array(await imageBlob.arrayBuffer());
-      if (imageBytes.byteLength == 0) {
-        return errorResponse("IMAGE_EMPTY", "Uploaded image is empty", 400);
-      }
-
-      if (imageBytes.byteLength > MAX_IMAGE_BYTES) {
-        return errorResponse(
-          "IMAGE_TOO_LARGE",
-          "Image too large, max 1.5 MB after compression",
-          413,
-        );
-      }
-
-      imageBase64 = bytesToBase64(imageBytes);
+    imageBytes = new Uint8Array(await imageBlob.arrayBuffer());
+    if (imageBytes.byteLength == 0) {
+      return errorResponse("IMAGE_EMPTY", "Uploaded image is empty", 400);
     }
+
+    if (imageBytes.byteLength > MAX_IMAGE_BYTES) {
+      return errorResponse(
+        "IMAGE_TOO_LARGE",
+        "Image too large, max 1.5 MB after compression",
+        413,
+      );
+    }
+
+    const inlineImageData = encodeInlineImageData(imageBytes);
 
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiKey) {
-      return errorResponse("CONFIG_ERROR", "GEMINI_API_KEY not configured", 500);
+      return errorResponse(
+        "CONFIG_ERROR",
+        "GEMINI_API_KEY not configured",
+        500,
+      );
     }
 
     let geminiRes: Response;
+    const geminiStartedAt = Date.now();
     try {
-      geminiRes = await callGeminiWithRetry(imageBase64, mimeType, geminiKey);
+      geminiRes = await callGeminiWithRetry(
+        inlineImageData,
+        mimeType,
+        geminiKey,
+      );
     } catch (err) {
       console.error(
         "Gemini network error:",
@@ -482,6 +495,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const geminiData = await geminiRes.json();
+    const geminiLatencyMs = Math.max(0, Date.now() - geminiStartedAt);
+    const usageMetadata = geminiData?.usageMetadata ?? {};
+    const inputTokens = toOptionalInt(usageMetadata.promptTokenCount);
+    const outputTokens = toOptionalInt(usageMetadata.candidatesTokenCount);
+    const totalTokens = toOptionalInt(usageMetadata.totalTokenCount);
     const rawText =
       geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
 
@@ -504,7 +522,7 @@ Deno.serve(async (req: Request) => {
         success: false,
         code: "NO_FOOD_DETECTED",
         error: analysis.error ?? "No food or drink detected",
-        image_path: imagePath || null,
+        image_path: imagePath,
         image_url: imageUrl,
         items: [],
       });
@@ -536,10 +554,49 @@ Deno.serve(async (req: Request) => {
         : items.reduce((sum, item) => sum + (item.sugar || 0), 0),
     );
 
+    const analysisSummaryName = buildSummaryName(items);
+
+    const admin = createAdminClient();
+
+    const { data: analysisRow, error: analysisInsertError } = await admin
+      .from("ai_meal_analyses")
+      .insert({
+        user_id,
+        meal_date: mealDate,
+        image_path: imagePath,
+        image_url: imageUrl,
+        ai_summary_name: analysisSummaryName,
+        ai_items: items,
+        ai_total_calories: totalCalories,
+        ai_total_protein: totalProtein,
+        ai_total_carbs: totalCarbs,
+        ai_total_fat: totalFat,
+        ai_total_sugar: totalSugar,
+        ai_model: GEMINI_MODEL,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        total_tokens: totalTokens,
+        image_bytes: imageBytes.byteLength,
+        latency_ms: geminiLatencyMs,
+        feedback_status: "pending",
+      })
+      .select("id")
+      .single();
+
+    if (analysisInsertError || !analysisRow?.id) {
+      console.error("Failed to store ai_meal_analyses:", analysisInsertError);
+      return errorResponse(
+        "ANALYSIS_STORE_ERROR",
+        "Failed to store AI analysis result",
+        500,
+      );
+    }
+
     return jsonResponse({
       success: true,
-      date,
-      image_path: imagePath || null,
+      analysis_id: analysisRow.id,
+      meal_date: mealDate,
+      image_path: imagePath,
       image_url: imageUrl,
       items,
       total_calories: totalCalories,

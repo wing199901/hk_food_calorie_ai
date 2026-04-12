@@ -23,6 +23,7 @@ Based on the project's README, please adhere to these core architectural and dom
   - `completeProfile` → `CompleteProfilePage` (if `isProfileComplete == false`)
   - `bodyCheckIn` → `CheckInPage` (if `lastCheckIn != today`)
   - `main` → `MainScaffold` (Home / Analysis / + / Log / Settings)
+- **Flow Integrity:** Preserve onboarding and daily check-in flow expectations. Do not bypass gates unless a product requirement explicitly says so.
 
 ## Database Schema & Logic Rules
 
@@ -34,6 +35,9 @@ Based on the project's README, please adhere to these core architectural and dom
 - **quick_add_items:** A database trigger (`seed_quick_add_items`) auto-inserts 8 default items on new user signup. Custom items should use `id` prefixed with `custom-` or `default-`.
 
 ## UI Components & Flow Rules
+
+- **UI Copy Language:** All in-app UI text must be English only.
+- **Insight Copy Tone:** User-facing insights should be friendly casual HK English (practical and supportive).
 
 - **Complete Profile Page (Onboarding):**
   - Must use animated progress dots.
@@ -48,3 +52,7 @@ Based on the project's README, please adhere to these core architectural and dom
   - Long-press to enter edit mode.
   - In edit mode, show a red `×` badge on the top-left of each item; tap to delete.
   - Tap "Done" or tap outside to exit edit mode.
+
+## AI Contract
+
+- **Meal Analysis Endpoint:** Keep app-side meal analysis aligned with Supabase Edge Function `analyze-meal` and its structured JSON contract.

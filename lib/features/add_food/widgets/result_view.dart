@@ -5,14 +5,20 @@ class ResultView extends StatelessWidget {
   final bool isAnalyzing;
   final Map<String, dynamic>? result;
   final VoidCallback onSave;
+  final VoidCallback onEdit;
   final VoidCallback onCancel;
+  final bool isEdited;
+  final bool isSaving;
 
   const ResultView({
     super.key,
     required this.isAnalyzing,
     required this.result,
     required this.onSave,
+    required this.onEdit,
     required this.onCancel,
+    this.isEdited = false,
+    this.isSaving = false,
   });
 
   @override
@@ -113,17 +119,58 @@ class ResultView extends StatelessWidget {
                     _macroChip('Fat', '${result!['fat']}g'),
                   ],
                 ),
+                if (isEdited) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'Edited by user',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: OutlinedButton(
+              onPressed: isSaving ? null : onEdit,
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppTheme.primary,
+                side: const BorderSide(color: AppTheme.primary, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                'Edit Result',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: SizedBox(
                   height: 56,
                   child: OutlinedButton(
-                    onPressed: onCancel,
+                    onPressed: isSaving ? null : onCancel,
                     style: OutlinedButton.styleFrom(
                       backgroundColor: AppTheme.muted,
                       foregroundColor: AppTheme.foreground,
@@ -144,7 +191,7 @@ class ResultView extends StatelessWidget {
                 child: SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: onSave,
+                    onPressed: isSaving ? null : onSave,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primary,
                       foregroundColor: Colors.white,
@@ -153,10 +200,19 @@ class ResultView extends StatelessWidget {
                       ),
                       elevation: 2,
                     ),
-                    child: const Text(
-                      'Add Meal',
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Add Meal',
+                            style: TextStyle(fontWeight: FontWeight.w500),
+                          ),
                   ),
                 ),
               ),
@@ -179,7 +235,8 @@ class ResultView extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   TextSpan(
-                    text: 'Verify the nutritional information before saving.',
+                    text:
+                        'Confirm AI result before saving. If it is not accurate, edit it and then save your corrected version.',
                   ),
                 ],
               ),

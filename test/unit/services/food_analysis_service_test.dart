@@ -7,10 +7,12 @@ void main() {
       final service = FoodAnalysisService(
         uploadImage: (_) async => const UploadedImage(
           storagePath: 'user-1/20260409/photo.jpg',
-          publicUrl: 'https://example.com/fallback.jpg',
+          imageUrl: 'https://example.com/fallback.jpg',
         ),
         invokeAnalyze: (_, _) async => {
           'success': true,
+          'analysis_id': 'analysis-123',
+          'meal_date': '2026-04-09',
           'image_url': 'https://example.com/photo.jpg',
           'items': [
             {'name_en': 'Test Meal', 'name_zh': '測試餐'},
@@ -29,6 +31,8 @@ void main() {
       expect(result['calories'], 500);
       expect(result['protein'], 20);
       expect(result['image_url'], 'https://example.com/photo.jpg');
+      expect(result['analysis_id'], 'analysis-123');
+      expect(result['meal_date'], '2026-04-09');
     });
 
     test(
@@ -37,7 +41,7 @@ void main() {
         final service = FoodAnalysisService(
           uploadImage: (_) async => const UploadedImage(
             storagePath: 'user-1/20260409/photo.jpg',
-            publicUrl: 'https://example.com/fallback.jpg',
+            imageUrl: 'https://example.com/fallback.jpg',
           ),
           invokeAnalyze: (_, _) async => {
             'success': true,
@@ -66,7 +70,7 @@ void main() {
         now: () => DateTime.utc(2026, 4, 9, 10, 30),
         uploadImage: (_) async => const UploadedImage(
           storagePath: 'user-1/20260409/photo.jpg',
-          publicUrl: 'https://example.com/photo.jpg',
+          imageUrl: 'https://example.com/photo.jpg',
         ),
         invokeAnalyze: (imagePath, date) async {
           capturedPath = imagePath;
@@ -113,7 +117,7 @@ void main() {
       final service = FoodAnalysisService(
         uploadImage: (_) async => const UploadedImage(
           storagePath: 'user-1/20260409/photo.jpg',
-          publicUrl: 'https://example.com/photo.jpg',
+          imageUrl: 'https://example.com/photo.jpg',
         ),
         invokeAnalyze: (_, _) async => {
           'success': false,

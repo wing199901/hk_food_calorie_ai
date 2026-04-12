@@ -124,7 +124,7 @@ class StorageService extends ChangeNotifier {
     final dateStr = DateFormat(
       'yyyy-MM-dd',
     ).format(DateTime.fromMillisecondsSinceEpoch(meal.timestamp));
-    _syncAsync(() => _supabase.addMeal(meal, date: dateStr));
+    _syncAsync(() => _supabase.addMeal(meal, mealDate: dateStr));
     notifyListeners();
   }
 
@@ -140,7 +140,7 @@ class StorageService extends ChangeNotifier {
       final dateStr = DateFormat(
         'yyyy-MM-dd',
       ).format(DateTime.fromMillisecondsSinceEpoch(updatedMeal.timestamp));
-      _syncAsync(() => _supabase.addMeal(updatedMeal, date: dateStr));
+      _syncAsync(() => _supabase.addMeal(updatedMeal, mealDate: dateStr));
       notifyListeners();
     }
   }

@@ -10,17 +10,22 @@ body:
   type: json
   content: |-
     {
-        "user_id": "{{userId}}",
         "record_id": "{{recordId}}",
         "updated_items": [
             {
-                "name": "Steamed Rice",
+                "name_zh": "白飯",
+                "name_en": "Steamed Rice",
+                "type": "food",
                 "calories": 206,
-                "protein": 4.3,
-                "carbs": 44.5,
-                "fat": 0.4,
-                "quantity": 1,
-                "unit": "bowl"
+                "protein": 4,
+                "carbs": 45,
+                "fat": 0,
+                "sugar": 0,
+                "portion_size": 1,
+                "portion_unit": "bowl",
+                "portion_grams": 158,
+                "portion_ml": 0,
+                "confidence": 1
             }
         ]
     }

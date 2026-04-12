@@ -2,15 +2,16 @@
 
 ## 概覽
 
-| Priority   | Function              | 目的                            | Auth  | DB Table       | Secrets          |
-| ---------- | --------------------- | ------------------------------- | ----- | -------------- | ---------------- |
-| **V1 MVP** | `analyze-meal`        | AI 相片辨識食物/飲品（支援 `image_path` / `image_base64`） | JWT   | – | `GEMINI_API_KEY` |
-| **V1**     | `update-record`       | Server-side 更新份量 & totals   | JWT   | `meal_records` | –                |
-| **V1**     | `get-daily-summary`   | 拉取每日總結 + AI tip           | JWT   | `meal_records` | –                |
-| **V1**     | `delete-record`       | 軟/硬刪除紀錄                   | JWT   | `meal_records` | –                |
-| V2         | `generate-ai-insight` | 每週/月飲食報告 + AI 建議       | JWT   | `meal_records` | `GEMINI_API_KEY` |
-| V2         | `search-foods`        | 搜尋香港食物資料庫              | JWT   | `hk_foods`     | –                |
-| 維護       | `cleanup-old-records` | Cron 清理舊紀錄                 | Admin | `meal_records` | –                |
+| Priority   | Function                   | 目的                                                | Auth  | DB Table           | Secrets          |
+| ---------- | -------------------------- | --------------------------------------------------- | ----- | ------------------ | ---------------- |
+| **V1 MVP** | `analyze-meal`             | AI 相片辨識食物/飲品（只接受 Storage `image_path`） | JWT   | `ai_meal_analyses` | `GEMINI_API_KEY` |
+| **V1**     | `submit-analysis-feedback` | App 以 `analysis_id` 回寫用戶確認狀態與關聯紀錄     | JWT   | `ai_meal_analyses` | –                |
+| **V1**     | `update-record`            | Server-side 更新份量 & totals                       | JWT   | `meal_records`     | –                |
+| **V1**     | `get-daily-summary`        | 拉取每日總結 + AI tip                               | JWT   | `meal_records`     | –                |
+| **V1**     | `delete-record`            | 軟/硬刪除紀錄                                       | JWT   | `meal_records`     | –                |
+| V2         | `generate-ai-insight`      | 每週/月飲食報告 + AI 建議                           | JWT   | `meal_records`     | `GEMINI_API_KEY` |
+| V2         | `search-foods`             | 搜尋香港食物資料庫                                  | JWT   | `hk_foods`         | –                |
+| 維護       | `cleanup-old-records`      | Cron 清理舊紀錄                                     | Admin | `meal_records`     | –                |
 
 ## 前置條件
 
@@ -57,24 +58,22 @@ make serve-functions
 ```json
 {
   "image_path": "<user_id>/20260409/1712661234567.jpg",
-  "image_base64": "<optional_base64_jpeg_under_1.5mb>",
-  "date": "2026-02-28"
+  "meal_date": "2026-02-28"
 }
 ```
 
-`image_path` 與 `image_base64` 至少要提供其中一個。App 生產流程會同時提交兩者：
-
-- `image_path`：已上傳到 `meal-images` bucket 的物件路徑
-- `image_base64`：前端壓縮後圖片（作為分析即時 payload，避免等待 Storage download）
+`image_path` 必填，且必須是已上傳到 `meal-images` bucket 的物件路徑。
+`meal-images` 應保持 private；function 會回傳短期可用的 signed `image_url`。
 
 **Response:**
 
 ```json
 {
   "success": true,
-  "date": "2026-02-28",
+  "analysis_id": "0f4fba86-0c2a-4ccd-8f07-f66be334d06f",
+  "meal_date": "2026-02-28",
   "image_path": "<user_id>/20260409/1712661234567.jpg",
-  "image_url": "https://<project>.supabase.co/storage/v1/object/public/meal-images/<user_id>/20260409/1712661234567.jpg",
+  "image_url": "https://<project>.supabase.co/storage/v1/object/sign/meal-images/<user_id>/20260409/1712661234567.jpg?token=<signed-token>",
   "items": [
     {
       "name_zh": "叉燒飯",
@@ -99,8 +98,6 @@ make serve-functions
   "total_sugar": 8
 }
 ```
-
-若只傳 `image_base64`（沒有 `image_path`），回應中的 `image_path` 會是 `null`。
 
 ---
 
@@ -156,7 +153,7 @@ make serve-functions
 
 ```json
 {
-  "date": "2026-02-28"
+  "meal_date": "2026-02-28"
 }
 ```
 
@@ -165,7 +162,7 @@ make serve-functions
 ```json
 {
   "success": true,
-  "date": "2026-02-28",
+  "meal_date": "2026-02-28",
   "total_calories": 1850,
   "macros": { "protein": 85, "carbs": 210, "fat": 65 },
   "items_count": 5,
@@ -194,7 +191,7 @@ make serve-functions
 
 ```json
 {
-  "date": "2026-02-28"
+  "meal_date": "2026-02-28"
 }
 ```
 
@@ -240,7 +237,7 @@ make serve-functions
   "date_range": { "from": "2026-02-21", "to": "2026-02-28" },
   "report_text": "📊 本週飲食總結\n\n平均每日攝取 1,950 kcal...",
   "charts_data": [
-    { "date": "2026-02-21", "calories": 1800, "protein": 75, "carbs": 200, "fat": 60 },
+    { "meal_date": "2026-02-21", "calories": 1800, "protein": 75, "carbs": 200, "fat": 60 },
     ...
   ],
   "summary": {
@@ -317,7 +314,50 @@ make serve-functions
 
 ## DB 架構
 
-`analyze-meal` 會接收 `image_path` / `image_base64`，回傳分析結果給 App；相片分析流程在成功後會由 App 自動寫入 `meal_records`（無需額外手動 Save）。
+`analyze-meal` 會接收 `image_path`，回傳分析結果給 App，並保留 human-in-the-loop 確認流程（用戶按 Save 後先寫入 `meal_records`）。
+
+`analyze-meal` 會先寫入 `ai_meal_analyses`（`feedback_status = pending`），再回傳 `analysis_id` 給 App。
+App 端採用 human-in-the-loop：
+
+- 用戶確認 AI 正確後按 Save，才寫入 `meal_records`
+- 若 AI 不正確，用戶可先 edit 再 Save
+- Save 時 App 會呼叫 `submit-analysis-feedback` 回寫 `ai_meal_analyses`：
+  - `is_correct = true` + `feedback_status = confirmed`（無編輯）
+  - `is_correct = false` + `feedback_status = confirmed_with_edit`（有編輯）
+
+`ai_meal_analyses` 為內部改善用途：
+
+- 一般 user 沒有直接 `select/insert/update/delete` 權限
+- 讀寫只可透過 edge functions（service role）完成
+
+---
+
+### 🟡 submit-analysis-feedback (V1)
+
+**POST** `/functions/v1/submit-analysis-feedback`
+
+**Headers:** `Authorization: Bearer <user_jwt>`
+
+**Request:**
+
+```json
+{
+  "analysis_id": "0f4fba86-0c2a-4ccd-8f07-f66be334d06f",
+  "meal_record_id": "1712661234567",
+  "is_correct": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "analysis_id": "0f4fba86-0c2a-4ccd-8f07-f66be334d06f",
+  "feedback_status": "confirmed_with_edit",
+  "confirmed_at": "2026-04-11T09:12:34.567Z"
+}
+```
 
 `meal_records` 建議欄位如下：
 
@@ -325,20 +365,44 @@ make serve-functions
 meal_records
 ├── id (uuid, PK, auto-generated)
 ├── user_id (uuid, FK → auth.users)
-├── date (date, YYYY-MM-DD)
+├── meal_date (date, YYYY-MM-DD)
+├── image_path (text, nullable, Supabase Storage object path)
 ├── items (jsonb, 食物陣列)
 ├── total_calories (integer)
 ├── total_protein (integer)
 ├── total_carbs (integer)
 ├── total_fat (integer)
-├── image_base64 (text, nullable, legacy)
-├── image_url (text, nullable, Supabase Storage public URL)
+├── image_url (text, nullable, signed URL snapshot)
 ├── deleted_at (timestamptz, nullable, soft delete)
 ├── created_at (timestamptz)
 └── updated_at (timestamptz, auto-trigger)
 ```
 
 `get-daily-summary` 純粹使用 `meal_records` 表（AI 分析 + 手動輸入均存於此表）。
+
+`ai_meal_analyses` 建議欄位如下：
+
+```
+ai_meal_analyses
+├── id (uuid, PK)
+├── user_id (uuid, FK → auth.users)
+├── meal_date (date, YYYY-MM-DD)
+├── image_path (text, nullable)
+├── image_url (text, nullable, signed URL snapshot)
+├── ai_summary_name (text)
+├── ai_items (jsonb)
+├── ai_total_calories/protein/carbs/fat/sugar (integer)
+├── ai_model (text, default: gemini-2.5-flash)
+├── input_tokens/output_tokens/total_tokens (integer, nullable)
+├── image_bytes (integer, default: 0)
+├── latency_ms (integer, nullable)
+├── meal_record_id (text, nullable)
+├── is_correct (boolean, nullable)
+├── confirmed_at (timestamptz, nullable)
+├── feedback_status (text: pending/confirmed/confirmed_with_edit/discarded)
+├── created_at (timestamptz)
+└── updated_at (timestamptz)
+```
 
 ## 本地開發
 
@@ -350,15 +414,9 @@ echo "GEMINI_API_KEY=your_key_here" > .env.local
 make serve-functions
 
 # 測試 (用 curl)
-# 方式 A: 用已上傳 Storage 路徑
+# 方式: 用已上傳 Storage 路徑
 curl -X POST http://localhost:54321/functions/v1/analyze-meal \
   -H "Authorization: Bearer <your_jwt>" \
   -H "Content-Type: application/json" \
-  -d '{"image_path":"<user_id>/20260409/1712661234567.jpg","date":"2026-02-28"}'
-
-# 方式 B: 直接提交 base64
-curl -X POST http://localhost:54321/functions/v1/analyze-meal \
-  -H "Authorization: Bearer <your_jwt>" \
-  -H "Content-Type: application/json" \
-  -d '{"image_base64":"<base64>","date":"2026-02-28"}'
+  -d '{"image_path":"<user_id>/20260409/1712661234567.jpg","meal_date":"2026-02-28"}'
 ```

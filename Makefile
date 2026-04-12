@@ -1,11 +1,41 @@
 run:
 	dart run build_runner build --delete-conflicting-outputs && flutter run
 
+IOS_SIM ?= iPhone 13 Pro
+TEST_IMAGE_PATH ?= integration_test/images/3_egg_tarts.jpg
+SUPABASE_TEST_USER_ID ?= 00000000-0000-0000-0000-000000000001
+
+test-ios-upload-flow:
+	flutter test integration_test/ios_upload_image_flow_test.dart -d "$(IOS_SIM)"
+
+test-analysis-flow:
+	@if [ -z "$(EMAIL)" ] || [ -z "$(PASSWORD)" ]; then \
+		echo "email and password are required."; \
+		exit 1; \
+	fi
+	flutter test integration_test/analysis_food_flow_test.dart -d "$(IOS_SIM)" \
+		--dart-define=TEST_EMAIL="$(EMAIL)" \
+		--dart-define=TEST_PASSWORD="$(PASSWORD)" \
+		--dart-define=TEST_IMAGE_PATH="$(TEST_IMAGE_PATH)"
+
 build:
 	dart run build_runner build --delete-conflicting-outputs && flutter build ios
 
 gen:
 	dart run build_runner build --delete-conflicting-outputs
+
+# Upload Postman fixture images to local Supabase Storage for a specific user id.
+postman-fixtures:
+	POSTMAN_FIXTURE_USER_ID="$(SUPABASE_TEST_USER_ID)" bash postman/setup-local-fixtures.sh
+
+# Reset local Supabase DB, then provision Postman fixture images.
+db-reset:
+	@if supabase db reset; then \
+		echo "Supabase db reset completed."; \
+	else \
+		echo "Warning: supabase db reset returned a non-zero exit code. Provisioning fixtures anyway."; \
+	fi
+	POSTMAN_FIXTURE_USER_ID="$(SUPABASE_TEST_USER_ID)" bash postman/setup-local-fixtures.sh
 
 # ── Supabase Edge Functions ──────────────────────────
 # Deploy all edge functions at once

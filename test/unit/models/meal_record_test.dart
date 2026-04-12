@@ -10,6 +10,7 @@ void main() {
         calories: 620,
         timestamp: 1710000000000,
         image: 'https://example.com/meal.jpg',
+        imagePath: 'user-1/20260409/meal.jpg',
         protein: 30,
         carbs: 70,
         fat: 20,
@@ -23,6 +24,7 @@ void main() {
       expect(restored.calories, 620);
       expect(restored.timestamp, 1710000000000);
       expect(restored.image, 'https://example.com/meal.jpg');
+      expect(restored.imagePath, 'user-1/20260409/meal.jpg');
       expect(restored.protein, 30);
       expect(restored.carbs, 70);
       expect(restored.fat, 20);
@@ -44,6 +46,7 @@ void main() {
       expect(updated.calories, 540);
       expect(updated.timestamp, 1);
       expect(updated.sugar, 4);
+      expect(updated.imagePath, isNull);
     });
   });
 }

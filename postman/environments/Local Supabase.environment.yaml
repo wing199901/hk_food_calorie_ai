@@ -3,9 +3,6 @@ values:
   - key: baseUrl
     value: 'http://127.0.0.1:54321/functions/v1'
     enabled: true
-  - key: bearerToken
-    value: ''
-    enabled: true
   - key: userId
     value: 00000000-0000-0000-0000-000000000001
     enabled: true

@@ -7,6 +7,7 @@
     "chat.tools.terminal.autoApprove": {
         "flutter": true,
         "dart": true,
-        "deno": true
+        "deno": true,
+        "supabase": true
     }
 }

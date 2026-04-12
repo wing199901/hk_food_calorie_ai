@@ -8,6 +8,7 @@ class FakeFoodAnalysisService extends FoodAnalysisService {
 
   bool shouldThrowNetworkError;
   int analyzeCallCount = 0;
+  String? lastAnalyzedImagePath;
   final Map<String, dynamic> _analysisResult;
 
   static const Map<String, dynamic> _defaultAnalysisResult = {
@@ -22,6 +23,7 @@ class FakeFoodAnalysisService extends FoodAnalysisService {
   @override
   Future<Map<String, dynamic>> analyzeImage(String imagePath) async {
     analyzeCallCount += 1;
+    lastAnalyzedImagePath = imagePath;
 
     if (imagePath.endsWith('.txt')) {
       throw const FoodAnalysisException(

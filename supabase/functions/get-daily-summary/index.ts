@@ -11,9 +11,9 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleCors();
 
   try {
-    const { date = new Date().toISOString().split("T")[0] } = await req.json();
+    const { meal_date = new Date().toISOString().split("T")[0] } =
+      await req.json();
 
-    
     const supabase = createUserClient(req);
     let user_id: string;
     try {
@@ -22,7 +22,6 @@ Deno.serve(async (req: Request) => {
       return errorResponse("UNAUTHORIZED", "Unauthorized", 401);
     }
 
-
     // ── Fetch meal_records (AI 分析) ─────────
     const { data: records, error: recErr } = await supabase
       .from("meal_records")
@@ -30,7 +29,7 @@ Deno.serve(async (req: Request) => {
         "id, items, total_calories, total_protein, total_carbs, total_fat, total_sugar, created_at",
       )
       .eq("user_id", user_id)
-      .eq("date", date)
+      .eq("meal_date", meal_date)
       .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
@@ -83,7 +82,7 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({
       success: true,
-      date,
+      meal_date,
       total_calories: totalCalories,
       macros: {
         protein: totalProtein,

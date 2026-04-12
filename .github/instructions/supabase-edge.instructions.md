@@ -15,6 +15,7 @@ applyTo: "supabase/functions/**/*.ts"
 - Uses Gemini **Structured Output** (`responseMimeType` + `responseSchema`) to guarantee valid JSON.
 - **Do not** manually parse or strip Markdown fences from the Gemini output; the response is already raw JSON.
 - Model configs: `temperature: 0.2`, `maxOutputTokens: 2048`.
+- `analyze-meal` is the production meal-analysis contract. Keep request/response field names stable unless app and tests are updated in lockstep.
 
 ## Shared Utilities
 

@@ -1,6 +1,8 @@
 -- ============================================================
 -- FitCalorie — Seed Data (local development only)
 -- Applied automatically by: supabase db reset
+-- Storage fixture binaries for Postman are provisioned after reset
+-- via: postman/setup-local-fixtures.sh (Makefile target: db-reset)
 -- ============================================================
 
 -- ─────────────────────────────────────────────────────────────
@@ -92,7 +94,7 @@ on conflict (user_id, date, created_at) do nothing;
 -- Demo Data: Meal Records
 -- ─────────────────────────────────────────────────────────────
 insert into public.meal_records (
-  id, user_id, date, created_at, image_base64,
+  id, user_id, meal_date, created_at, image_url,
   total_calories, total_protein, total_carbs, total_fat, total_sugar,
   items
 )

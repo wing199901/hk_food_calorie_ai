@@ -63,4 +63,12 @@ class FakeSupabaseService extends SupabaseService {
   Future<UserProfile> fetchProfile() async {
     return profileToReturn;
   }
+
+  @override
+  Future<void> saveAiMealAnalysisFeedback({
+    required String analysisId,
+    required String mealRecordId,
+    required bool isCorrect,
+    required Map<String, dynamic> finalResult,
+  }) async {}
 }

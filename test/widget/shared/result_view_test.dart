@@ -13,6 +13,7 @@ void main() {
             isAnalyzing: true,
             result: null,
             onSave: _noop,
+            onEdit: _noop,
             onCancel: _noop,
           ),
         ),
@@ -26,6 +27,7 @@ void main() {
     tester,
   ) async {
     var saved = 0;
+    var edited = 0;
     var cancelled = 0;
 
     await tester.pumpWidget(
@@ -41,6 +43,7 @@ void main() {
               'fat': 20,
             },
             onSave: () => saved += 1,
+            onEdit: () => edited += 1,
             onCancel: () => cancelled += 1,
           ),
         ),
@@ -49,11 +52,14 @@ void main() {
 
     expect(find.text('Chicken Rice'), findsOneWidget);
 
+    await tester.tap(find.text('Edit Result'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add Meal'));
     await tester.pumpAndSettle();
 
+    expect(edited, 1);
     expect(cancelled, 1);
     expect(saved, 1);
   });

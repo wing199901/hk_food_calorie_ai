@@ -1,9 +1,10 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../env/env.dart';
 
 /// Domain-specific exception for AI meal analysis failures.
 class FoodAnalysisException implements Exception {
@@ -18,21 +19,19 @@ class FoodAnalysisException implements Exception {
 /// Upload result reference for one analyzed image.
 class UploadedImage {
   final String storagePath;
-  final String publicUrl;
+  final String imageUrl;
 
-  const UploadedImage({required this.storagePath, required this.publicUrl});
+  const UploadedImage({required this.storagePath, required this.imageUrl});
 }
 
 /// Packed payload used to run upload and analysis in parallel.
 class _PreparedImageUpload {
-  final UploadedImage uploaded;
+  final String storagePath;
   final Uint8List uploadBytes;
-  final String imageBase64;
 
   const _PreparedImageUpload({
-    required this.uploaded,
+    required this.storagePath,
     required this.uploadBytes,
-    required this.imageBase64,
   });
 }
 
@@ -42,7 +41,7 @@ class FoodAnalysisService {
     SupabaseClient? client,
     DateTime Function()? now,
     Future<UploadedImage> Function(String imagePath)? uploadImage,
-    Future<Map<String, dynamic>> Function(String imagePath, String date)?
+    Future<Map<String, dynamic>> Function(String imagePath, String mealDate)?
     invokeAnalyze,
   }) : _client = client,
        _now = now ?? DateTime.now,
@@ -52,12 +51,16 @@ class FoodAnalysisService {
   final SupabaseClient? _client;
   final DateTime Function() _now;
   final Future<UploadedImage> Function(String imagePath)? _uploadImageOverride;
-  final Future<Map<String, dynamic>> Function(String imagePath, String date)?
+  final Future<Map<String, dynamic>> Function(
+    String imagePath,
+    String mealDate,
+  )?
   _invokeAnalyzeOverride;
 
   static const _bucketName = 'meal-images';
   static const _maxImageBytes = 1_500_000;
   static const _maxLongestEdgePx = 1280;
+  static const _signedUrlExpiresInSeconds = 60 * 60 * 24 * 7;
 
   SupabaseClient get _resolvedClient {
     final injected = _client;
@@ -79,15 +82,14 @@ class FoodAnalysisService {
       _validateImagePath(imagePath);
 
       final nowUtc = _now().toUtc();
-      final date = _formatIsoDate(nowUtc);
+      final mealDate = _formatIsoDate(nowUtc);
       final uploadImage = _uploadImageOverride;
 
       if (uploadImage != null) {
         final uploaded = await uploadImage(imagePath);
         final rawResponse = await _invokeAnalyzeForPath(
           imagePath: uploaded.storagePath,
-          date: date,
-          imageBase64: null,
+          mealDate: mealDate,
         );
 
         if (rawResponse['success'] == false) {
@@ -96,18 +98,20 @@ class FoodAnalysisService {
 
         return _normalizeAnalyzeResult(
           rawResponse,
-          fallbackImageUrl: uploaded.publicUrl,
+          fallbackImageUrl: uploaded.imageUrl,
         );
       }
 
       final prepared = await _prepareImageForUpload(imagePath, nowUtc: nowUtc);
       late Map<String, dynamic> rawResponse;
+      late UploadedImage uploaded;
 
-      final uploadFuture = _uploadPreparedImage(prepared);
+      final uploadFuture = _uploadPreparedImage(
+        prepared,
+      ).then((value) => uploaded = value);
       final analyzeFuture = _invokeAnalyzeForPath(
-        imagePath: prepared.uploaded.storagePath,
-        date: date,
-        imageBase64: prepared.imageBase64,
+        imagePath: prepared.storagePath,
+        mealDate: mealDate,
       );
 
       await Future.wait([
@@ -121,7 +125,7 @@ class FoodAnalysisService {
 
       return _normalizeAnalyzeResult(
         rawResponse,
-        fallbackImageUrl: prepared.uploaded.publicUrl,
+        fallbackImageUrl: uploaded.imageUrl,
       );
     } on FoodAnalysisException {
       rethrow;
@@ -173,23 +177,33 @@ class FoodAnalysisService {
     final dateFolder = _formatIsoDate(nowUtc).replaceAll('-', '');
     final fileName = '${nowUtc.microsecondsSinceEpoch}.jpg';
     final storagePath = '$userId/$dateFolder/$fileName';
-    final publicUrl = client.storage.from(_bucketName).getPublicUrl(storagePath);
-
     return _PreparedImageUpload(
-      uploaded: UploadedImage(storagePath: storagePath, publicUrl: publicUrl),
+      storagePath: storagePath,
       uploadBytes: uploadBytes,
-      imageBase64: base64Encode(uploadBytes),
     );
   }
 
-  Future<void> _uploadPreparedImage(_PreparedImageUpload prepared) async {
+  Future<UploadedImage> _uploadPreparedImage(
+    _PreparedImageUpload prepared,
+  ) async {
     final client = _resolvedClient;
 
     try {
-      await client.storage.from(_bucketName).uploadBinary(
-        prepared.uploaded.storagePath,
-        prepared.uploadBytes,
-        fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: false),
+      await client.storage
+          .from(_bucketName)
+          .uploadBinary(
+            prepared.storagePath,
+            prepared.uploadBytes,
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              upsert: false,
+            ),
+          );
+
+      final signedUrl = await _createSignedImageUrl(prepared.storagePath);
+      return UploadedImage(
+        storagePath: prepared.storagePath,
+        imageUrl: signedUrl,
       );
     } catch (error) {
       final message = error.toString().toLowerCase();
@@ -201,6 +215,28 @@ class FoodAnalysisService {
 
       throw const FoodAnalysisException(
         'Unable to upload image right now. Please try again.',
+      );
+    }
+  }
+
+  Future<String> _createSignedImageUrl(String storagePath) async {
+    try {
+      final signedUrl = await _resolvedClient.storage
+          .from(_bucketName)
+          .createSignedUrl(storagePath, _signedUrlExpiresInSeconds);
+
+      if (signedUrl.startsWith('http://') || signedUrl.startsWith('https://')) {
+        return signedUrl;
+      }
+
+      final baseUrl = Env.supabaseUrl.replaceAll(RegExp(r'/+$'), '');
+      final normalizedPath = signedUrl.startsWith('/')
+          ? signedUrl
+          : '/$signedUrl';
+      return '$baseUrl$normalizedPath';
+    } catch (_) {
+      throw const FoodAnalysisException(
+        'Unable to create image URL right now. Please try again.',
       );
     }
   }
@@ -242,31 +278,25 @@ class FoodAnalysisService {
 
   Future<Map<String, dynamic>> _invokeAnalyzeForPath({
     required String imagePath,
-    required String date,
-    required String? imageBase64,
+    required String mealDate,
   }) async {
     final invokeAnalyze = _invokeAnalyzeOverride;
     if (invokeAnalyze != null) {
-      return invokeAnalyze(imagePath, date);
+      return invokeAnalyze(imagePath, mealDate);
     }
 
-    return _invokeAnalyzeMeal(
-      imagePath: imagePath,
-      date: date,
-      imageBase64: imageBase64,
-    );
+    return _invokeAnalyzeMeal(imagePath: imagePath, mealDate: mealDate);
   }
 
   Future<Map<String, dynamic>> _invokeAnalyzeMeal({
     required String imagePath,
-    required String date,
-    required String? imageBase64,
+    required String mealDate,
   }) async {
     try {
-      final body = <String, dynamic>{'image_path': imagePath, 'date': date};
-      if (imageBase64 != null && imageBase64.isNotEmpty) {
-        body['image_base64'] = imageBase64;
-      }
+      final body = <String, dynamic>{
+        'image_path': imagePath,
+        'meal_date': mealDate,
+      };
 
       final response = await _resolvedClient.functions.invoke(
         'analyze-meal',
@@ -343,6 +373,8 @@ class FoodAnalysisService {
         : fallbackImageUrl;
 
     return {
+      'analysis_id': _readString(payload['analysis_id']),
+      'meal_date': _readString(payload['meal_date']),
       'name': mealName,
       'calories': _readInt(payload['total_calories']),
       'protein': _readInt(payload['total_protein']),
@@ -368,8 +400,6 @@ class FoodAnalysisService {
       case 'MISSING_IMAGE_PATH':
       case 'MISSING_IMAGE':
         return 'Uploaded image was not found. Please upload the photo again.';
-      case 'INVALID_IMAGE_BASE64':
-        return 'Unable to read this photo. Please select another image.';
       case 'IMAGE_TOO_LARGE':
         return 'Photo is too large. Please try a smaller image.';
       case 'IMAGE_EMPTY':
@@ -379,6 +409,7 @@ class FoodAnalysisService {
       case 'AI_UNAVAILABLE':
       case 'AI_ERROR':
       case 'AI_PARSE_ERROR':
+      case 'ANALYSIS_STORE_ERROR':
         return 'Unable to analyze this meal right now. Please try again.';
       default:
         return errorMessage.isNotEmpty

@@ -8,7 +8,7 @@ request:
     content: >-
       {
           "image_path": "{{userId}}/postman/egg-tart-1.jpg",
-          "date": "{{date}}"
+          "meal_date": "{{date}}"
       }
 response:
   statusCode: 200
@@ -17,5 +17,5 @@ response:
     content-type: application/json
   body:
     type: json
-    content: '{"success":true,"date":"{{date}}","image_path":"{{userId}}/postman/egg-tart-1.jpg","image_url":"https://YOUR_PROJECT.supabase.co/storage/v1/object/public/meal-images/{{userId}}/postman/egg-tart-1.jpg","items":[{"name_zh":"酥皮蛋撻","name_en":"Flaky Pastry Egg Tart","type":"food","portion_size":1,"portion_unit":"piece","calories":230,"protein":5,"carbs":22,"fat":18,"sugar":12,"confidence":0.95,"portion_grams":65,"portion_ml":0}],"total_calories":230,"total_protein":5,"total_carbs":22,"total_fat":18,"total_sugar":12}'
+    content: '{"success":true,"meal_date":"{{date}}","image_path":"{{userId}}/postman/egg-tart-1.jpg","image_url":"https://YOUR_PROJECT.supabase.co/storage/v1/object/public/meal-images/{{userId}}/postman/egg-tart-1.jpg","items":[{"name_zh":"酥皮蛋撻","name_en":"Flaky Pastry Egg Tart","type":"food","portion_size":1,"portion_unit":"piece","calories":230,"protein":5,"carbs":22,"fat":18,"sugar":12,"confidence":0.95,"portion_grams":65,"portion_ml":0}],"total_calories":230,"total_protein":5,"total_carbs":22,"total_fat":18,"total_sugar":12}'
 order: 1772639047963

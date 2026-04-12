@@ -1,10 +1,98 @@
 $kind: collection
 name: Edge Functions
+scripts:
+  - type: http:beforeRequest
+    code: >-
+      (async () => {
+          const baseUrl = pm.environment.get("baseUrl") || "";
+
+          if (!baseUrl) {
+              throw new Error("Missing baseUrl.");
+          }
+
+          let authEmail = "";
+          let publishableKey = "";
+          let authPassword = "";
+          let vaultReady = true;
+
+          try {
+              authEmail = (await pm.vault.get("authEmail")) || "";
+              publishableKey = (await pm.vault.get("publishableKey")) || "";
+              authPassword = (await pm.vault.get("authPassword")) || "";
+          } catch (error) {
+              vaultReady = false;
+              console.warn(`Vault read failed, fallback to environment: ${error}`);
+          }
+
+
+          if (!authEmail || !publishableKey || !authPassword) {
+              throw new Error(
+                  "Missing auth credentials. Set vault authEmail/publishableKey/authPassword or env authEmail/publishableKey/authPassword.",
+              );
+          }
+
+          const apiUrl = baseUrl.replace(/\/functions\/v1\/?$/, "");
+          const authUrl = `${apiUrl}/auth/v1/token?grant_type=password`;
+
+          const response = await new Promise((resolve, reject) => {
+              pm.sendRequest(
+                  {
+                      url: authUrl,
+                      method: "POST",
+                      header: [
+                          { key: "apikey", value: publishableKey },
+                          { key: "Content-Type", value: "application/json" },
+                      ],
+                      body: {
+                          mode: "raw",
+                          raw: JSON.stringify({
+                              email: authEmail,
+                              password: authPassword,
+                          }),
+                      },
+                  },
+                  (error, result) => {
+                      if (error) {
+                          reject(error);
+                          return;
+                      }
+
+                      resolve(result);
+                  },
+              );
+          });
+
+          if (!response || response.code !== 200) {
+              const body = response ? response.text() : "no response";
+              throw new Error(`Auth request failed (${response?.code}): ${body}`);
+          }
+
+          const payload = response.json();
+          const token = payload.access_token;
+          const userId = payload.user?.id;
+
+          if (!token || !userId) {
+              throw new Error("Auth response missing access_token or user.id");
+          }
+
+
+          pm.environment.set("userId", userId);
+
+
+          // Ensure current request always carries the fresh token.
+          pm.request.headers.remove("Authorization");
+          pm.request.headers.upsert({
+              key: "Authorization",
+              value: `Bearer ${token}`,
+          });
+      })().catch((error) => {
+          throw new Error(`Auth request failed: ${error?.message || error}`);
+      });
 auth:
   - id: 65b90fcf-7a32-446d-b2b8-59ca70ca7e9f
     type: bearer
     name: Bearer Token
     credentials:
-      token: "{{bearerToken}}"
+      token: ""
     rules:
-      url: 127.0.0.1:54321
+      url: 127.0.0.1:54321/*
