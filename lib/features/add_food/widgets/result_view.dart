@@ -23,6 +23,13 @@ class ResultView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final meal = result?['meal'] as Map<String, dynamic>?;
+    final totals = meal?['totals'] as Map<String, dynamic>?;
+    final calories = totals?['calories'] ?? 0;
+    final protein = totals?['protein'] ?? 0;
+    final carbs = totals?['carbs'] ?? 0;
+    final fat = totals?['fat'] ?? 0;
+
     return Column(
       children: [
         // Analyzing state
@@ -93,7 +100,7 @@ class ResultView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '${result!['calories']}',
+                      '$calories',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 48,
@@ -112,11 +119,11 @@ class ResultView extends StatelessWidget {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    _macroChip('Protein', '${result!['protein']}g'),
+                    _macroChip('Protein', '${protein}g'),
                     const SizedBox(width: 8),
-                    _macroChip('Carbs', '${result!['carbs']}g'),
+                    _macroChip('Carbs', '${carbs}g'),
                     const SizedBox(width: 8),
-                    _macroChip('Fat', '${result!['fat']}g'),
+                    _macroChip('Fat', '${fat}g'),
                   ],
                 ),
                 if (isEdited) ...[

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:hk_food_calorie_ai/env/env.dart';
 import 'package:hk_food_calorie_ai/features/add_food/add_food_page.dart';
 import 'package:hk_food_calorie_ai/shared/providers/providers.dart';
 
@@ -13,16 +14,23 @@ void main() {
 
   testWidgets('persists image path returned by AI analysis', (tester) async {
     final fakeStorage = FakeStorageService();
+    const kongSignedUrl =
+        'http://kong:8000/storage/v1/object/sign/meal-images/user-1/20260412/meal.jpg?token=test-token';
     final fakeFoodAnalysis = FakeFoodAnalysisService(
       analysisResult: {
         'name': 'Integration Chicken Rice',
-        'calories': 610,
-        'protein': 31,
-        'carbs': 72,
-        'fat': 19,
-        'sugar': 5,
-        'image_url': 'https://example.com/signed.jpg',
-        'image_path': 'user-1/20260412/meal.jpg',
+        'image': {'url': kongSignedUrl, 'path': 'user-1/20260412/meal.jpg'},
+        'meal': {
+          'date': '2026-04-12',
+          'items': <Map<String, dynamic>>[],
+          'totals': {
+            'calories': 610,
+            'protein': 31,
+            'carbs': 72,
+            'fat': 19,
+            'sugar': 5,
+          },
+        },
       },
     );
 
@@ -44,7 +52,23 @@ void main() {
 
     final meals = fakeStorage.getMeals();
     expect(meals, hasLength(1));
-    expect(meals.first.image, 'https://example.com/signed.jpg');
+    final savedImage = meals.first.image;
+    expect(savedImage, isNotNull);
+
+    final savedImageUri = Uri.parse(savedImage!);
+    final appBaseUri = Uri.parse(Env.supabaseUrl);
+
+    expect(savedImageUri.scheme, appBaseUri.scheme);
+    expect(savedImageUri.host, appBaseUri.host);
+    expect(savedImageUri.hasPort, appBaseUri.hasPort);
+    if (appBaseUri.hasPort) {
+      expect(savedImageUri.port, appBaseUri.port);
+    }
+    expect(
+      savedImageUri.path,
+      '/storage/v1/object/sign/meal-images/user-1/20260412/meal.jpg',
+    );
+    expect(savedImageUri.query, 'token=test-token');
     expect(meals.first.imagePath, 'user-1/20260412/meal.jpg');
   });
 }

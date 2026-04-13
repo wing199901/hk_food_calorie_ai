@@ -9,6 +9,7 @@ applyTo: "supabase/functions/**/*.ts"
 
 - All functions accept **POST** requests with `Authorization: Bearer <jwt>`.
 - Use Deno / TypeScript context.
+- Read `supabase/README.md` and `supabase/functions/README.md` before changing function behavior, deployment steps, or local testing instructions.
 
 ## AI Structured Output (`analyze-meal`)
 

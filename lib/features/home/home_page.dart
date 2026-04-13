@@ -129,16 +129,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const Padding(
-                                    padding: EdgeInsets.only(bottom: 4),
-                                    child: Text(
-                                      ' kcal',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),

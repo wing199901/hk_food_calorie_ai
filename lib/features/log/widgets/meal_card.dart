@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import '../../../shared/models/meal.dart';
+import '../../../shared/utils/storage_url_utils.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../env/env.dart';
 
 class MealCard extends StatelessWidget {
   final Meal meal;
@@ -124,9 +126,14 @@ class MealCard extends StatelessWidget {
   }
 
   Widget _buildMealImage(String imageUrl, double width, double height) {
-    if (imageUrl.startsWith('http')) {
+    if (_isNetworkImage(imageUrl)) {
+      final resolvedUrl = normalizeStorageUrl(
+        imageUrl,
+        baseUrl: Env.supabaseUrl,
+      );
+
       return CachedNetworkImage(
-        imageUrl: imageUrl,
+        imageUrl: resolvedUrl,
         width: width,
         height: height,
         fit: BoxFit.cover,
@@ -153,5 +160,15 @@ class MealCard extends StatelessWidget {
         ),
       );
     }
+  }
+
+  bool _isNetworkImage(String path) {
+    final parsed = Uri.tryParse(path);
+    final looksLikeStoragePath =
+        path.startsWith('/storage/v1/') ||
+        path.startsWith('storage/v1/') ||
+        (parsed != null && parsed.path.startsWith('/storage/v1/'));
+
+    return path.startsWith('http') || looksLikeStoragePath;
   }
 }

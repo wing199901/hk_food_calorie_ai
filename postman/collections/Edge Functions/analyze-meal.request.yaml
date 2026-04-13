@@ -8,10 +8,11 @@ auth:
     id: 65b90fcf-7a32-446d-b2b8-59ca70ca7e9f
 body:
   type: json
-  content: >-
+  content: |-
     {
         "image_path": "{{userId}}/postman/egg-tart-1.jpg",
-        "meal_date": "{{date}}"
+        "meal_date": "{{date}}",
+        "model": "gemini-2.5-flash"
     }
 order: 1000
 examples: ./.resources/analyze-meal.resources/examples

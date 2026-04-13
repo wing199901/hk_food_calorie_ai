@@ -13,11 +13,17 @@ class FakeFoodAnalysisService extends FoodAnalysisService {
 
   static const Map<String, dynamic> _defaultAnalysisResult = {
     'name': 'Test Chicken Rice',
-    'calories': 600,
-    'protein': 30,
-    'carbs': 70,
-    'fat': 20,
-    'sugar': 5,
+    'meal': {
+      'date': '2026-04-13',
+      'items': <Map<String, dynamic>>[],
+      'totals': {
+        'calories': 600,
+        'protein': 30,
+        'carbs': 70,
+        'fat': 20,
+        'sugar': 5,
+      },
+    },
   };
 
   @override

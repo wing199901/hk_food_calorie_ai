@@ -11,6 +11,11 @@
 - **Testing After Edits:** After any agent edits to the app code, also add or update corresponding unit tests (in `test/`) and integration tests (in `integration_test/`) where applicable. Run `flutter test` (and integration tests if set up) to verify and ensure zero failures. If integration tests cannot be added due to technical constraints, note the reason in code comments.
 - **Documentation Updates:** Always check and propose updates to `README.md` and instruction files whenever making major changes or adding new features.
 
+## Folder Readmes
+
+- **Read Local Docs First:** Before working in `test/`, `integration_test/`, `supabase/`, or `postman/`, read the folder-level `README.md` and follow its local workflow notes.
+- **Keep Docs in Sync:** If commands, file layout, or flows change in those folders, update the corresponding folder `README.md` in the same task.
+
 ## Copilot Collaboration Style
 
 - **Critical First, Not Blind Implementation:** Never accept or implement a request blindly. Evaluate technical, UX, performance, and maintainability impact first.

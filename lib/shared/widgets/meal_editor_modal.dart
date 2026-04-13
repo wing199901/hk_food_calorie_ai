@@ -1,30 +1,41 @@
 import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../shared/providers/providers.dart';
-import '../../../shared/models/meal.dart';
-import '../../../shared/utils/storage_url_utils.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../env/env.dart';
 
-class ManualMealModal extends ConsumerStatefulWidget {
+import '../../core/theme/app_theme.dart';
+import '../../env/env.dart';
+import '../models/meal.dart';
+import '../providers/providers.dart';
+import '../utils/storage_url_utils.dart';
+
+class MealEditorModal extends ConsumerStatefulWidget {
   final DateTime date;
   final Meal? initialMeal;
+  final String? modalTitle;
+  final bool saveToStorage;
 
-  const ManualMealModal({super.key, required this.date, this.initialMeal});
+  const MealEditorModal({
+    super.key,
+    required this.date,
+    this.initialMeal,
+    this.modalTitle,
+    this.saveToStorage = true,
+  });
 
   @override
-  ConsumerState<ManualMealModal> createState() => _ManualMealModalState();
+  ConsumerState<MealEditorModal> createState() => _MealEditorModalState();
 }
 
-class _ManualMealModalState extends ConsumerState<ManualMealModal> {
+class _MealEditorModalState extends ConsumerState<MealEditorModal> {
   late TextEditingController _nameCtrl;
   late TextEditingController _caloriesCtrl;
   late TextEditingController _proteinCtrl;
   late TextEditingController _carbsCtrl;
   late TextEditingController _fatCtrl;
+  late TextEditingController _sugarCtrl;
   String? _image;
 
   @override
@@ -43,6 +54,9 @@ class _ManualMealModalState extends ConsumerState<ManualMealModal> {
     _fatCtrl = TextEditingController(
       text: widget.initialMeal?.fat?.toString() ?? '',
     );
+    _sugarCtrl = TextEditingController(
+      text: widget.initialMeal?.sugar?.toString() ?? '',
+    );
     _image = widget.initialMeal?.image;
   }
 
@@ -53,7 +67,16 @@ class _ManualMealModalState extends ConsumerState<ManualMealModal> {
     _proteinCtrl.dispose();
     _carbsCtrl.dispose();
     _fatCtrl.dispose();
+    _sugarCtrl.dispose();
     super.dispose();
+  }
+
+  String get _resolvedTitle {
+    final custom = widget.modalTitle?.trim();
+    if (custom != null && custom.isNotEmpty) {
+      return custom;
+    }
+    return widget.initialMeal != null ? 'Edit Meal' : 'Add Meal';
   }
 
   Future<void> _pickImage() async {
@@ -69,7 +92,7 @@ class _ManualMealModalState extends ConsumerState<ManualMealModal> {
 
   void _handleSave() {
     final name = _nameCtrl.text.trim();
-    final calories = int.tryParse(_caloriesCtrl.text);
+    final calories = int.tryParse(_caloriesCtrl.text.trim());
     if (name.isEmpty || calories == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter meal name and calories')),
@@ -77,40 +100,34 @@ class _ManualMealModalState extends ConsumerState<ManualMealModal> {
       return;
     }
 
-    final protein = int.tryParse(_proteinCtrl.text);
-    final carbs = int.tryParse(_carbsCtrl.text);
-    final fat = int.tryParse(_fatCtrl.text);
+    final protein = int.tryParse(_proteinCtrl.text.trim());
+    final carbs = int.tryParse(_carbsCtrl.text.trim());
+    final fat = int.tryParse(_fatCtrl.text.trim());
+    final sugar = int.tryParse(_sugarCtrl.text.trim());
+    final initialMeal = widget.initialMeal;
 
-    if (widget.initialMeal != null) {
-      ref
-          .read(storageProvider)
-          .updateMeal(
-            widget.initialMeal!.copyWith(
-              name: name,
-              calories: calories,
-              protein: protein,
-              carbs: carbs,
-              fat: fat,
-              image: _image,
-            ),
-          );
-    } else {
-      ref
-          .read(storageProvider)
-          .saveMeal(
-            Meal(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              name: name,
-              calories: calories,
-              protein: protein,
-              carbs: carbs,
-              fat: fat,
-              timestamp: widget.date.millisecondsSinceEpoch,
-              image: _image,
-            ),
-          );
+    final mealToSave = Meal(
+      id: initialMeal?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      calories: calories,
+      protein: protein,
+      carbs: carbs,
+      fat: fat,
+      sugar: sugar,
+      timestamp: initialMeal?.timestamp ?? widget.date.millisecondsSinceEpoch,
+      image: _image,
+      imagePath: initialMeal?.imagePath,
+    );
+
+    if (widget.saveToStorage) {
+      if (initialMeal != null) {
+        ref.read(storageProvider).updateMeal(mealToSave);
+      } else {
+        ref.read(storageProvider).saveMeal(mealToSave);
+      }
     }
-    Navigator.pop(context);
+
+    Navigator.pop(context, mealToSave);
   }
 
   @override
@@ -141,9 +158,7 @@ class _ManualMealModalState extends ConsumerState<ManualMealModal> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  widget.initialMeal != null
-                      ? 'Edit Meal'
-                      : 'Add Meal Manually',
+                  _resolvedTitle,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w500,
@@ -159,7 +174,7 @@ class _ManualMealModalState extends ConsumerState<ManualMealModal> {
             _buildField('Meal Name', _nameCtrl, 'e.g., Grilled Chicken'),
             const SizedBox(height: 16),
             _buildField(
-              'Calories (required)',
+              'Calories (kcal) *',
               _caloriesCtrl,
               '0',
               isNumber: true,
@@ -190,6 +205,8 @@ class _ManualMealModalState extends ConsumerState<ManualMealModal> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            _buildField('Sugar (g)', _sugarCtrl, '0', isNumber: true),
             const SizedBox(height: 16),
             const Text(
               'Food Image',

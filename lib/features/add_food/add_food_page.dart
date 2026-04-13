@@ -6,18 +6,23 @@ import '../../shared/providers/providers.dart';
 import '../../shared/models/meal.dart';
 import '../../shared/models/quick_add_item.dart';
 import '../../shared/services/food_analysis_service.dart';
+import '../../shared/utils/storage_url_utils.dart';
+import '../../shared/widgets/meal_editor_modal.dart';
 import '../../core/theme/app_theme.dart';
+import '../../env/env.dart';
 import 'widgets/quick_add_item_card.dart';
 import 'widgets/result_view.dart';
 import 'widgets/add_quick_add_sheet.dart';
 
 class AddFoodPage extends ConsumerStatefulWidget {
   final Function(String) onNavigate;
+  final ValueChanged<String>? onAnalysisFailed;
   final bool showTestControls;
 
   const AddFoodPage({
     super.key,
     required this.onNavigate,
+    this.onAnalysisFailed,
     this.showTestControls = false,
   });
 
@@ -108,17 +113,20 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       setState(() {
         _result = result;
         _analysisEdited = false;
-        final imageUrl = result['image_url'] as String?;
+        final image = result['image'] as Map<String, dynamic>?;
+        final imageUrl = image?['url'] as String?;
         if (imageUrl != null && imageUrl.isNotEmpty) {
-          _selectedImage = imageUrl;
+          _selectedImage = _normalizeMealImageUrl(imageUrl);
         }
       });
     } on FoodAnalysisException catch (error) {
       if (!mounted) return;
-      _showError(error.message);
+      _handleAnalyzeFailure(error.message);
     } catch (_) {
       if (!mounted) return;
-      _showError('Unable to analyze this meal right now. Please try again.');
+      _handleAnalyzeFailure(
+        'Unable to analyze this meal right now. Please try again.',
+      );
     } finally {
       if (mounted) {
         setState(() => _analyzing = false);
@@ -126,21 +134,52 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
     }
   }
 
+  void _handleAnalyzeFailure(String message) {
+    setState(() {
+      _selectedImage = null;
+      _result = null;
+      _analysisEdited = false;
+    });
+
+    final onAnalysisFailed = widget.onAnalysisFailed;
+    if (onAnalysisFailed != null && _isRetryLaterFailure(message)) {
+      onAnalysisFailed(message);
+      return;
+    }
+
+    _showError(message);
+  }
+
+  bool _isRetryLaterFailure(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('unable to analyze this meal right now') ||
+        normalized.contains('network error');
+  }
+
   Meal _buildMealFromResult(Map<String, dynamic> result) {
-    final imageUrl = result['image_url'] as String?;
-    final imagePath = result['image_path'] as String?;
+    final image = result['image'] as Map<String, dynamic>?;
+    final meal = result['meal'] as Map<String, dynamic>?;
+    final totals = meal?['totals'] as Map<String, dynamic>?;
+    final imageUrl = image?['url'] as String?;
+    final imagePath = image?['path'] as String?;
+    final calories = (totals?['calories'] as num?)?.toInt() ?? 0;
+    final protein = (totals?['protein'] as num?)?.toInt();
+    final carbs = (totals?['carbs'] as num?)?.toInt();
+    final fat = (totals?['fat'] as num?)?.toInt();
+    final sugar = (totals?['sugar'] as num?)?.toInt();
+
     return Meal(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: result['name'] as String,
-      calories: (result['calories'] as num).toInt(),
-      protein: result['protein'] != null
-          ? (result['protein'] as num).toInt()
-          : null,
-      carbs: result['carbs'] != null ? (result['carbs'] as num).toInt() : null,
-      fat: result['fat'] != null ? (result['fat'] as num).toInt() : null,
-      sugar: result['sugar'] != null ? (result['sugar'] as num).toInt() : null,
+      calories: calories,
+      protein: protein,
+      carbs: carbs,
+      fat: fat,
+      sugar: sugar,
       timestamp: DateTime.now().millisecondsSinceEpoch,
-      image: imageUrl ?? _selectedImage,
+      image: (imageUrl != null && imageUrl.isNotEmpty)
+          ? _normalizeMealImageUrl(imageUrl)
+          : _selectedImage,
       imagePath: imagePath,
     );
   }
@@ -154,11 +193,17 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       _analysisEdited = false;
       _result = {
         'name': item.name,
-        'calories': item.calories,
-        'protein': item.protein,
-        'carbs': item.carbs,
-        'fat': item.fat,
-        'sugar': item.sugar,
+        'meal': {
+          'date': _todayIsoDate(),
+          'items': const <Map<String, dynamic>>[],
+          'totals': {
+            'calories': item.calories,
+            'protein': item.protein,
+            'carbs': item.carbs,
+            'fat': item.fat,
+            'sugar': item.sugar,
+          },
+        },
       };
     });
   }
@@ -212,142 +257,161 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
   Future<void> _handleEditResult() async {
     if (_result == null || _saving) return;
 
-    final edited = await _openEditDialog(_result!);
-    if (!mounted || edited == null) return;
+    final baseResult = _result!;
+    final editedMeal = await _openMealEditorModal(baseResult);
+    if (!mounted || editedMeal == null) return;
 
     setState(() {
-      _result = edited;
+      _result = _mergeResultWithEditedMeal(baseResult, editedMeal);
+      _selectedImage = editedMeal.image;
       _analysisEdited = true;
     });
   }
 
-  Future<Map<String, dynamic>?> _openEditDialog(
+  Future<Meal?> _openMealEditorModal(
     Map<String, dynamic> currentResult,
   ) async {
-    final nameController = TextEditingController(
-      text: currentResult['name'] as String? ?? '',
-    );
-    final caloriesController = TextEditingController(
-      text: '${currentResult['calories'] ?? 0}',
-    );
-    final proteinController = TextEditingController(
-      text: '${currentResult['protein'] ?? 0}',
-    );
-    final carbsController = TextEditingController(
-      text: '${currentResult['carbs'] ?? 0}',
-    );
-    final fatController = TextEditingController(
-      text: '${currentResult['fat'] ?? 0}',
-    );
-    final sugarController = TextEditingController(
-      text: '${currentResult['sugar'] ?? 0}',
-    );
+    final initialMeal = _buildEditableMeal(currentResult);
 
-    final updated = await showDialog<Map<String, dynamic>>(
+    return await showModalBottomSheet<Meal>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Edit AI Result'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Meal name'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: caloriesController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Calories'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: proteinController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Protein (g)'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: carbsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Carbs (g)'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: fatController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Fat (g)'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: sugarController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Sugar (g)'),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final updatedName = nameController.text.trim();
-                if (updatedName.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Meal name is required.')),
-                  );
-                  return;
-                }
-
-                final updatedCalories =
-                    int.tryParse(caloriesController.text.trim()) ?? 0;
-                final updatedProtein =
-                    int.tryParse(proteinController.text.trim()) ?? 0;
-                final updatedCarbs =
-                    int.tryParse(carbsController.text.trim()) ?? 0;
-                final updatedFat = int.tryParse(fatController.text.trim()) ?? 0;
-                final updatedSugar =
-                    int.tryParse(sugarController.text.trim()) ?? 0;
-
-                final updatedResult = Map<String, dynamic>.from(currentResult)
-                  ..['name'] = updatedName
-                  ..['calories'] = updatedCalories
-                  ..['protein'] = updatedProtein
-                  ..['carbs'] = updatedCarbs
-                  ..['fat'] = updatedFat
-                  ..['sugar'] = updatedSugar;
-
-                final rawItems = currentResult['items'];
-                if (rawItems is List && rawItems.isNotEmpty) {
-                  final normalizedItems = rawItems
-                      .whereType<Map>()
-                      .map((item) => Map<String, dynamic>.from(item))
-                      .toList();
-                  final first = normalizedItems.first;
-                  first['name_en'] = updatedName;
-                  first['calories'] = updatedCalories;
-                  first['protein'] = updatedProtein;
-                  first['carbs'] = updatedCarbs;
-                  first['fat'] = updatedFat;
-                  first['sugar'] = updatedSugar;
-                  updatedResult['items'] = normalizedItems;
-                }
-
-                Navigator.of(context).pop(updatedResult);
-              },
-              child: const Text('Confirm Edit'),
-            ),
-          ],
-        );
-      },
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => MealEditorModal(
+        date: _resolveMealDate(currentResult),
+        initialMeal: initialMeal,
+        modalTitle: 'Edit AI Result',
+        saveToStorage: false,
+      ),
     );
+  }
 
-    return updated;
+  Meal _buildEditableMeal(Map<String, dynamic> currentResult) {
+    final image = _toMutableMap(currentResult['image']);
+    final meal = _toMutableMap(currentResult['meal']);
+    final totals = _toMutableMap(meal['totals']);
+
+    final imageUrl = image['url'] as String?;
+    final imagePath = image['path'] as String?;
+    final id = (currentResult['analysis_id'] as String?) ??
+        DateTime.now().millisecondsSinceEpoch.toString();
+
+    return Meal(
+      id: id,
+      name: (currentResult['name'] as String?)?.trim().isNotEmpty == true
+          ? (currentResult['name'] as String).trim()
+          : 'AI Scanned Meal',
+      calories: _toInt(totals['calories']),
+      protein: _toOptionalInt(totals['protein']),
+      carbs: _toOptionalInt(totals['carbs']),
+      fat: _toOptionalInt(totals['fat']),
+      sugar: _toOptionalInt(totals['sugar']),
+      timestamp: _resolveMealDate(currentResult).millisecondsSinceEpoch,
+      image: (imageUrl != null && imageUrl.isNotEmpty)
+          ? _normalizeMealImageUrl(imageUrl)
+          : _selectedImage,
+      imagePath: imagePath,
+    );
+  }
+
+  Map<String, dynamic> _mergeResultWithEditedMeal(
+    Map<String, dynamic> currentResult,
+    Meal editedMeal,
+  ) {
+    final updatedResult = Map<String, dynamic>.from(currentResult)
+      ..['name'] = editedMeal.name;
+
+    final updatedMeal = _toMutableMap(currentResult['meal'])
+      ..['totals'] = {
+        'calories': editedMeal.calories,
+        'protein': editedMeal.protein ?? 0,
+        'carbs': editedMeal.carbs ?? 0,
+        'fat': editedMeal.fat ?? 0,
+        'sugar': editedMeal.sugar ?? 0,
+      };
+
+    final rawItems = updatedMeal['items'];
+    if (rawItems is List && rawItems.isNotEmpty) {
+      final normalizedItems = rawItems
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+      final first = normalizedItems.first;
+      first['name_en'] = editedMeal.name;
+      first['calories'] = editedMeal.calories;
+      first['protein'] = editedMeal.protein ?? 0;
+      first['carbs'] = editedMeal.carbs ?? 0;
+      first['fat'] = editedMeal.fat ?? 0;
+      first['sugar'] = editedMeal.sugar ?? 0;
+      updatedMeal['items'] = normalizedItems;
+    }
+
+    updatedResult['meal'] = updatedMeal;
+
+    final updatedImage = _toMutableMap(currentResult['image']);
+    if (editedMeal.image != null && editedMeal.image!.trim().isNotEmpty) {
+      updatedImage['url'] = editedMeal.image;
+    } else {
+      updatedImage.remove('url');
+    }
+
+    if (editedMeal.imagePath != null && editedMeal.imagePath!.isNotEmpty) {
+      updatedImage['path'] = editedMeal.imagePath;
+    }
+
+    if (updatedImage.isNotEmpty) {
+      updatedResult['image'] = updatedImage;
+    }
+
+    return updatedResult;
+  }
+
+  Map<String, dynamic> _toMutableMap(dynamic value) {
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    return <String, dynamic>{};
+  }
+
+  int _toInt(dynamic value) {
+    if (value is num) {
+      return value.toInt();
+    }
+
+    if (value is String) {
+      return int.tryParse(value.trim()) ?? 0;
+    }
+
+    return 0;
+  }
+
+  int? _toOptionalInt(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    if (value is String) {
+      return int.tryParse(value.trim());
+    }
+
+    return null;
+  }
+
+  DateTime _resolveMealDate(Map<String, dynamic> currentResult) {
+    final meal = _toMutableMap(currentResult['meal']);
+    final rawDate = meal['date'];
+    if (rawDate is String) {
+      final parsed = DateTime.tryParse(rawDate.trim());
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+
+    return DateTime.now();
   }
 
   void _enterEditMode() {
@@ -367,6 +431,33 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  String _todayIsoDate() {
+    final now = DateTime.now();
+    final year = now.year.toString().padLeft(4, '0');
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  String _normalizeMealImageUrl(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+
+    final parsed = Uri.tryParse(trimmed);
+    final looksLikeStoragePath =
+        trimmed.startsWith('/storage/v1/') ||
+        trimmed.startsWith('storage/v1/') ||
+        (parsed != null && parsed.path.startsWith('/storage/v1/'));
+
+    if (!looksLikeStoragePath) {
+      return trimmed;
+    }
+
+    return normalizeStorageUrl(trimmed, baseUrl: Env.supabaseUrl);
   }
 
   @override

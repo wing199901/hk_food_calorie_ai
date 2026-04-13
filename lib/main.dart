@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -264,6 +265,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
         MaterialPageRoute(
           builder: (_) => AddFoodPage(
             showTestControls: widget.showTestControls,
+            onAnalysisFailed: _handleAddFoodAnalysisFailure,
             onNavigate: (page) {
               Navigator.of(context).pop();
               if (page == 'home') setState(() => _currentIndex = 0);
@@ -275,6 +277,30 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       return;
     }
     setState(() => _currentIndex = index);
+  }
+
+  void _handleAddFoodAnalysisFailure(String _) {
+    Navigator.of(context).pop();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (dialogContext) => CupertinoAlertDialog(
+          title: const Text('Unable to Analyze Meal'),
+          content: const Text(
+            'The AI service is unavailable right now. Please try again later.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   @override

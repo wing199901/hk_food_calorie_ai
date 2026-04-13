@@ -7,6 +7,13 @@ applyTo: "**/*.{dart,ts,sql}"
 
 Based on the project's README, please adhere to these core architectural and domain rules:
 
+## Required Local Docs
+
+- Read `test/README.md` when tasks involve unit/widget test structure or conventions.
+- Read `integration_test/README.md` when tasks involve end-to-end flow testing.
+- Read `supabase/README.md` when tasks involve schema, migrations, functions, or local Supabase operations.
+- Read `postman/README.md` when tasks involve API fixture setup or Postman request workflows.
+
 ## Technology Constraints
 
 - **Routing & Presentation:** The app relies on `shared_preferences` (via `StorageService`) for local state and `fl_chart` for charts.

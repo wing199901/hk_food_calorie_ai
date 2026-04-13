@@ -5,6 +5,7 @@ import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../env/env.dart';
+import '../utils/storage_url_utils.dart';
 
 /// Domain-specific exception for AI meal analysis failures.
 class FoodAnalysisException implements Exception {
@@ -225,15 +226,7 @@ class FoodAnalysisService {
           .from(_bucketName)
           .createSignedUrl(storagePath, _signedUrlExpiresInSeconds);
 
-      if (signedUrl.startsWith('http://') || signedUrl.startsWith('https://')) {
-        return signedUrl;
-      }
-
-      final baseUrl = Env.supabaseUrl.replaceAll(RegExp(r'/+$'), '');
-      final normalizedPath = signedUrl.startsWith('/')
-          ? signedUrl
-          : '/$signedUrl';
-      return '$baseUrl$normalizedPath';
+      return normalizeStorageUrl(signedUrl, baseUrl: Env.supabaseUrl);
     } catch (_) {
       throw const FoodAnalysisException(
         'Unable to create image URL right now. Please try again.',
@@ -345,11 +338,14 @@ class FoodAnalysisService {
     Map<String, dynamic> payload, {
     required String fallbackImageUrl,
   }) {
-    final rawItems = payload['items'];
+    final meal = _readMap(payload['meal']);
+    final rawItems = meal['items'];
     final items = rawItems is List
         ? rawItems
               .whereType<Map>()
-              .map((item) => Map<String, dynamic>.from(item))
+              .map(
+                (item) => _normalizeMealItem(Map<String, dynamic>.from(item)),
+              )
               .toList()
         : <Map<String, dynamic>>[];
 
@@ -368,22 +364,40 @@ class FoodAnalysisService {
         ? '${firstName.isEmpty ? 'AI Scanned Meal' : firstName} + ${items.length - 1} more'
         : (firstName.isEmpty ? 'AI Scanned Meal' : firstName);
 
-    final imageUrl = _readString(payload['image_url']).isNotEmpty
-        ? _readString(payload['image_url'])
-        : fallbackImageUrl;
+    final image = _readMap(payload['image']);
+    final totals = _readMap(meal['totals']);
+
+    final imageUrl = normalizeStorageUrl(
+      _readString(image['url']).isNotEmpty
+          ? _readString(image['url'])
+          : fallbackImageUrl,
+      baseUrl: Env.supabaseUrl,
+    );
+    final imagePath = _readString(image['path']).isNotEmpty
+        ? _readString(image['path'])
+        : null;
+
+    final calories = _readInt(totals['calories']);
+    final protein = _readInt(totals['protein']);
+    final carbs = _readInt(totals['carbs']);
+    final fat = _readInt(totals['fat']);
+    final sugar = _readInt(totals['sugar']);
 
     return {
       'analysis_id': _readString(payload['analysis_id']),
-      'meal_date': _readString(payload['meal_date']),
       'name': mealName,
-      'calories': _readInt(payload['total_calories']),
-      'protein': _readInt(payload['total_protein']),
-      'carbs': _readInt(payload['total_carbs']),
-      'fat': _readInt(payload['total_fat']),
-      'sugar': _readInt(payload['total_sugar']),
-      'image_url': imageUrl,
-      'image_path': payload['image_path'],
-      'items': items,
+      'image': {'url': imageUrl, 'path': imagePath},
+      'meal': {
+        'date': _readString(meal['date']),
+        'items': items,
+        'totals': {
+          'calories': calories,
+          'protein': protein,
+          'carbs': carbs,
+          'fat': fat,
+          'sugar': sugar,
+        },
+      },
     };
   }
 
@@ -436,5 +450,63 @@ class FoodAnalysisService {
 
   String _readString(dynamic value) {
     return value is String ? value : '';
+  }
+
+  Map<String, dynamic> _readMap(dynamic value) {
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    return const <String, dynamic>{};
+  }
+
+  Map<String, dynamic> _normalizeMealItem(Map<String, dynamic> item) {
+    final portion = _readMap(item['portion']);
+    final type = _readString(item['type']);
+    final normalizedGrams = _readNullableInt(portion['grams']);
+    final normalizedMl = _readNullableInt(portion['ml']);
+
+    return {
+      'name_zh': _readString(item['name_zh']),
+      'name_en': _readString(item['name_en']),
+      'type': type,
+      'portion': {
+        'size': _readNum(portion['size']),
+        'unit': _readString(portion['unit']),
+        'grams': type == 'drink' ? null : normalizedGrams,
+        'ml': type == 'drink' ? normalizedMl : null,
+      },
+      'calories': _readInt(item['calories']),
+      'protein': _readInt(item['protein']),
+      'carbs': _readInt(item['carbs']),
+      'fat': _readInt(item['fat']),
+      'sugar': _readInt(item['sugar']),
+      'confidence': _readNum(item['confidence']),
+    };
+  }
+
+  num _readNum(dynamic value) {
+    if (value is num) return value;
+    if (value is String) {
+      return num.tryParse(value) ?? 0;
+    }
+    return 0;
+  }
+
+  int? _readNullableInt(dynamic value) {
+    if (value is int) {
+      return value > 0 ? value : null;
+    }
+    if (value is num) {
+      final rounded = value.round();
+      return rounded > 0 ? rounded : null;
+    }
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      if (parsed == null || parsed <= 0) {
+        return null;
+      }
+      return parsed;
+    }
+    return null;
   }
 }

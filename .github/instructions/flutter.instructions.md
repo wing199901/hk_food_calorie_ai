@@ -35,4 +35,4 @@ applyTo: "lib/**/*.dart"
 - **Components:**
   - Dialogs requiring user confirmation/decision: `CupertinoAlertDialog` (destructive actions use `isDestructiveAction: true`).
   - Date pickers: `CupertinoDatePicker` inside `showCupertinoModalPopup`. Never use Material date pickers.
-- **Image handling before upload:** Limit longest edge to 1280px, compress via `image` package to JPEG <1.5MB, upload to Supabase Storage, and pass `image_path` to the analysis flow.
+- **Image handling before upload:** Limit longest edge to 1280px, compress via `image` package to JPEG <1.5MB base64.

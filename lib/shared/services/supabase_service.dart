@@ -5,6 +5,7 @@ import '../models/user_profile.dart';
 import '../models/body_metric.dart';
 import '../models/quick_add_item.dart';
 import '../../env/env.dart';
+import '../utils/storage_url_utils.dart';
 
 class SupabaseService extends ChangeNotifier {
   static SupabaseClient get _client => Supabase.instance.client;
@@ -368,7 +369,11 @@ class SupabaseService extends ChangeNotifier {
     final fallbackImageUrl = record['image_url'] as String?;
 
     if (imagePath == null || imagePath.isEmpty) {
-      return fallbackImageUrl;
+      if (fallbackImageUrl == null || fallbackImageUrl.isEmpty) {
+        return fallbackImageUrl;
+      }
+
+      return _normalizeStorageUrl(fallbackImageUrl);
     }
 
     try {
@@ -381,18 +386,16 @@ class SupabaseService extends ChangeNotifier {
       if (kDebugMode) {
         debugPrint('[SupabaseService] createSignedUrl failed: $error');
       }
-      return fallbackImageUrl;
+      if (fallbackImageUrl == null || fallbackImageUrl.isEmpty) {
+        return fallbackImageUrl;
+      }
+
+      return _normalizeStorageUrl(fallbackImageUrl);
     }
   }
 
   String _normalizeStorageUrl(String url) {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-
-    final baseUrl = Env.supabaseUrl.replaceAll(RegExp(r'/+$'), '');
-    final normalizedPath = url.startsWith('/') ? url : '/$url';
-    return '$baseUrl$normalizedPath';
+    return normalizeStorageUrl(url, baseUrl: Env.supabaseUrl);
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────

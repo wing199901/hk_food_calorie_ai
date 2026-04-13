@@ -58,12 +58,20 @@ make serve-functions
 ```json
 {
   "image_path": "<user_id>/20260409/1712661234567.jpg",
-  "meal_date": "2026-02-28"
+  "meal_date": "2026-02-28",
+  "model": "gemini-3-flash"
 }
 ```
 
 `image_path` 必填，且必須是已上傳到 `meal-images` bucket 的物件路徑。
-`meal-images` 應保持 private；function 會回傳短期可用的 signed `image_url`。
+`meal-images` 應保持 private；function 會回傳短期可用的 signed `image.url`。
+`model` 為可選欄位；若提供，會覆蓋本次請求使用的 Gemini model。
+
+Model strategy:
+
+- Primary model: `gemini-2.5-flash`
+- Fallback model: `gemini-3-flash` (used when primary returns retryable provider errors like 429/5xx/network timeout)
+- API version: `v1beta` only.
 
 **Response:**
 
@@ -71,31 +79,39 @@ make serve-functions
 {
   "success": true,
   "analysis_id": "0f4fba86-0c2a-4ccd-8f07-f66be334d06f",
-  "meal_date": "2026-02-28",
-  "image_path": "<user_id>/20260409/1712661234567.jpg",
-  "image_url": "https://<project>.supabase.co/storage/v1/object/sign/meal-images/<user_id>/20260409/1712661234567.jpg?token=<signed-token>",
-  "items": [
-    {
-      "name_zh": "叉燒飯",
-      "name_en": "Char Siu Rice",
-      "type": "food",
-      "portion_size": 1,
-      "portion_unit": "plate",
-      "portion_grams": 450,
-      "portion_ml": null,
+  "image": {
+    "path": "<user_id>/20260409/1712661234567.jpg",
+    "url": "https://<project>.supabase.co/storage/v1/object/sign/meal-images/<user_id>/20260409/1712661234567.jpg?token=<signed-token>"
+  },
+  "meal": {
+    "date": "2026-02-28",
+    "items": [
+      {
+        "name_zh": "叉燒飯",
+        "name_en": "Char Siu Rice",
+        "type": "food",
+        "portion": {
+          "size": 1,
+          "unit": "plate",
+          "grams": 450,
+          "ml": null
+        },
+        "calories": 650,
+        "protein": 35,
+        "carbs": 80,
+        "fat": 20,
+        "sugar": 8,
+        "confidence": 0.92
+      }
+    ],
+    "totals": {
       "calories": 650,
       "protein": 35,
       "carbs": 80,
       "fat": 20,
-      "sugar": 8,
-      "confidence": 0.92
+      "sugar": 8
     }
-  ],
-  "total_calories": 650,
-  "total_protein": 35,
-  "total_carbs": 80,
-  "total_fat": 20,
-  "total_sugar": 8
+  }
 }
 ```
 
@@ -392,7 +408,7 @@ ai_meal_analyses
 ├── ai_summary_name (text)
 ├── ai_items (jsonb)
 ├── ai_total_calories/protein/carbs/fat/sugar (integer)
-├── ai_model (text, default: gemini-2.5-flash)
+├── ai_model (text, stores the actual model used for this analysis)
 ├── input_tokens/output_tokens/total_tokens (integer, nullable)
 ├── image_bytes (integer, default: 0)
 ├── latency_ms (integer, nullable)
@@ -420,3 +436,14 @@ curl -X POST http://localhost:54321/functions/v1/analyze-meal \
   -H "Content-Type: application/json" \
   -d '{"image_path":"<user_id>/20260409/1712661234567.jpg","meal_date":"2026-02-28"}'
 ```
+
+## Common AI Errors (`analyze-meal`)
+
+- `AI_ERROR` + "AI provider rate limit reached. Please retry in about 1 minute."
+  - Trigger: provider returns rate-limit / quota-like response (e.g. HTTP 429)
+- `AI_ERROR` + "AI provider timed out. Please retry in 10-30 seconds."
+  - Trigger: provider request timeout (e.g. HTTP 408 / timeout payload)
+- `AI_ERROR` + "AI provider is temporarily unavailable due to high demand. Please retry in 10-30 seconds."
+  - Trigger: provider high-demand or temporary outage (e.g. HTTP 5xx / UNAVAILABLE)
+- `AI_UNAVAILABLE` + "AI provider is temporarily unavailable. Please retry in 10-30 seconds."
+  - Trigger: network-level failure before receiving a provider HTTP response

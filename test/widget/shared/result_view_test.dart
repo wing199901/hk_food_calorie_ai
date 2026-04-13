@@ -37,10 +37,17 @@ void main() {
             isAnalyzing: false,
             result: const {
               'name': 'Chicken Rice',
-              'calories': 600,
-              'protein': 30,
-              'carbs': 70,
-              'fat': 20,
+              'meal': {
+                'date': '2026-04-13',
+                'items': <Map<String, dynamic>>[],
+                'totals': {
+                  'calories': 600,
+                  'protein': 30,
+                  'carbs': 70,
+                  'fat': 20,
+                  'sugar': 5,
+                },
+              },
             },
             onSave: () => saved += 1,
             onEdit: () => edited += 1,

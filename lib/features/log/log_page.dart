@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/widgets/date_navigator.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/models/meal.dart';
+import '../../shared/widgets/meal_editor_modal.dart';
 import '../../core/theme/app_theme.dart';
 import 'widgets/meal_card.dart';
-import 'widgets/manual_meal_modal.dart';
 
 class LogPage extends ConsumerStatefulWidget {
   const LogPage({super.key});
@@ -27,7 +27,7 @@ class _LogPageState extends ConsumerState<LogPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => ManualMealModal(date: _date, initialMeal: meal),
+      builder: (ctx) => MealEditorModal(date: _date, initialMeal: meal),
     );
   }
 

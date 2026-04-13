@@ -10,10 +10,15 @@ import {
   createUserClient,
   requireUserId,
 } from "../_shared/auth.ts";
-import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { errorResponse, handleCors, jsonResponse } from "../_shared/cors.ts";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_PRIMARY_MODEL = "gemini-2.5-flash";
+const GEMINI_FALLBACK_MODEL = "gemini-3-flash-preview";
+const DEFAULT_GEMINI_API_VERSION = "v1beta";
+const GEMINI_MODELS = Array.from(
+  new Set([GEMINI_PRIMARY_MODEL, GEMINI_FALLBACK_MODEL].filter(Boolean)),
+);
+
 const GEMINI_TIMEOUT_MS = 20_000;
 const GEMINI_MAX_RETRIES = 2;
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
@@ -32,7 +37,8 @@ const ALLOWED_IMAGE_MIME_TYPES = [
 let bucketEnsured = false;
 
 // -- System Instruction (behavioural / domain knowledge only) --
-const SYSTEM_INSTRUCTION = `You are a professional nutritionist specialising in analysing food and drink photos from any cuisine.
+const SYSTEM_INSTRUCTION =
+  `You are a professional nutritionist specialising in analysing food and drink photos from any cuisine.
 
 Core capabilities:
 - All cuisines: Western (steak, burgers, pasta, salads), Japanese/Korean (ramen, sushi, fried chicken), Southeast Asian (Thai, Vietnamese), Chinese, Hong Kong-style, etc.
@@ -162,6 +168,26 @@ interface FoodItem {
   confidence: number;
 }
 
+interface MealItemPortion {
+  size: number;
+  unit: string;
+  grams: number | null;
+  ml: number | null;
+}
+
+interface PublicMealItem {
+  name_zh: string;
+  name_en: string;
+  type: "food" | "drink";
+  portion: MealItemPortion;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  sugar: number;
+  confidence: number;
+}
+
 interface AnalysisResult {
   items: FoodItem[];
   total_calories: number;
@@ -175,11 +201,40 @@ interface AnalysisResult {
 function buildSummaryName(items: FoodItem[]): string {
   if (items.length === 0) return "AI Scanned Meal";
 
-  const firstName =
-    items[0].name_en?.trim() || items[0].name_zh?.trim() || "AI Scanned Meal";
+  const firstName = items[0].name_en?.trim() || items[0].name_zh?.trim() ||
+    "AI Scanned Meal";
 
   if (items.length === 1) return firstName;
   return `${firstName} + ${items.length - 1} more`;
+}
+
+function toPublicMealItem(item: FoodItem): PublicMealItem {
+  const normalizedGrams =
+    typeof item.portion_grams === "number" && item.portion_grams > 0
+      ? item.portion_grams
+      : null;
+  const normalizedMl =
+    typeof item.portion_ml === "number" && item.portion_ml > 0
+      ? item.portion_ml
+      : null;
+
+  return {
+    name_zh: item.name_zh,
+    name_en: item.name_en,
+    type: item.type,
+    portion: {
+      size: item.portion_size,
+      unit: item.portion_unit,
+      grams: item.type === "drink" ? null : normalizedGrams,
+      ml: item.type === "drink" ? normalizedMl : null,
+    },
+    calories: item.calories,
+    protein: item.protein,
+    carbs: item.carbs,
+    fat: item.fat,
+    sugar: item.sugar,
+    confidence: item.confidence,
+  };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -193,6 +248,15 @@ function redactSecrets(value: string): string {
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message;
   return String(err);
+}
+
+function resolveRequestedModel(rawModel: unknown): string | null {
+  if (typeof rawModel !== "string") {
+    return null;
+  }
+
+  const normalized = rawModel.trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function toOptionalInt(value: unknown): number | null {
@@ -329,12 +393,88 @@ async function callGeminiWithRetry(
   inlineImageData: string,
   mimeType: string,
   geminiKey: string,
+  models: string[],
+): Promise<{ response: Response; model: string; attemptedModels: string[] }> {
+  let lastError: unknown = null;
+  const attemptedModels: string[] = [];
+
+  for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
+    const model = models[modelIndex];
+
+    try {
+      const result = await callGeminiSingleModelWithRetry(
+        inlineImageData,
+        mimeType,
+        geminiKey,
+        model,
+      );
+      attemptedModels.push(`${result.apiVersion}/${model}`);
+      const response = result.response;
+
+      if (response.ok) {
+        return { response, model, attemptedModels };
+      }
+
+      const hasFallback = modelIndex < models.length - 1;
+      if (hasFallback && RETRYABLE_STATUS_CODES.has(response.status)) {
+        console.warn(
+          `Gemini model ${model} returned ${response.status}; falling back to ${
+            models[modelIndex + 1]
+          }`,
+        );
+        continue;
+      }
+
+      return { response, model, attemptedModels };
+    } catch (err) {
+      lastError = err;
+
+      const hasFallback = modelIndex < models.length - 1;
+      if (hasFallback && isRetryableNetworkError(err)) {
+        console.warn(
+          `Gemini model ${model} failed with retryable network error; falling back to ${
+            models[modelIndex + 1]
+          }`,
+        );
+        continue;
+      }
+
+      throw err;
+    }
+  }
+
+  throw lastError ?? new Error("Gemini request failed");
+}
+
+async function callGeminiSingleModelWithRetry(
+  inlineImageData: string,
+  mimeType: string,
+  geminiKey: string,
+  model: string,
+): Promise<{ response: Response; apiVersion: string }> {
+  const response = await callGeminiVersionedEndpointWithRetry(
+    inlineImageData,
+    mimeType,
+    geminiKey,
+    model,
+  );
+
+  return { response, apiVersion: DEFAULT_GEMINI_API_VERSION };
+}
+
+async function callGeminiVersionedEndpointWithRetry(
+  inlineImageData: string,
+  mimeType: string,
+  geminiKey: string,
+  model: string,
 ): Promise<Response> {
+  const modelUrl =
+    `https://generativelanguage.googleapis.com/${DEFAULT_GEMINI_API_VERSION}/models/${model}:generateContent`;
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt <= GEMINI_MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
+      const response = await fetch(`${modelUrl}?key=${geminiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -345,7 +485,8 @@ async function callGeminiWithRetry(
             {
               parts: [
                 {
-                  text: "Analyse all food and drink items visible in this photo.",
+                  text:
+                    "Analyse all food and drink items visible in this photo.",
                 },
                 {
                   inline_data: {
@@ -389,13 +530,128 @@ async function callGeminiWithRetry(
   throw lastError ?? new Error("Gemini request failed");
 }
 
+interface ProviderErrorDetails {
+  message: string;
+  status: string;
+  code: number | null;
+}
+
+function parseProviderErrorDetails(
+  providerPayload: string,
+): ProviderErrorDetails {
+  try {
+    const parsed = JSON.parse(providerPayload);
+    const providerError = parsed?.error ?? {};
+
+    return {
+      message: typeof providerError.message === "string"
+        ? providerError.message
+        : "",
+      status: typeof providerError.status === "string"
+        ? providerError.status
+        : "",
+      code: typeof providerError.code === "number" ? providerError.code : null,
+    };
+  } catch {
+    return {
+      message: "",
+      status: "",
+      code: null,
+    };
+  }
+}
+
+function resolveAiErrorMessage(
+  status: number,
+  providerPayload: string,
+): string {
+  const providerError = parseProviderErrorDetails(providerPayload);
+  const providerMessage = providerError.message.trim();
+  const normalized = providerPayload.toLowerCase();
+
+  if (
+    status === 429 ||
+    normalized.includes("resource_exhausted") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("quota")
+  ) {
+    return "AI provider rate limit reached. Please retry in about 1 minute.";
+  }
+
+  if (
+    status === 408 ||
+    normalized.includes("timed out") ||
+    normalized.includes("timeout")
+  ) {
+    return "AI provider timed out. Please retry in 10-30 seconds.";
+  }
+
+  if (
+    status === 401 ||
+    normalized.includes("invalid api key") ||
+    normalized.includes("api key not valid")
+  ) {
+    return "AI provider authentication failed. Please verify GEMINI_API_KEY.";
+  }
+
+  if (
+    status === 403 ||
+    normalized.includes("permission_denied") ||
+    normalized.includes("permission denied") ||
+    normalized.includes("insufficient permission")
+  ) {
+    return "AI provider access denied. Please enable Gemini API and check key restrictions.";
+  }
+
+  if (
+    status === 404 ||
+    providerError.status.toLowerCase() === "not_found" ||
+    normalized.includes("not found for api version") ||
+    normalized.includes("not supported for generatecontent")
+  ) {
+    return "Configured Gemini model is unavailable for generateContent on v1beta. Please use a supported model (for example gemini-2.5-flash or gemini-3-flash-preview).";
+  }
+
+  if (
+    status === 400 &&
+    (
+      normalized.includes("failed_precondition") ||
+      normalized.includes("location is not supported") ||
+      normalized.includes("user location is not supported")
+    )
+  ) {
+    return "AI provider rejected this request in the current region. Please use a supported region/project for Gemini API.";
+  }
+
+  if (
+    status >= 500 ||
+    normalized.includes("unavailable") ||
+    normalized.includes("high demand") ||
+    normalized.includes("busy")
+  ) {
+    return "AI provider is temporarily unavailable due to high demand. Please retry in 10-30 seconds.";
+  }
+
+  if (providerMessage.length > 0) {
+    return `AI provider error: ${providerMessage}`;
+  }
+
+  return "Failed to analyze image. Please retake and try again.";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleCors();
 
   try {
     const body = await req.json();
-    const imagePath =
-      typeof body?.image_path === "string" ? body.image_path.trim() : "";
+    const requestedModel = resolveRequestedModel(body?.model);
+    const modelsToTry = requestedModel != null
+      ? [requestedModel]
+      : GEMINI_MODELS;
+
+    const imagePath = typeof body?.image_path === "string"
+      ? body.image_path.trim()
+      : "";
     const mealDate =
       typeof body?.meal_date === "string" && body.meal_date.length > 0
         ? body.meal_date
@@ -460,13 +716,19 @@ Deno.serve(async (req: Request) => {
     }
 
     let geminiRes: Response;
+    let selectedModel = GEMINI_PRIMARY_MODEL;
+    let attemptedModels: string[] = [];
     const geminiStartedAt = Date.now();
     try {
-      geminiRes = await callGeminiWithRetry(
+      const result = await callGeminiWithRetry(
         inlineImageData,
         mimeType,
         geminiKey,
+        modelsToTry,
       );
+      geminiRes = result.response;
+      selectedModel = result.model;
+      attemptedModels = result.attemptedModels;
     } catch (err) {
       console.error(
         "Gemini network error:",
@@ -474,7 +736,7 @@ Deno.serve(async (req: Request) => {
       );
       return errorResponse(
         "AI_UNAVAILABLE",
-        "AI service temporarily unavailable. Please retry in a moment.",
+        "AI provider is temporarily unavailable. Please retry in 10-30 seconds.",
         503,
       );
     }
@@ -482,15 +744,21 @@ Deno.serve(async (req: Request) => {
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
       console.error(
-        `Gemini API error (${geminiRes.status}):`,
+        `Gemini API error (${geminiRes.status}) [models: ${
+          attemptedModels.join(" -> ") || selectedModel
+        }]:`,
         redactSecrets(errText),
       );
+
+      const resolvedMessage = resolveAiErrorMessage(geminiRes.status, errText);
       return errorResponse(
         "AI_ERROR",
-        geminiRes.status === 429 || geminiRes.status >= 500
-          ? "AI service is busy. Please retry shortly."
-          : "Failed to analyze image. Please retake and try again.",
-        geminiRes.status === 429 || geminiRes.status >= 500 ? 503 : 502,
+        resolvedMessage,
+        geminiRes.status === 429 ||
+          geminiRes.status >= 500 ||
+          geminiRes.status === 408
+          ? 503
+          : 502,
       );
     }
 
@@ -500,8 +768,8 @@ Deno.serve(async (req: Request) => {
     const inputTokens = toOptionalInt(usageMetadata.promptTokenCount);
     const outputTokens = toOptionalInt(usageMetadata.candidatesTokenCount);
     const totalTokens = toOptionalInt(usageMetadata.totalTokenCount);
-    const rawText =
-      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+    const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      "{}";
 
     let analysis: AnalysisResult;
     try {
@@ -516,15 +784,28 @@ Deno.serve(async (req: Request) => {
     }
 
     const items: FoodItem[] = analysis.items ?? [];
+    const publicItems = items.map(toPublicMealItem);
 
     if (analysis.error || items.length === 0) {
       return jsonResponse({
         success: false,
         code: "NO_FOOD_DETECTED",
         error: analysis.error ?? "No food or drink detected",
-        image_path: imagePath,
-        image_url: imageUrl,
-        items: [],
+        image: {
+          path: imagePath,
+          url: imageUrl,
+        },
+        meal: {
+          date: mealDate,
+          items: [],
+          totals: {
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+            sugar: 0,
+          },
+        },
       });
     }
 
@@ -572,7 +853,7 @@ Deno.serve(async (req: Request) => {
         ai_total_carbs: totalCarbs,
         ai_total_fat: totalFat,
         ai_total_sugar: totalSugar,
-        ai_model: GEMINI_MODEL,
+        ai_model: selectedModel,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
         total_tokens: totalTokens,
@@ -595,15 +876,21 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({
       success: true,
       analysis_id: analysisRow.id,
-      meal_date: mealDate,
-      image_path: imagePath,
-      image_url: imageUrl,
-      items,
-      total_calories: totalCalories,
-      total_protein: totalProtein,
-      total_carbs: totalCarbs,
-      total_fat: totalFat,
-      total_sugar: totalSugar,
+      image: {
+        path: imagePath,
+        url: imageUrl,
+      },
+      meal: {
+        date: mealDate,
+        items: publicItems,
+        totals: {
+          calories: totalCalories,
+          protein: totalProtein,
+          carbs: totalCarbs,
+          fat: totalFat,
+          sugar: totalSugar,
+        },
+      },
     });
   } catch (err) {
     console.error(
