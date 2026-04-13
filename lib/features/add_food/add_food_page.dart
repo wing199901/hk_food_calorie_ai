@@ -268,9 +268,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
     });
   }
 
-  Future<Meal?> _openMealEditorModal(
-    Map<String, dynamic> currentResult,
-  ) async {
+  Future<Meal?> _openMealEditorModal(Map<String, dynamic> currentResult) async {
     final initialMeal = _buildEditableMeal(currentResult);
 
     return await showModalBottomSheet<Meal>(
@@ -293,7 +291,8 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
 
     final imageUrl = image['url'] as String?;
     final imagePath = image['path'] as String?;
-    final id = (currentResult['analysis_id'] as String?) ??
+    final id =
+        (currentResult['analysis_id'] as String?) ??
         DateTime.now().millisecondsSinceEpoch.toString();
 
     return Meal(
