@@ -244,6 +244,30 @@ void main() {
       );
     });
 
+    test('maps gateway name resolution failure to clearer message', () async {
+      final service = FoodAnalysisService(
+        uploadImage: (_) async => const UploadedImage(
+          storagePath: 'user-1/20260409/photo.jpg',
+          imageUrl: 'https://example.com/photo.jpg',
+        ),
+        invokeAnalyze: (_, _) async => {
+          'success': false,
+          'message': 'name resolution failed',
+        },
+      );
+
+      expect(
+        () => service.analyzeImage('meal.jpg'),
+        throwsA(
+          isA<FoodAnalysisException>().having(
+            (error) => error.message,
+            'message',
+            'Service routing is temporarily unavailable. Please retry in 10-30 seconds.',
+          ),
+        ),
+      );
+    });
+
     test(
       'rewrites internal signed image URL host to app Supabase base',
       () async {

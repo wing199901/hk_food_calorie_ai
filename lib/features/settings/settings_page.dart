@@ -26,6 +26,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   // Body Metrics controllers
   final _weightCtrl = TextEditingController();
+  final _preferredWeightCtrl = TextEditingController();
   final _heightCtrl = TextEditingController();
   final _waistlineCtrl = TextEditingController();
   String _activityLevel = 'moderate';
@@ -40,6 +41,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   void dispose() {
     _weightCtrl.dispose();
+    _preferredWeightCtrl.dispose();
     _heightCtrl.dispose();
     _waistlineCtrl.dispose();
     super.dispose();
@@ -63,6 +65,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       _profile = profile;
       _weightCtrl.text = UnitConverter.weightToDisplay(
         profile.weight,
+        isMetric: isMetric,
+      );
+      _preferredWeightCtrl.text = UnitConverter.weightToDisplay(
+        profile.preferredWeight,
         isMetric: isMetric,
       );
       _heightCtrl.text = UnitConverter.lengthToDisplay(
@@ -140,6 +146,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       _weightCtrl.text,
       isMetric: isMetric,
     );
+    final newPreferredWeight = UnitConverter.parseWeight(
+      _preferredWeightCtrl.text,
+      isMetric: isMetric,
+    );
     final newHeight = UnitConverter.parseLength(
       _heightCtrl.text,
       isMetric: isMetric,
@@ -153,6 +163,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     // Update profile with latest body values
     final newProfile = _profile.copyWith(
       weight: newWeight ?? _profile.weight,
+      preferredWeight: newPreferredWeight ?? _profile.preferredWeight,
       height: newHeight ?? _profile.height,
       waistline: newWaistline ?? _profile.waistline,
       activityLevel: _activityLevel,
@@ -206,7 +217,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(storageProvider);
+    final storage = ref.watch(storageProvider);
+    final targetRange = storage.getDailyTargetRange();
+
     return Column(
       children: [
         // Sticky Header
@@ -255,9 +268,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   const SizedBox(height: 24),
                   BodyMetricsSection(
                     weightCtrl: _weightCtrl,
+                    preferredWeightCtrl: _preferredWeightCtrl,
                     heightCtrl: _heightCtrl,
                     waistlineCtrl: _waistlineCtrl,
                     activityLevel: _activityLevel,
+                    intakeMin: targetRange.min,
+                    intakeMax: targetRange.max,
                     onActivityChanged: (v) =>
                         setState(() => _activityLevel = v),
                     onUpdateToday: _handleUpdateToday,

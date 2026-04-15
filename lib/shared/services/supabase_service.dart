@@ -81,6 +81,9 @@ class SupabaseService extends ChangeNotifier {
       weight: data['weight'] != null
           ? (data['weight'] as num).toDouble()
           : null,
+      preferredWeight: data['preferred_weight'] != null
+          ? (data['preferred_weight'] as num).toDouble()
+          : null,
       height: data['height'] != null
           ? (data['height'] as num).toDouble()
           : null,
@@ -100,6 +103,8 @@ class SupabaseService extends ChangeNotifier {
       'user_id': uid,
       if (profile.birthdate != null) 'birthdate': profile.birthdate,
       if (profile.weight != null) 'weight': profile.weight,
+      if (profile.preferredWeight != null)
+        'preferred_weight': profile.preferredWeight,
       if (profile.height != null) 'height': profile.height,
       if (profile.waistline != null) 'waistline': profile.waistline,
       if (profile.gender != null) 'gender': profile.gender,

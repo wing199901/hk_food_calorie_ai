@@ -6,8 +6,12 @@
 import { createUserClient, requireUserId } from "../_shared/auth.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_PRIMARY_MODEL = "gemini-2.5-flash";
+const GEMINI_FALLBACK_MODEL = "gemini-3-flash-preview";
+const DEFAULT_GEMINI_API_VERSION = "v1beta";
+const GEMINI_MODELS = Array.from(
+  new Set([GEMINI_PRIMARY_MODEL, GEMINI_FALLBACK_MODEL].filter(Boolean)),
+);
 const GEMINI_TIMEOUT_MS = 20_000;
 const GEMINI_MAX_RETRIES = 2;
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
@@ -93,12 +97,70 @@ async function callGeminiWithRetry(
   prompt: string,
   systemInstruction: string,
   geminiKey: string,
+  models: string[],
+): Promise<{ response: Response; model: string; attemptedModels: string[] }> {
+  let lastError: unknown = null;
+  const attemptedModels: string[] = [];
+
+  for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
+    const model = models[modelIndex];
+
+    try {
+      const response = await callGeminiSingleModelWithRetry(
+        prompt,
+        systemInstruction,
+        geminiKey,
+        model,
+      );
+      attemptedModels.push(`${DEFAULT_GEMINI_API_VERSION}/${model}`);
+
+      if (response.ok) {
+        return { response, model, attemptedModels };
+      }
+
+      const hasFallback = modelIndex < models.length - 1;
+      if (hasFallback && RETRYABLE_STATUS_CODES.has(response.status)) {
+        console.warn(
+          `Gemini model ${model} returned ${response.status}; falling back to ${
+            models[modelIndex + 1]
+          }`,
+        );
+        continue;
+      }
+
+      return { response, model, attemptedModels };
+    } catch (err) {
+      lastError = err;
+
+      const hasFallback = modelIndex < models.length - 1;
+      if (hasFallback && isRetryableNetworkError(err)) {
+        console.warn(
+          `Gemini model ${model} failed with retryable network error; falling back to ${
+            models[modelIndex + 1]
+          }`,
+        );
+        continue;
+      }
+
+      throw err;
+    }
+  }
+
+  throw lastError ?? new Error("Gemini request failed");
+}
+
+async function callGeminiSingleModelWithRetry(
+  prompt: string,
+  systemInstruction: string,
+  geminiKey: string,
+  model: string,
 ): Promise<Response> {
+  const modelUrl = `https://generativelanguage.googleapis.com/${DEFAULT_GEMINI_API_VERSION}/models/${model}:generateContent`;
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt <= GEMINI_MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
+      const response = await fetch(`${modelUrl}?key=${geminiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -259,29 +321,38 @@ Deno.serve(async (req: Request) => {
       total_days_tracked: chartsData.length,
     });
 
-    const systemInstruction = `你係一個專業嘅香港營養師 AI。你專長於分析用戶嘅飲食記錄並給予個人化及符合香港飲食文化嘅建議，並特別針對用戶指定嘅分析焦點 ('${focus}') 提供深入見解。`;
+    const systemInstruction = `You are a professional Hong Kong nutritionist AI. You specialize in analyzing users' dietary records and providing practical, personalized recommendations aligned with Hong Kong eating habits. Focus deeply on the requested focus ('${focus}').
 
-    const insightPrompt = `以下係用戶過去${
-      period === "week" ? "一星期" : "一個月"
-    }嘅飲食數據。請以繁體中文 (廣東話口吻) 根據分析焦點 '${focus}'，提供專業見解。
-如果有資料不足，請根據現有資料進行分析，不需要額外確認。
+Always return all user-facing report fields in English only: summary, analysis, trends, and recommendations.
+Keep the tone friendly, practical, and concise.`;
 
-焦點解釋:
-- general: 整體飲食表現，包含熱量和營養分佈。
-- bmi: 就用戶身高體重及飲食結構與減重/維持體重進行連結分析。
-- macronutrients: 重點分析蛋白質、碳水化合物和脂肪的攝取比例。
-- energy: 重點分析熱量攝取與每日目標的達標狀況及穩定度。
+    const insightPrompt = `Below is the user's dietary data for the past ${
+      period === "week" ? "week" : "month"
+    }. Based on focus '${focus}', provide professional insights in English.
+If the data is limited, still provide a best-effort analysis and do not ask follow-up questions.
 
-數據：
+Focus definitions:
+- general: Overall dietary performance, including calorie intake and nutrient distribution.
+- bmi: Link height/weight context with dietary structure for weight-loss or maintenance analysis.
+- macronutrients: Analyze the intake balance of protein, carbohydrates, and fat.
+- energy: Analyze calorie intake versus daily target attainment and consistency.
+
+Data:
 ${summaryForAI}`;
 
     let geminiRes: Response;
+    let selectedModel = GEMINI_PRIMARY_MODEL;
+    let attemptedModels: string[] = [];
     try {
-      geminiRes = await callGeminiWithRetry(
+      const result = await callGeminiWithRetry(
         insightPrompt,
         systemInstruction,
         geminiKey,
+        GEMINI_MODELS,
       );
+      geminiRes = result.response;
+      selectedModel = result.model;
+      attemptedModels = result.attemptedModels;
     } catch (err) {
       console.error(
         "Gemini network error:",
@@ -297,7 +368,9 @@ ${summaryForAI}`;
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
       console.error(
-        `Gemini API error (${geminiRes.status}):`,
+        `Gemini API error (${geminiRes.status}) [models: ${
+          attemptedModels.join(" -> ") || selectedModel
+        }]:`,
         redactSecrets(errText),
       );
       switch (geminiRes.status) {
@@ -338,11 +411,13 @@ ${summaryForAI}`;
         firstErr,
       );
       try {
-        const retryRes = await callGeminiWithRetry(
+        const retryResult = await callGeminiWithRetry(
           insightPrompt,
           systemInstruction,
           geminiKey,
+          GEMINI_MODELS,
         );
+        const retryRes = retryResult.response;
         if (retryRes.ok) {
           const retryData = await retryRes.json();
           rawText =
@@ -357,8 +432,8 @@ ${summaryForAI}`;
           secondErr,
         );
         report_data = {
-          summary: "未能成功解析報告資料",
-          analysis: "分析產生失敗",
+          summary: "Unable to parse report data.",
+          analysis: "Insight generation failed.",
           trends: [],
           recommendations: [],
         };

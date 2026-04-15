@@ -244,6 +244,12 @@ Model strategy:
 }
 ```
 
+Model strategy:
+
+- Primary model: `gemini-2.5-flash`
+- Fallback model: `gemini-3-flash-preview` (used when primary returns retryable provider errors like 429/5xx/network timeout)
+- API version: `v1beta` only.
+
 **Response:**
 
 ```json

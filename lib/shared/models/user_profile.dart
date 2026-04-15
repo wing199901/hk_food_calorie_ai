@@ -1,6 +1,7 @@
 class UserProfile {
   final String? birthdate; // 'YYYY-MM-DD'
   final double? weight;
+  final double? preferredWeight;
   final double? height;
   final double? waistline;
   final String? gender; // 'male' | 'female' | 'other'
@@ -11,6 +12,7 @@ class UserProfile {
   UserProfile({
     this.birthdate,
     this.weight,
+    this.preferredWeight,
     this.height,
     this.waistline,
     this.gender,
@@ -34,6 +36,7 @@ class UserProfile {
   Map<String, dynamic> toJson() => {
     'birthdate': birthdate,
     'weight': weight,
+    'preferredWeight': preferredWeight,
     'height': height,
     'waistline': waistline,
     'gender': gender,
@@ -44,6 +47,9 @@ class UserProfile {
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
     birthdate: json['birthdate'] as String?,
     weight: json['weight'] != null ? (json['weight'] as num).toDouble() : null,
+    preferredWeight: json['preferredWeight'] != null
+        ? (json['preferredWeight'] as num).toDouble()
+        : null,
     height: json['height'] != null ? (json['height'] as num).toDouble() : null,
     waistline: json['waistline'] != null
         ? (json['waistline'] as num).toDouble()
@@ -56,6 +62,7 @@ class UserProfile {
   UserProfile copyWith({
     String? birthdate,
     double? weight,
+    double? preferredWeight,
     double? height,
     double? waistline,
     String? gender,
@@ -65,6 +72,7 @@ class UserProfile {
     return UserProfile(
       birthdate: birthdate ?? this.birthdate,
       weight: weight ?? this.weight,
+      preferredWeight: preferredWeight ?? this.preferredWeight,
       height: height ?? this.height,
       waistline: waistline ?? this.waistline,
       gender: gender ?? this.gender,

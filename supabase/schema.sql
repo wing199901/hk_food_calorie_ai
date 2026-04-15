@@ -18,6 +18,8 @@ delete cascade,
   birthdate         date,          -- YYYY-MM-DD
   weight            numeric
 (5,2),
+  preferred_weight  numeric
+(5,2),
   height            numeric
 (5,2),
   waistline         numeric

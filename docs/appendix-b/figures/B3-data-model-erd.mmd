@@ -1,0 +1,96 @@
+erDiagram
+  AUTH_USERS ||--|| USER_PROFILES : owns
+  AUTH_USERS ||--o{ BODY_METRICS : records
+  AUTH_USERS ||--o{ MEAL_RECORDS : logs
+  AUTH_USERS ||--o{ AI_MEAL_ANALYSES : generates
+  AUTH_USERS ||--o{ QUICK_ADD_ITEMS : configures
+  MEAL_RECORDS ||--o{ AI_MEAL_ANALYSES : links
+
+  AUTH_USERS {
+    uuid id PK
+  }
+
+  USER_PROFILES {
+    uuid user_id PK,FK
+    date birthdate
+    numeric weight
+    numeric height
+    numeric waistline
+    text gender
+    int activity_level
+    text unit_system
+    int calorie_target
+    date last_check_in_date
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  BODY_METRICS {
+    uuid user_id PK,FK
+    date date PK
+    timestamptz created_at PK
+    numeric weight
+    numeric waistline
+    numeric bmi
+    numeric whtr
+    int tee
+  }
+
+  MEAL_RECORDS {
+    text id PK
+    uuid user_id FK
+    date meal_date
+    text image_path
+    text image_url
+    jsonb items
+    int total_calories
+    int total_protein
+    int total_carbs
+    int total_fat
+    int total_sugar
+    timestamptz deleted_at
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  AI_MEAL_ANALYSES {
+    uuid id PK
+    uuid user_id FK
+    date meal_date
+    text image_path
+    text image_url
+    text ai_summary_name
+    jsonb ai_items
+    int ai_total_calories
+    int ai_total_protein
+    int ai_total_carbs
+    int ai_total_fat
+    int ai_total_sugar
+    text ai_model
+    int input_tokens
+    int output_tokens
+    int total_tokens
+    int image_bytes
+    int latency_ms
+    text meal_record_id FK
+    boolean is_correct
+    timestamptz confirmed_at
+    text feedback_status
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  QUICK_ADD_ITEMS {
+    text id PK
+    uuid user_id FK
+    text name
+    int calories
+    int protein
+    int carbs
+    int fat
+    int sugar
+    text icon
+    int sort_order
+    timestamptz created_at
+    timestamptz updated_at
+  }

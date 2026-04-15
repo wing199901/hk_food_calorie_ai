@@ -10,7 +10,7 @@ AI-powered food calorie tracking app built with Flutter, Supabase, and Google Ge
 - **Daily Tracking** — Track calories, protein, carbs, fat, and sugar throughout the day
 - **Weekly Analysis** — Charts showing energy intake, macros, and body metrics over 7 days
 - **AI Insights** — Weekly/monthly AI-generated dietary analysis and suggestions
-- **Body Metrics** — Track weight & waistline; auto-calculate BMI, WHtR, and TEE
+- **Body Metrics** — Track weight, preferred weight, and waistline; auto-calculate BMI, WHtR, and TEE-based intake targets
 - **Cloud Sync** — Local-first with Supabase cloud sync; works offline
 
 ## Tech Stack

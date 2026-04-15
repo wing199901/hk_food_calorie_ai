@@ -1,0 +1,47 @@
+flowchart LR
+  U[User]
+
+  subgraph M[Flutter Mobile App]
+    UI[UI Layer<br>Add Food / Log / Analysis]
+    ST[State Layer<br>Riverpod Providers]
+    LC[Local Cache<br>StorageService]
+  end
+
+  subgraph E[Edge API Layer]
+    EF[Edge Function<br>analyze-meal]
+    JV[JWT Auth Validation]
+  end
+
+  subgraph A[AI Provider]
+    GM[Gemini Multimodal Model]
+  end
+
+  subgraph D[Data Layer]
+    OS[(Object Storage<br>meal-images private bucket)]
+    UP[(user_profiles)]
+    BM[(body_metrics)]
+    MR[(meal_records)]
+    AA[(ai_meal_analyses)]
+    QA[(quick_add_items)]
+  end
+
+  U -->|Capture or upload photo| UI
+  UI --> ST
+  ST <--> LC
+
+  UI -->|Upload image| OS
+  UI -->|Invoke analyze-meal<br>image_path + date + JWT| EF
+  EF --> JV
+  EF -->|Fetch image by path| OS
+  EF -->|Prompt + response schema| GM
+  GM -->|Structured JSON result| EF
+  EF -->|analysis_id + items + totals| UI
+
+  UI -->|User reviews AI result<br>confirm or edit| UI
+  UI -->|Save meal record| MR
+  UI -->|Save AI feedback| AA
+  AA -->|Link meal_record_id| MR
+
+  UI -->|Profile update| UP
+  UI -->|Daily check-in| BM
+  UI -->|Quick add CRUD| QA

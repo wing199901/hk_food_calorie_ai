@@ -1,0 +1,41 @@
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant UI as Flutter UI<br>Add Food Page
+  participant ST as State and Service Layer<br>Riverpod + FoodAnalysisService
+  participant OS as Object Storage<br>meal-images private bucket
+  participant EF as Edge Function<br>analyze-meal
+  participant AI as Gemini Multimodal Model
+  participant DB as PostgreSQL<br>meal_records + ai_meal_analyses
+
+  U->>UI: Capture or upload meal photo
+  UI->>ST: Start analysis request
+  ST->>OS: Upload image
+  OS-->>ST: storage path + signed URL
+
+  ST->>EF: Invoke analyze-meal<br>image_path + date + JWT
+  EF->>OS: Fetch image by path
+  OS-->>EF: Image bytes
+  EF->>AI: Prompt + response schema
+  AI-->>EF: Structured JSON<br>items + totals
+  EF-->>ST: analysis_id + analysis payload
+  ST-->>UI: Render result for user review
+
+  alt User edits result
+    U->>UI: Edit meal name or nutrition fields
+    UI->>ST: Update local analysis state
+    ST-->>UI: Show edited preview
+  end
+
+  U->>UI: Confirm Add Meal
+  UI->>ST: Save confirmed meal
+  ST->>DB: Insert meal_records
+  DB-->>ST: meal_record_id
+  ST->>DB: Save ai_meal_analyses feedback<br>analysis_id + is_correct + final_result
+  DB-->>ST: Save success
+  ST-->>UI: Navigate home and refresh views
+
+  opt Analysis failure path
+    EF-->>ST: Error code or message
+    ST-->>UI: Show retryable error feedback
+  end

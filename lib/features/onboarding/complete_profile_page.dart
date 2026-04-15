@@ -43,6 +43,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
 
   // Step 2: Optional
   final _weightCtrl = TextEditingController();
+  final _preferredWeightCtrl = TextEditingController();
   final _waistlineCtrl = TextEditingController();
   String _activityLevel = 'moderate';
 
@@ -69,6 +70,12 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         isMetric: isMetric,
       );
     }
+    if (p.preferredWeight != null) {
+      _preferredWeightCtrl.text = UnitConverter.weightToDisplay(
+        p.preferredWeight,
+        isMetric: isMetric,
+      );
+    }
     if (p.waistline != null) {
       _waistlineCtrl.text = UnitConverter.lengthToDisplay(
         p.waistline,
@@ -82,6 +89,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
   void dispose() {
     _heightCtrl.dispose();
     _weightCtrl.dispose();
+    _preferredWeightCtrl.dispose();
     _waistlineCtrl.dispose();
     super.dispose();
   }
@@ -148,6 +156,10 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         _weightCtrl.text,
         isMetric: isMetric,
       );
+      final preferredWeight = UnitConverter.parseWeight(
+        _preferredWeightCtrl.text,
+        isMetric: isMetric,
+      );
       final waistline = UnitConverter.parseLength(
         _waistlineCtrl.text,
         isMetric: isMetric,
@@ -160,6 +172,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         gender: _gender,
         height: height,
         weight: weight,
+        preferredWeight: preferredWeight,
         waistline: waistline,
         activityLevel: _activityLevel,
         unitSystem: _unitSystem,
@@ -348,6 +361,16 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
           controller: _weightCtrl,
           hint: _unitSystem == 'metric' ? '70' : '154',
           icon: Icons.monitor_weight_outlined,
+        ),
+        const SizedBox(height: 24),
+        ProfileFieldLabel(
+          'Preferred Weight (${_unitSystem == 'metric' ? 'kg' : 'lbs'})',
+        ),
+        const SizedBox(height: 8),
+        ProfileInputField(
+          controller: _preferredWeightCtrl,
+          hint: _unitSystem == 'metric' ? '65' : '143',
+          icon: Icons.flag_outlined,
         ),
         const SizedBox(height: 24),
         ProfileFieldLabel(

@@ -64,6 +64,31 @@ void main() {
       },
     );
 
+    test(
+      'preferred weight produces intake range and uses max as target',
+      () async {
+        final profile = UserProfile(
+          birthdate: '1992-03-12',
+          gender: 'female',
+          weight: 78,
+          preferredWeight: 65,
+          height: 165,
+          activityLevel: 'light',
+          unitSystem: 'metric',
+        );
+
+        await storage.setUserProfile(profile);
+
+        final range = StorageService.calculateCalorieIntakeRange(profile);
+        final storedRange = storage.getDailyTargetRange();
+
+        expect(storage.getDailyTarget(), range.max);
+        expect(storedRange.min, range.min);
+        expect(storedRange.max, range.max);
+        expect(range.min <= range.max, isTrue);
+      },
+    );
+
     test('addBodyMetric auto-computes bmi, whtr and tee', () async {
       await storage.setUserProfile(
         UserProfile(

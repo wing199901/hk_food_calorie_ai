@@ -404,6 +404,10 @@ class FoodAnalysisService {
   String _mapServerError(Map<String, dynamic> payload) {
     final code = _readString(payload['code']);
     final errorMessage = _readString(payload['error']);
+    final gatewayMessage = _readString(payload['message']);
+    final resolvedMessage = errorMessage.isNotEmpty
+        ? errorMessage
+        : gatewayMessage;
 
     switch (code) {
       case 'NO_FOOD_DETECTED':
@@ -424,12 +428,33 @@ class FoodAnalysisService {
       case 'AI_ERROR':
       case 'AI_PARSE_ERROR':
       case 'ANALYSIS_STORE_ERROR':
+        if (resolvedMessage.isNotEmpty) {
+          return _mapGatewayOrProviderMessage(resolvedMessage);
+        }
         return 'Unable to analyze this meal right now. Please try again.';
       default:
-        return errorMessage.isNotEmpty
-            ? errorMessage
-            : 'Unable to analyze this meal right now. Please try again.';
+        if (resolvedMessage.isNotEmpty) {
+          return _mapGatewayOrProviderMessage(resolvedMessage);
+        }
+        return 'Unable to analyze this meal right now. Please try again.';
     }
+  }
+
+  String _mapGatewayOrProviderMessage(String message) {
+    final normalized = message.toLowerCase();
+
+    if (normalized.contains('name resolution failed') ||
+        normalized.contains('dns') ||
+        normalized.contains('no such host') ||
+        normalized.contains('could not resolve')) {
+      return 'Service routing is temporarily unavailable. Please retry in 10-30 seconds.';
+    }
+
+    if (normalized.contains('timed out') || normalized.contains('timeout')) {
+      return 'AI service timed out. Please retry in 10-30 seconds.';
+    }
+
+    return message;
   }
 
   String _formatIsoDate(DateTime value) {

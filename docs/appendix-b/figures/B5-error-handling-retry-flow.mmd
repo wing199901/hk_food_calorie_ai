@@ -1,0 +1,38 @@
+flowchart TD
+  A[Start meal analysis] --> B{Client input valid?}
+  B -- No --> B1[Return validation error<br>for example invalid path or file type]
+  B1 --> Z[Show user-facing error]
+
+  B -- Yes --> C[Upload image and invoke analyze-meal]
+  C --> D{Edge request accepted?}
+
+  D -- No --> D1[Return transport or auth error]
+  D1 --> Z
+
+  D -- Yes --> E[Call primary model]
+  E --> F{Model response status}
+
+  F -- Success --> G[Validate structured JSON payload]
+  G --> H{Payload valid?}
+  H -- No --> H1[Return parsing or schema error]
+  H1 --> Z
+  H -- Yes --> I[Return analysis_id + items + totals]
+  I --> J[Render result for user review]
+
+  F -- Retryable error<br>408 429 5xx or retryable network --> K{Retries remaining?}
+  K -- Yes --> L[Retry same model call]
+  L --> F
+  K -- No --> M{Fallback model available?}
+
+  M -- Yes --> N[Switch to fallback model]
+  N --> O{Fallback response success?}
+  O -- Yes --> G
+  O -- No --> P[Map provider error to user-safe message]
+  P --> Z
+
+  M -- No --> P
+
+  F -- Non-retryable error --> P
+
+  Z --> Q[User decides retry later<br>or choose quick add]
+  Q --> R[End failure path]

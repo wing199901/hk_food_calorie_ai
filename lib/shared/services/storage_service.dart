@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,12 +61,12 @@ class StorageService extends ChangeNotifier {
       final profile = data['profile'] as UserProfile;
       if (profile.weight != null || profile.birthdate != null) {
         await _prefs.setString(_profileKey, jsonEncode(profile.toJson()));
-        // Recalculate TEE from synced profile
-        final tee = calculateTEE(profile);
-        await _prefs.setString(_targetKey, tee.toString());
+        // Keep daily target aligned with profile-driven intake range.
+        final intakeRange = calculateCalorieIntakeRange(profile);
+        await _prefs.setString(_targetKey, intakeRange.max.toString());
       }
 
-      // Calorie target is auto-calculated from profile via calculateTEE()
+      // Calorie target is auto-calculated from profile via intake range
       // so we skip restoring it from Supabase here.
 
       // Last check-in date
@@ -191,6 +192,18 @@ class StorageService extends ChangeNotifier {
     notifyListeners();
   }
 
+  ({int min, int max}) getDailyTargetRange() {
+    final profile = getUserProfile();
+    final preferredWeight = profile.preferredWeight;
+
+    if (preferredWeight == null || preferredWeight <= 0) {
+      final target = getDailyTarget();
+      return (min: target, max: target);
+    }
+
+    return calculateCalorieIntakeRange(profile);
+  }
+
   // ─── Weekly / Range Data ─────────────────────────────────────
 
   List<Map<String, dynamic>> getRangeData(DateTime startDate, int days) {
@@ -241,11 +254,29 @@ class StorageService extends ChangeNotifier {
   /// Awaiting this Future ensures the DB write completes.
   Future<void> setUserProfile(UserProfile profile) async {
     _prefs.setString(_profileKey, jsonEncode(profile.toJson()));
-    final tee = calculateTEE(profile);
-    _prefs.setString(_targetKey, tee.toString());
+    final intakeRange = calculateCalorieIntakeRange(profile);
+    _prefs.setString(_targetKey, intakeRange.max.toString());
     notifyListeners();
     if (!_supabase.isAuthenticated) return;
-    await _supabase.saveProfile(profile, calorieTarget: tee);
+    await _supabase.saveProfile(profile, calorieTarget: intakeRange.max);
+  }
+
+  /// Returns intake range where min=max when no preferred weight is set.
+  static ({int min, int max}) calculateCalorieIntakeRange(UserProfile profile) {
+    final currentTee = calculateTEE(profile);
+    final preferredWeight = profile.preferredWeight;
+
+    if (preferredWeight == null || preferredWeight <= 0) {
+      return (min: currentTee, max: currentTee);
+    }
+
+    final preferredTee = calculateTEE(
+      profile.copyWith(weight: preferredWeight),
+    );
+    return (
+      min: math.min(currentTee, preferredTee),
+      max: math.max(currentTee, preferredTee),
+    );
   }
 
   /// Centralized TEE (Total Energy Expenditure) calculator.

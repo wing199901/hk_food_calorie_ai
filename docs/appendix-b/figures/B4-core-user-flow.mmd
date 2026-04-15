@@ -1,0 +1,50 @@
+flowchart TD
+  A[App Launch] --> B{Authenticated?}
+  B -- No --> C[Auth Page<br>Sign in or Sign up]
+  C --> D[Post-login checks]
+  B -- Yes --> D[Post-login checks]
+
+  D --> E{Profile Complete?}
+  E -- No --> F[Complete Profile Flow<br>Step 1 to Step 3]
+  F --> G[Save profile]
+  G --> H{Checked in today?}
+  E -- Yes --> H{Checked in today?}
+
+  H -- No --> I[Daily Check-in<br>Weight and waistline]
+  I --> J[Save body metrics]
+  J --> K[Main Scaffold]
+  H -- Yes --> K[Main Scaffold]
+
+  subgraph Tabs[Main Tabs]
+    T1[Home]
+    T2[Analysis]
+    T3[Add Food]
+    T4[Log]
+    T5[Settings]
+  end
+
+  K --> T1
+  K --> T2
+  K --> T3
+  K --> T4
+  K --> T5
+
+  T3 --> L{Input method}
+  L --> M[Take photo]
+  L --> N[Upload photo]
+  L --> O[Quick Add]
+
+  M --> P[AI analysis request]
+  N --> P[AI analysis request]
+  P --> Q[Show analysis result]
+  O --> Q[Show quick-add result]
+
+  Q --> R{User action}
+  R --> S[Edit result]
+  S --> Q
+  R --> U[Confirm Add Meal]
+  R --> V[Cancel]
+
+  U --> W[Save meal record<br>and AI feedback]
+  W --> T1
+  V --> T3

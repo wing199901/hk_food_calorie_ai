@@ -3,7 +3,7 @@
 //  - Step 1 validation (birthdate required)
 //  - Step 2 "Continue" advances to Step 3
 //  - Step 3 "Save & Start Tracking" saves profile and calls onComplete
-//  - Empty Step 2 saves null weight/waistline (no default injection)
+//  - Empty Step 2 saves null weight/preferredWeight/waistline (no default injection)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -201,7 +201,7 @@ void main() {
     // ── Regression: null weight/waistline when Step 2 fields left empty ──────
 
     testWidgets(
-      'Empty Step 2 saves null weight and waistline (no default injection)',
+      'Empty Step 2 saves null weight, preferred weight and waistline',
       (tester) async {
         usePhoneSize(tester);
         await tester.pumpWidget(
@@ -223,6 +223,11 @@ void main() {
           saved.weight,
           isNull,
           reason: 'Weight should be null when left empty on Step 2',
+        );
+        expect(
+          saved.preferredWeight,
+          isNull,
+          reason: 'Preferred weight should be null when left empty on Step 2',
         );
         expect(
           saved.waistline,
@@ -250,6 +255,26 @@ void main() {
 
       expect(fakeStorage.savedProfiles, isNotEmpty);
       expect(fakeStorage.savedProfiles.last.weight, 65.0);
+    });
+
+    testWidgets('Entering preferred weight on Step 2 saves it correctly', (
+      tester,
+    ) async {
+      usePhoneSize(tester);
+      await tester.pumpWidget(
+        buildPage(
+          storage: fakeStorage,
+          onComplete: () => completeCalled = true,
+        ),
+      );
+      await confirmBirthdate(tester);
+      await scrollAndTap(tester, find.text('Continue'));
+      await tester.enterText(find.widgetWithText(TextField, '65'), '60');
+      await scrollAndTap(tester, find.text('Continue'));
+      await tapSaveButton(tester, find.text('Save & Start Tracking'));
+
+      expect(fakeStorage.savedProfiles, isNotEmpty);
+      expect(fakeStorage.savedProfiles.last.preferredWeight, 60.0);
     });
   });
 }
