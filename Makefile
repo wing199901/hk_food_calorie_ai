@@ -2,6 +2,8 @@ run:
 	dart run build_runner build --delete-conflicting-outputs && flutter run
 
 IOS_SIM ?= iPhone 13 Pro
+TEST_EMAIL ?= test@example.com
+TEST_PASSWORD ?= 12345678
 TEST_IMAGE_PATH ?= integration_test/images/3_egg_tarts.jpg
 SUPABASE_TEST_USER_ID ?= 00000000-0000-0000-0000-000000000001
 
@@ -9,13 +11,9 @@ test-ios-upload-flow:
 	flutter test integration_test/ios_upload_image_flow_test.dart -d "$(IOS_SIM)"
 
 test-analysis-flow:
-	@if [ -z "$(EMAIL)" ] || [ -z "$(PASSWORD)" ]; then \
-		echo "email and password are required."; \
-		exit 1; \
-	fi
 	flutter test integration_test/analysis_food_flow_test.dart -d "$(IOS_SIM)" \
-		--dart-define=TEST_EMAIL="$(EMAIL)" \
-		--dart-define=TEST_PASSWORD="$(PASSWORD)" \
+		--dart-define=TEST_EMAIL="$(if $(EMAIL),$(EMAIL),$(TEST_EMAIL))" \
+		--dart-define=TEST_PASSWORD="$(if $(PASSWORD),$(PASSWORD),$(TEST_PASSWORD))" \
 		--dart-define=TEST_IMAGE_PATH="$(TEST_IMAGE_PATH)"
 
 build:

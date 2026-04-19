@@ -45,94 +45,93 @@ Core capabilities:
 - Familiar with common HK dishes: siu mai (燒賣), cheung fun (腸粉), milk tea (奶茶), pork chop bun (豬扒包), pineapple bun (菠蘿包), egg tart (蛋撻), wonton noodles (雲吞麵), claypot rice (煲仔飯), etc.
 
 Analysis rules:
-- Always analyse drinks (milk tea, coffee, soft drinks, juice, beer, soup, etc.) and record volume using portion_ml
-- Use portion_grams for solid food; use portion_ml for drinks — never fill both for the same item
+- Return output using this JSON contract: ingredients[] + total_* fields
+- For each ingredient include: id, name, grams, ml, calories, fat, carb, protein, sugar, confidence
+- For solid food: fill grams, set ml to null
+- For liquids/drinks: fill ml, set grams to null
+- Never fill both grams and ml for the same ingredient
 - Estimate the actual portion shown in the photo — do not assume a standard serving size
 - For uncertain items, provide the most reasonable estimate with a lower confidence score
-- If the photo contains no food or is unclear, return an empty items array and populate the error field`;
+- If the photo contains no food or is unclear, return an empty ingredients array and populate the error field`;
 
 // -- Response Schema (Gemini Structured Output) ---------------
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
-    items: {
+    ingredients: {
       type: "ARRAY",
       description:
-        "List of identified food/drink items. Return empty array if no food detected.",
+        "List of identified ingredients. Return empty array if no food detected.",
       items: {
         type: "OBJECT",
         properties: {
-          name_zh: {
+          id: {
             type: "STRING",
-            description: "Food name in Traditional Chinese",
+            description:
+              "Ingredient id using ingr_ prefix (for example ingr_0000000192)",
           },
-          name_en: { type: "STRING", description: "Food name in English" },
-          type: {
+          name: {
             type: "STRING",
-            description: '"food" for solid food or "drink" for beverages',
-            enum: ["food", "drink"],
+            description: "Ingredient name in English",
           },
-          portion_size: {
+          grams: {
             type: "NUMBER",
-            description: "Quantity, e.g. 1, 2, 0.5",
-          },
-          portion_unit: {
-            type: "STRING",
             description:
-              "Unit in English (e.g. plate, bowl, piece, cup, slice, serving, glass, can, pack)",
-          },
-          portion_grams: {
-            type: "INTEGER",
-            description:
-              "Estimated weight in grams for solid food; 0 for drinks",
+              "Estimated mass in grams for solid food; null for liquids",
             nullable: true,
           },
-          portion_ml: {
-            type: "INTEGER",
-            description: "Estimated volume in ml for drinks; 0 for solid food",
+          ml: {
+            type: "NUMBER",
+            description:
+              "Estimated volume in ml for liquids; null for solid food",
             nullable: true,
           },
-          calories: { type: "INTEGER", description: "Energy in kcal" },
-          protein: { type: "INTEGER", description: "Protein in grams" },
-          carbs: { type: "INTEGER", description: "Carbohydrates in grams" },
-          fat: { type: "INTEGER", description: "Fat in grams" },
-          sugar: { type: "INTEGER", description: "Sugar in grams" },
+          calories: { type: "NUMBER", description: "Energy in kcal" },
+          fat: { type: "NUMBER", description: "Fat in grams" },
+          carb: { type: "NUMBER", description: "Carbohydrates in grams" },
+          protein: { type: "NUMBER", description: "Protein in grams" },
+          sugar: { type: "NUMBER", description: "Sugar in grams" },
           confidence: {
             type: "NUMBER",
             description: "Confidence score between 0.0 and 1.0",
           },
         },
         required: [
-          "name_zh",
-          "name_en",
-          "type",
-          "portion_size",
-          "portion_unit",
+          "id",
+          "name",
           "calories",
-          "protein",
-          "carbs",
           "fat",
+          "carb",
+          "protein",
           "sugar",
           "confidence",
         ],
       },
     },
     total_calories: {
-      type: "INTEGER",
+      type: "NUMBER",
       description: "Sum of calories across all items",
     },
+    total_mass: {
+      type: "NUMBER",
+      description: "Sum of grams/ml amounts across all ingredients",
+    },
+    total_fat: {
+      type: "NUMBER",
+      description: "Sum of fat across all ingredients",
+    },
+    total_carb: {
+      type: "NUMBER",
+      description: "Sum of carbohydrates across all ingredients",
+    },
     total_protein: {
-      type: "INTEGER",
-      description: "Sum of protein across all items",
+      type: "NUMBER",
+      description: "Sum of protein across all ingredients",
     },
-    total_carbs: {
-      type: "INTEGER",
-      description: "Sum of carbohydrates across all items",
-    },
-    total_fat: { type: "INTEGER", description: "Sum of fat across all items" },
     total_sugar: {
-      type: "INTEGER",
-      description: "Sum of sugar across all items",
+      type: "NUMBER",
+      description: "Sum of sugar across all ingredients",
+      nullable: true,
     },
     error: {
       type: "STRING",
@@ -142,98 +141,174 @@ const RESPONSE_SCHEMA = {
     },
   },
   required: [
-    "items",
+    "ingredients",
     "total_calories",
-    "total_protein",
-    "total_carbs",
+    "total_mass",
     "total_fat",
-    "total_sugar",
+    "total_carb",
+    "total_protein",
   ],
 };
 
-interface FoodItem {
-  name_zh: string;
-  name_en: string;
-  type: "food" | "drink";
+interface IngredientItem {
+  id?: string;
+  name: string;
+  grams?: number | null;
+  ml?: number | null;
   calories: number;
-  protein: number;
-  carbs: number;
   fat: number;
+  carb: number;
+  protein: number;
   sugar: number;
-  portion_size: number;
-  portion_unit: string;
-  portion_grams?: number | null;
-  portion_ml?: number | null;
   confidence: number;
 }
 
-interface MealItemPortion {
-  size: number;
-  unit: string;
+interface PublicIngredientItem {
+  id: string;
+  name: string;
   grams: number | null;
   ml: number | null;
-}
-
-interface PublicMealItem {
-  name_zh: string;
-  name_en: string;
-  type: "food" | "drink";
-  portion: MealItemPortion;
   calories: number;
-  protein: number;
-  carbs: number;
   fat: number;
+  carb: number;
+  protein: number;
   sugar: number;
   confidence: number;
 }
 
 interface AnalysisResult {
-  items: FoodItem[];
+  ingredients: IngredientItem[];
   total_calories: number;
-  total_protein: number;
-  total_carbs: number;
+  total_mass: number;
   total_fat: number;
-  total_sugar: number;
+  total_carb: number;
+  total_protein: number;
+  total_sugar?: number;
   error?: string;
 }
 
-function buildSummaryName(items: FoodItem[]): string {
+function buildSummaryName(items: PublicIngredientItem[]): string {
   if (items.length === 0) return "AI Scanned Meal";
 
-  const firstName =
-    items[0].name_en?.trim() || items[0].name_zh?.trim() || "AI Scanned Meal";
-
+  const firstName = items[0].name?.trim() || "AI Scanned Meal";
   if (items.length === 1) return firstName;
   return `${firstName} + ${items.length - 1} more`;
 }
 
-function toPublicMealItem(item: FoodItem): PublicMealItem {
-  const normalizedGrams =
-    typeof item.portion_grams === "number" && item.portion_grams > 0
-      ? item.portion_grams
-      : null;
-  const normalizedMl =
-    typeof item.portion_ml === "number" && item.portion_ml > 0
-      ? item.portion_ml
-      : null;
+function toNonNegativeNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, value);
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return Math.max(0, parsed);
+    }
+  }
+
+  return 0;
+}
+
+function toOptionalPositiveNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function toConfidence(value: unknown): number {
+  const confidence = toNonNegativeNumber(value);
+  if (confidence > 1) return 1;
+  return confidence;
+}
+
+function normalizeIngredientId(rawId: unknown, index: number): string {
+  if (typeof rawId === "string") {
+    const trimmed = rawId.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  const serial = String(index + 1).padStart(10, "0");
+  return `ingr_${serial}`;
+}
+
+function looksLikeDrink(name: string): boolean {
+  const normalized = name.toLowerCase();
+  const drinkHints = [
+    "drink",
+    "tea",
+    "coffee",
+    "latte",
+    "juice",
+    "soda",
+    "cola",
+    "water",
+    "milk",
+    "smoothie",
+    "beer",
+    "wine",
+    "cocktail",
+    "soup",
+    "奶茶",
+    "咖啡",
+    "果汁",
+    "湯",
+    "水",
+  ];
+  return drinkHints.some((hint) => normalized.includes(hint));
+}
+
+function normalizeIngredient(
+  item: IngredientItem,
+  index: number,
+): PublicIngredientItem {
+  const normalizedName =
+    typeof item.name === "string" && item.name.trim().length > 0
+      ? item.name.trim()
+      : `ingredient-${index + 1}`;
+
+  let grams = toOptionalPositiveNumber(item.grams);
+  let ml = toOptionalPositiveNumber(item.ml);
+
+  if (grams != null && ml != null) {
+    if (looksLikeDrink(normalizedName)) {
+      grams = null;
+    } else {
+      ml = null;
+    }
+  }
 
   return {
-    name_zh: item.name_zh,
-    name_en: item.name_en,
-    type: item.type,
-    portion: {
-      size: item.portion_size,
-      unit: item.portion_unit,
-      grams: item.type === "drink" ? null : normalizedGrams,
-      ml: item.type === "drink" ? normalizedMl : null,
-    },
-    calories: item.calories,
-    protein: item.protein,
-    carbs: item.carbs,
-    fat: item.fat,
-    sugar: item.sugar,
-    confidence: item.confidence,
+    id: normalizeIngredientId(item.id, index),
+    name: normalizedName,
+    grams,
+    ml,
+    calories: toNonNegativeNumber(item.calories),
+    fat: toNonNegativeNumber(item.fat),
+    carb: toNonNegativeNumber(item.carb),
+    protein: toNonNegativeNumber(item.protein),
+    sugar: toNonNegativeNumber(item.sugar),
+    confidence: toConfidence(item.confidence),
   };
+}
+
+function resolveTotalNumber(value: unknown, fallback: number): number {
+  const parsed = toNonNegativeNumber(value);
+  if (parsed > 0) {
+    return parsed;
+  }
+  return Math.max(0, fallback);
 }
 
 function sleep(ms: number): Promise<void> {
@@ -774,10 +849,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const items: FoodItem[] = analysis.items ?? [];
-    const publicItems = items.map(toPublicMealItem);
+    const ingredients = (analysis.ingredients ?? []).map(normalizeIngredient);
 
-    if (analysis.error || items.length === 0) {
+    if (analysis.error || ingredients.length === 0) {
       return jsonResponse({
         success: false,
         code: "NO_FOOD_DETECTED",
@@ -786,47 +860,49 @@ Deno.serve(async (req: Request) => {
           path: imagePath,
           url: imageUrl,
         },
-        meal: {
-          date: mealDate,
-          items: [],
-          totals: {
-            calories: 0,
-            protein: 0,
-            carbs: 0,
-            fat: 0,
-            sugar: 0,
-          },
-        },
+        meal_date: mealDate,
+        ingredients: [],
+        total_calories: 0,
+        total_mass: 0,
+        total_fat: 0,
+        total_carb: 0,
+        total_protein: 0,
+        total_sugar: 0,
       });
     }
 
-    const totalCalories = Math.round(
-      (analysis.total_calories ?? 0) > 0
-        ? analysis.total_calories
-        : items.reduce((sum, item) => sum + (item.calories || 0), 0),
+    const totalCalories = resolveTotalNumber(
+      analysis.total_calories,
+      ingredients.reduce((sum, item) => sum + item.calories, 0),
     );
-    const totalProtein = Math.round(
-      (analysis.total_protein ?? 0) > 0
-        ? analysis.total_protein
-        : items.reduce((sum, item) => sum + (item.protein || 0), 0),
+    const totalMass = resolveTotalNumber(
+      analysis.total_mass,
+      ingredients.reduce((sum, item) => sum + (item.grams ?? item.ml ?? 0), 0),
     );
-    const totalCarbs = Math.round(
-      (analysis.total_carbs ?? 0) > 0
-        ? analysis.total_carbs
-        : items.reduce((sum, item) => sum + (item.carbs || 0), 0),
+    const totalFat = resolveTotalNumber(
+      analysis.total_fat,
+      ingredients.reduce((sum, item) => sum + item.fat, 0),
     );
-    const totalFat = Math.round(
-      (analysis.total_fat ?? 0) > 0
-        ? analysis.total_fat
-        : items.reduce((sum, item) => sum + (item.fat || 0), 0),
+    const totalCarb = resolveTotalNumber(
+      analysis.total_carb,
+      ingredients.reduce((sum, item) => sum + item.carb, 0),
     );
-    const totalSugar = Math.round(
-      (analysis.total_sugar ?? 0) > 0
-        ? analysis.total_sugar
-        : items.reduce((sum, item) => sum + (item.sugar || 0), 0),
+    const totalProtein = resolveTotalNumber(
+      analysis.total_protein,
+      ingredients.reduce((sum, item) => sum + item.protein, 0),
+    );
+    const totalSugar = resolveTotalNumber(
+      analysis.total_sugar,
+      ingredients.reduce((sum, item) => sum + item.sugar, 0),
     );
 
-    const analysisSummaryName = buildSummaryName(items);
+    const dbTotalCalories = Math.round(totalCalories);
+    const dbTotalProtein = Math.round(totalProtein);
+    const dbTotalCarbs = Math.round(totalCarb);
+    const dbTotalFat = Math.round(totalFat);
+    const dbTotalSugar = Math.round(totalSugar);
+
+    const analysisSummaryName = buildSummaryName(ingredients);
 
     const admin = createAdminClient();
 
@@ -838,12 +914,12 @@ Deno.serve(async (req: Request) => {
         image_path: imagePath,
         image_url: imageUrl,
         ai_summary_name: analysisSummaryName,
-        ai_items: items,
-        ai_total_calories: totalCalories,
-        ai_total_protein: totalProtein,
-        ai_total_carbs: totalCarbs,
-        ai_total_fat: totalFat,
-        ai_total_sugar: totalSugar,
+        ai_items: ingredients,
+        ai_total_calories: dbTotalCalories,
+        ai_total_protein: dbTotalProtein,
+        ai_total_carbs: dbTotalCarbs,
+        ai_total_fat: dbTotalFat,
+        ai_total_sugar: dbTotalSugar,
         ai_model: selectedModel,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
@@ -871,17 +947,14 @@ Deno.serve(async (req: Request) => {
         path: imagePath,
         url: imageUrl,
       },
-      meal: {
-        date: mealDate,
-        items: publicItems,
-        totals: {
-          calories: totalCalories,
-          protein: totalProtein,
-          carbs: totalCarbs,
-          fat: totalFat,
-          sugar: totalSugar,
-        },
-      },
+      meal_date: mealDate,
+      ingredients,
+      total_calories: totalCalories,
+      total_mass: totalMass,
+      total_fat: totalFat,
+      total_carb: totalCarb,
+      total_protein: totalProtein,
+      total_sugar: totalSugar,
     });
   } catch (err) {
     console.error(

@@ -1,7 +1,8 @@
 class UserProfile {
   final String? birthdate; // 'YYYY-MM-DD'
   final double? weight;
-  final double? preferredWeight;
+  final String? weightGoal; // 'lose' | 'maintain' | 'gain'
+  final double? goalWeightDelta; // Stored in kg
   final double? height;
   final double? waistline;
   final String? gender; // 'male' | 'female' | 'other'
@@ -12,7 +13,8 @@ class UserProfile {
   UserProfile({
     this.birthdate,
     this.weight,
-    this.preferredWeight,
+    this.weightGoal,
+    this.goalWeightDelta,
     this.height,
     this.waistline,
     this.gender,
@@ -36,7 +38,8 @@ class UserProfile {
   Map<String, dynamic> toJson() => {
     'birthdate': birthdate,
     'weight': weight,
-    'preferredWeight': preferredWeight,
+    'weightGoal': weightGoal,
+    'goalWeightDelta': goalWeightDelta,
     'height': height,
     'waistline': waistline,
     'gender': gender,
@@ -47,8 +50,9 @@ class UserProfile {
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
     birthdate: json['birthdate'] as String?,
     weight: json['weight'] != null ? (json['weight'] as num).toDouble() : null,
-    preferredWeight: json['preferredWeight'] != null
-        ? (json['preferredWeight'] as num).toDouble()
+    weightGoal: json['weightGoal'] as String?,
+    goalWeightDelta: json['goalWeightDelta'] != null
+        ? (json['goalWeightDelta'] as num).toDouble()
         : null,
     height: json['height'] != null ? (json['height'] as num).toDouble() : null,
     waistline: json['waistline'] != null
@@ -62,7 +66,9 @@ class UserProfile {
   UserProfile copyWith({
     String? birthdate,
     double? weight,
-    double? preferredWeight,
+    String? weightGoal,
+    double? goalWeightDelta,
+    bool clearGoalWeightDelta = false,
     double? height,
     double? waistline,
     String? gender,
@@ -72,7 +78,10 @@ class UserProfile {
     return UserProfile(
       birthdate: birthdate ?? this.birthdate,
       weight: weight ?? this.weight,
-      preferredWeight: preferredWeight ?? this.preferredWeight,
+      weightGoal: weightGoal ?? this.weightGoal,
+      goalWeightDelta: clearGoalWeightDelta
+          ? null
+          : goalWeightDelta ?? this.goalWeightDelta,
       height: height ?? this.height,
       waistline: waistline ?? this.waistline,
       gender: gender ?? this.gender,

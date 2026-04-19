@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 
-class UnitSystemSelector extends StatelessWidget {
-  const UnitSystemSelector({
+class WeightGoalSelector extends StatelessWidget {
+  const WeightGoalSelector({
     super.key,
     required this.value,
     required this.onChanged,
   });
 
-  final String value; // 'metric' | 'imperial'
+  final String value; // 'lose' | 'maintain' | 'gain'
   final ValueChanged<String> onChanged;
 
   static const _options = [
-    ('metric', 'Metric', 'kg / cm'),
-    ('imperial', 'Imperial', 'lbs / ft / in'),
+    ('lose', 'Lose', Icons.trending_down),
+    ('maintain', 'Maintain', Icons.horizontal_rule),
+    ('gain', 'Gain', Icons.trending_up),
   ];
 
   @override
@@ -42,6 +43,14 @@ class UnitSystemSelector extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
+                    Icon(
+                      opt.$3,
+                      size: 20,
+                      color: isSelected
+                          ? AppTheme.primary
+                          : AppTheme.mutedForeground,
+                    ),
+                    const SizedBox(height: 4),
                     Text(
                       opt.$2,
                       style: TextStyle(
@@ -52,16 +61,6 @@ class UnitSystemSelector extends StatelessWidget {
                         color: isSelected
                             ? AppTheme.primary
                             : AppTheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      opt.$3,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isSelected
-                            ? AppTheme.primary
-                            : AppTheme.mutedForeground,
                       ),
                     ),
                   ],

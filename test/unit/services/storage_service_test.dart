@@ -65,13 +65,14 @@ void main() {
     );
 
     test(
-      'preferred weight produces intake range and uses max as target',
+      'goal direction and change amount produce intake range and use max as target',
       () async {
         final profile = UserProfile(
           birthdate: '1992-03-12',
           gender: 'female',
           weight: 78,
-          preferredWeight: 65,
+          weightGoal: 'lose',
+          goalWeightDelta: 13,
           height: 165,
           activityLevel: 'light',
           unitSystem: 'metric',
@@ -88,6 +89,47 @@ void main() {
         expect(range.min <= range.max, isTrue);
       },
     );
+
+    test('gain goal max TEE clamps light activity to moderate', () {
+      final profile = UserProfile(
+        birthdate: '1992-03-12',
+        gender: 'female',
+        weight: 60,
+        weightGoal: 'gain',
+        goalWeightDelta: 8,
+        height: 165,
+        activityLevel: 'light',
+      );
+
+      final range = StorageService.calculateCalorieIntakeRange(profile);
+      final expectedModerateGoalTee = StorageService.calculateTEE(
+        profile.copyWith(
+          weight: profile.weight! + profile.goalWeightDelta!,
+          activityLevel: 'moderate',
+        ),
+      );
+
+      expect(range.max, expectedModerateGoalTee);
+    });
+
+    test('gain goal keeps higher activity levels', () {
+      final profile = UserProfile(
+        birthdate: '1992-03-12',
+        gender: 'female',
+        weight: 60,
+        weightGoal: 'gain',
+        goalWeightDelta: 8,
+        height: 165,
+        activityLevel: 'active',
+      );
+
+      final range = StorageService.calculateCalorieIntakeRange(profile);
+      final expectedActiveGoalTee = StorageService.calculateTEE(
+        profile.copyWith(weight: profile.weight! + profile.goalWeightDelta!),
+      );
+
+      expect(range.max, expectedActiveGoalTee);
+    });
 
     test('addBodyMetric auto-computes bmi, whtr and tee', () async {
       await storage.setUserProfile(

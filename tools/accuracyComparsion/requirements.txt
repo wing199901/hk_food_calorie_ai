@@ -1,0 +1,7 @@
+# Use Python 3.10-3.13 for this project.
+# Python 3.14 currently breaks Hugging Face datasets/dill internals.
+datasets>=2.19.0,<4.0.0
+huggingface_hub>=0.25.0,<2.0.0
+Pillow>=10.0.0,<12.0.0
+google-genai>=1.73.0,<2.0.0
+python-dotenv>=1.0.1,<2.0.0

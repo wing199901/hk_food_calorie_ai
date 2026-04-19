@@ -6,7 +6,6 @@ import '../../shared/providers/providers.dart';
 import '../../shared/models/user_profile.dart';
 import '../../core/theme/app_theme.dart';
 import '../settings/widgets/settings_section.dart';
-import '../settings/widgets/settings_read_only_row.dart';
 import '../../shared/widgets/gender_selector.dart';
 import '../../shared/widgets/unit_system_selector.dart';
 import '../onboarding/widgets/profile_field_label.dart';
@@ -152,6 +151,54 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     });
   }
 
+  Widget _buildLabeledValueField({
+    required String label,
+    required String value,
+    VoidCallback? onTap,
+    IconData? trailingIcon,
+    bool muted = false,
+  }) {
+    final field = Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: muted ? AppTheme.muted : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: value == 'Tap to select'
+                    ? AppTheme.mutedForeground
+                    : AppTheme.foreground,
+              ),
+            ),
+          ),
+          if (trailingIcon != null)
+            Icon(trailingIcon, size: 20, color: AppTheme.primary),
+        ],
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ProfileFieldLabel(label),
+        const SizedBox(height: 8),
+        if (onTap != null)
+          GestureDetector(onTap: onTap, child: field)
+        else
+          field,
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final birthdateDisplay = _isEditing
@@ -266,21 +313,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       ),
                 child: Column(
                   children: [
-                    // Birthdate
-                    SettingsReadOnlyRow(
-                      label: 'Birthdate',
-                      value: birthdateDisplay,
-                      onTap: _isEditing ? _pickBirthdate : null,
-                    ),
-                    const SizedBox(height: 12),
-                    // Age — updates in real-time when birthdate changes
-                    SettingsReadOnlyRow(
-                      label: 'Age',
-                      value: _displayAge != null ? _displayAge.toString() : '—',
-                    ),
-                    const SizedBox(height: 12),
-                    // Gender
                     if (_isEditing) ...[
+                      _buildLabeledValueField(
+                        label: 'Birthdate',
+                        value: birthdateDisplay,
+                        onTap: _pickBirthdate,
+                        trailingIcon: Icons.calendar_today,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLabeledValueField(
+                        label: 'Age',
+                        value: _displayAge != null
+                            ? _displayAge.toString()
+                            : '—',
+                        muted: true,
+                      ),
+                      const SizedBox(height: 12),
                       ProfileFieldLabel('Gender'),
                       const SizedBox(height: 8),
                       GenderSelector(
@@ -295,16 +343,32 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         onChanged: (v) => setState(() => _editUnitSystem = v),
                       ),
                     ] else ...[
-                      SettingsReadOnlyRow(
-                        label: 'Gender',
-                        value: genderLabel[genderDisplay] ?? genderDisplay,
+                      _buildLabeledValueField(
+                        label: 'Birthdate',
+                        value: birthdateDisplay,
+                        muted: true,
                       ),
                       const SizedBox(height: 12),
-                      SettingsReadOnlyRow(
+                      _buildLabeledValueField(
+                        label: 'Age',
+                        value: _displayAge != null
+                            ? _displayAge.toString()
+                            : '—',
+                        muted: true,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLabeledValueField(
+                        label: 'Gender',
+                        value: genderLabel[genderDisplay] ?? genderDisplay,
+                        muted: true,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLabeledValueField(
                         label: 'Unit System',
                         value: _profile.unitSystem == 'imperial'
-                            ? 'Imperial (lbs / in)'
+                            ? 'Imperial ( / in)'
                             : 'Metric (kg / cm)',
+                        muted: true,
                       ),
                     ],
                   ],

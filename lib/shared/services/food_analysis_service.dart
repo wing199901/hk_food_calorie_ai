@@ -338,13 +338,29 @@ class FoodAnalysisService {
     Map<String, dynamic> payload, {
     required String fallbackImageUrl,
   }) {
+    final image = _readMap(payload['image']);
+    final imageUrl = normalizeStorageUrl(
+      _readString(image['url']).isNotEmpty
+          ? _readString(image['url'])
+          : fallbackImageUrl,
+      baseUrl: Env.supabaseUrl,
+    );
+    final imagePath = _readString(image['path']).isNotEmpty
+        ? _readString(image['path'])
+        : null;
+
+    final hasFlatContract = payload['ingredients'] is List;
     final meal = _readMap(payload['meal']);
-    final rawItems = meal['items'];
+    final totals = _readMap(meal['totals']);
+
+    final rawItems = hasFlatContract ? payload['ingredients'] : meal['items'];
     final items = rawItems is List
         ? rawItems
               .whereType<Map>()
               .map(
-                (item) => _normalizeMealItem(Map<String, dynamic>.from(item)),
+                (item) => hasFlatContract
+                    ? _normalizeIngredientItem(Map<String, dynamic>.from(item))
+                    : _normalizeLegacyMealItem(Map<String, dynamic>.from(item)),
               )
               .toList()
         : <Map<String, dynamic>>[];
@@ -364,38 +380,45 @@ class FoodAnalysisService {
         ? '${firstName.isEmpty ? 'AI Scanned Meal' : firstName} + ${items.length - 1} more'
         : (firstName.isEmpty ? 'AI Scanned Meal' : firstName);
 
-    final image = _readMap(payload['image']);
-    final totals = _readMap(meal['totals']);
+    final calories = hasFlatContract
+        ? _readInt(payload['total_calories'])
+        : _readInt(totals['calories']);
+    final protein = hasFlatContract
+        ? _readInt(payload['total_protein'])
+        : _readInt(totals['protein']);
+    final carbs = hasFlatContract
+        ? _readInt(payload['total_carb'])
+        : _readInt(totals['carbs']);
+    final fat = hasFlatContract
+        ? _readInt(payload['total_fat'])
+        : _readInt(totals['fat']);
+    final sugar = hasFlatContract
+        ? _readInt(payload['total_sugar'])
+        : _readInt(totals['sugar']);
 
-    final imageUrl = normalizeStorageUrl(
-      _readString(image['url']).isNotEmpty
-          ? _readString(image['url'])
-          : fallbackImageUrl,
-      baseUrl: Env.supabaseUrl,
-    );
-    final imagePath = _readString(image['path']).isNotEmpty
-        ? _readString(image['path'])
-        : null;
+    final fallbackCalories = _sumItems(items, 'calories');
+    final fallbackProtein = _sumItems(items, 'protein');
+    final fallbackCarbs = _sumItems(items, 'carbs');
+    final fallbackFat = _sumItems(items, 'fat');
+    final fallbackSugar = _sumItems(items, 'sugar');
 
-    final calories = _readInt(totals['calories']);
-    final protein = _readInt(totals['protein']);
-    final carbs = _readInt(totals['carbs']);
-    final fat = _readInt(totals['fat']);
-    final sugar = _readInt(totals['sugar']);
+    final normalizedMealDate = hasFlatContract
+        ? _readString(payload['meal_date'])
+        : _readString(meal['date']);
 
     return {
       'analysis_id': _readString(payload['analysis_id']),
       'name': mealName,
       'image': {'url': imageUrl, 'path': imagePath},
       'meal': {
-        'date': _readString(meal['date']),
+        'date': normalizedMealDate,
         'items': items,
         'totals': {
-          'calories': calories,
-          'protein': protein,
-          'carbs': carbs,
-          'fat': fat,
-          'sugar': sugar,
+          'calories': calories > 0 ? calories : fallbackCalories,
+          'protein': protein > 0 ? protein : fallbackProtein,
+          'carbs': carbs > 0 ? carbs : fallbackCarbs,
+          'fat': fat > 0 ? fat : fallbackFat,
+          'sugar': sugar > 0 ? sugar : fallbackSugar,
         },
       },
     };
@@ -468,7 +491,8 @@ class FoodAnalysisService {
     if (value is int) return value;
     if (value is num) return value.round();
     if (value is String) {
-      return int.tryParse(value) ?? 0;
+      final parsed = num.tryParse(value.trim());
+      return parsed?.round() ?? 0;
     }
     return 0;
   }
@@ -484,7 +508,32 @@ class FoodAnalysisService {
     return const <String, dynamic>{};
   }
 
-  Map<String, dynamic> _normalizeMealItem(Map<String, dynamic> item) {
+  Map<String, dynamic> _normalizeIngredientItem(Map<String, dynamic> item) {
+    final normalizedName = _readString(item['name']);
+    final normalizedGrams = _readNullableInt(item['grams']);
+    final normalizedMl = _readNullableInt(item['ml']);
+    final inferredType = normalizedMl != null ? 'drink' : 'food';
+
+    return {
+      'name_zh': normalizedName,
+      'name_en': normalizedName,
+      'type': inferredType,
+      'portion': {
+        'size': 1,
+        'unit': inferredType == 'drink' ? 'ml' : 'g',
+        'grams': inferredType == 'drink' ? null : normalizedGrams,
+        'ml': inferredType == 'drink' ? normalizedMl : null,
+      },
+      'calories': _readInt(item['calories']),
+      'protein': _readInt(item['protein']),
+      'carbs': _readInt(item['carb'] ?? item['carbs']),
+      'fat': _readInt(item['fat']),
+      'sugar': _readInt(item['sugar']),
+      'confidence': _readNum(item['confidence']),
+    };
+  }
+
+  Map<String, dynamic> _normalizeLegacyMealItem(Map<String, dynamic> item) {
     final portion = _readMap(item['portion']);
     final type = _readString(item['type']);
     final normalizedGrams = _readNullableInt(portion['grams']);
@@ -502,11 +551,15 @@ class FoodAnalysisService {
       },
       'calories': _readInt(item['calories']),
       'protein': _readInt(item['protein']),
-      'carbs': _readInt(item['carbs']),
+      'carbs': _readInt(item['carbs'] ?? item['carb']),
       'fat': _readInt(item['fat']),
       'sugar': _readInt(item['sugar']),
       'confidence': _readNum(item['confidence']),
     };
+  }
+
+  int _sumItems(List<Map<String, dynamic>> items, String field) {
+    return items.fold<int>(0, (sum, item) => sum + _readInt(item[field]));
   }
 
   num _readNum(dynamic value) {

@@ -4,7 +4,7 @@ import 'package:hk_food_calorie_ai/shared/services/food_analysis_service.dart';
 
 void main() {
   group('FoodAnalysisService', () {
-    test('returns normalized payload for valid server response', () async {
+    test('returns normalized payload for flat ingredients response', () async {
       final service = FoodAnalysisService(
         uploadImage: (_) async => const UploadedImage(
           storagePath: 'user-1/20260409/photo.jpg',
@@ -17,35 +17,27 @@ void main() {
             'path': 'user-1/20260409/photo.jpg',
             'url': 'https://example.com/photo.jpg',
           },
-          'meal': {
-            'date': '2026-04-09',
-            'items': [
-              {
-                'name_en': 'Test Meal',
-                'name_zh': '測試餐',
-                'type': 'food',
-                'portion': {
-                  'size': 1,
-                  'unit': 'plate',
-                  'grams': 320,
-                  'ml': null,
-                },
-                'calories': 500,
-                'protein': 20,
-                'carbs': 60,
-                'fat': 15,
-                'sugar': 5,
-                'confidence': 0.9,
-              },
-            ],
-            'totals': {
+          'meal_date': '2026-04-09',
+          'ingredients': [
+            {
+              'id': 'ingr_0000000001',
+              'name': 'Test Meal',
+              'grams': 320,
+              'ml': null,
               'calories': 500,
               'protein': 20,
-              'carbs': 60,
+              'carb': 60,
               'fat': 15,
               'sugar': 5,
+              'confidence': 0.9,
             },
-          },
+          ],
+          'total_calories': 500,
+          'total_mass': 320,
+          'total_fat': 15,
+          'total_carb': 60,
+          'total_protein': 20,
+          'total_sugar': 5,
         },
       );
 
@@ -85,35 +77,27 @@ void main() {
           ),
           invokeAnalyze: (_, _) async => {
             'success': true,
-            'meal': {
-              'date': '2026-04-09',
-              'items': [
-                {
-                  'name_en': 'Milk Tea',
-                  'name_zh': '奶茶',
-                  'type': 'drink',
-                  'portion': {
-                    'size': 1,
-                    'unit': 'cup',
-                    'grams': null,
-                    'ml': 350,
-                  },
-                  'calories': 180,
-                  'protein': 4,
-                  'carbs': 28,
-                  'fat': 6,
-                  'sugar': 24,
-                  'confidence': 0.92,
-                },
-              ],
-              'totals': {
+            'meal_date': '2026-04-09',
+            'ingredients': [
+              {
+                'id': 'ingr_0000000002',
+                'name': 'Milk Tea',
+                'grams': 120,
+                'ml': 350,
                 'calories': 180,
                 'protein': 4,
-                'carbs': 28,
+                'carb': 28,
                 'fat': 6,
                 'sugar': 24,
+                'confidence': 0.92,
               },
-            },
+            ],
+            'total_calories': 180,
+            'total_mass': 350,
+            'total_fat': 6,
+            'total_carb': 28,
+            'total_protein': 4,
+            'total_sugar': 24,
           },
         );
 
@@ -129,7 +113,7 @@ void main() {
     );
 
     test(
-      'uses uploaded image url as fallback when server omits nested image url',
+      'accepts legacy nested meal payload for backward compatibility',
       () async {
         final service = FoodAnalysisService(
           uploadImage: (_) async => const UploadedImage(
@@ -141,16 +125,76 @@ void main() {
             'meal': {
               'date': '2026-04-09',
               'items': [
-                {'name_en': 'Fallback Meal', 'name_zh': '後備餐'},
+                {
+                  'name_en': 'Legacy Meal',
+                  'name_zh': '舊格式餐',
+                  'type': 'food',
+                  'portion': {
+                    'size': 1,
+                    'unit': 'plate',
+                    'grams': 280,
+                    'ml': null,
+                  },
+                  'calories': 430,
+                  'protein': 18,
+                  'carbs': 54,
+                  'fat': 13,
+                  'sugar': 6,
+                  'confidence': 0.88,
+                },
               ],
               'totals': {
-                'calories': 420,
+                'calories': 430,
                 'protein': 18,
-                'carbs': 52,
-                'fat': 12,
+                'carbs': 54,
+                'fat': 13,
                 'sugar': 6,
               },
             },
+          },
+        );
+
+        final result = await service.analyzeImage('meal.jpg');
+        final meal = result['meal'] as Map<String, dynamic>;
+        final totals = meal['totals'] as Map<String, dynamic>;
+
+        expect(result['name'], 'Legacy Meal');
+        expect(totals['calories'], 430);
+        expect(totals['carbs'], 54);
+      },
+    );
+
+    test(
+      'uses uploaded image url as fallback when server omits nested image url',
+      () async {
+        final service = FoodAnalysisService(
+          uploadImage: (_) async => const UploadedImage(
+            storagePath: 'user-1/20260409/photo.jpg',
+            imageUrl: 'https://example.com/fallback.jpg',
+          ),
+          invokeAnalyze: (_, _) async => {
+            'success': true,
+            'meal_date': '2026-04-09',
+            'ingredients': [
+              {
+                'id': 'ingr_0000000003',
+                'name': 'Fallback Meal',
+                'grams': 300,
+                'ml': null,
+                'calories': 420,
+                'protein': 18,
+                'carb': 52,
+                'fat': 12,
+                'sugar': 6,
+                'confidence': 0.9,
+              },
+            ],
+            'total_calories': 420,
+            'total_mass': 300,
+            'total_fat': 12,
+            'total_carb': 52,
+            'total_protein': 18,
+            'total_sugar': 6,
           },
         );
 
@@ -178,19 +222,27 @@ void main() {
           capturedDate = date;
           return {
             'success': true,
-            'meal': {
-              'date': '2026-04-09',
-              'items': [
-                {'name_en': 'Date Meal', 'name_zh': '日期餐'},
-              ],
-              'totals': {
+            'meal_date': '2026-04-09',
+            'ingredients': [
+              {
+                'id': 'ingr_0000000004',
+                'name': 'Date Meal',
+                'grams': 240,
+                'ml': null,
                 'calories': 300,
                 'protein': 10,
-                'carbs': 40,
+                'carb': 40,
                 'fat': 9,
                 'sugar': 4,
+                'confidence': 0.86,
               },
-            },
+            ],
+            'total_calories': 300,
+            'total_mass': 240,
+            'total_fat': 9,
+            'total_carb': 40,
+            'total_protein': 10,
+            'total_sugar': 4,
           };
         },
       );
@@ -283,19 +335,27 @@ void main() {
               'url':
                   'http://kong:8000/storage/v1/object/sign/meal-images/user-1/20260409/photo.jpg?token=test-token',
             },
-            'meal': {
-              'date': '2026-04-09',
-              'items': [
-                {'name_en': 'Internal Host Meal', 'name_zh': '內網主機餐'},
-              ],
-              'totals': {
+            'meal_date': '2026-04-09',
+            'ingredients': [
+              {
+                'id': 'ingr_0000000005',
+                'name': 'Internal Host Meal',
+                'grams': 280,
+                'ml': null,
                 'calories': 450,
                 'protein': 22,
-                'carbs': 55,
+                'carb': 55,
                 'fat': 14,
                 'sugar': 6,
+                'confidence': 0.9,
               },
-            },
+            ],
+            'total_calories': 450,
+            'total_mass': 280,
+            'total_fat': 14,
+            'total_carb': 55,
+            'total_protein': 22,
+            'total_sugar': 6,
           },
         );
 

@@ -27,7 +27,8 @@ const _setupGender = 'male';
 const _setupUnitSystem = 'metric';
 const _setupHeightCm = 175.0;
 const _setupWeightKg = 45.0;
-const _setupPreferredWeightKg = 42.0;
+const _setupWeightGoal = 'lose';
+const _setupGoalWeightDeltaKg = 3.0;
 const _setupWaistlineCm = 45.0;
 const _setupActivityLevel = 'sedentary';
 
@@ -63,7 +64,8 @@ class _SetupFlowHostState extends State<_SetupFlowHost> {
             unitSystem: _setupUnitSystem,
             height: _setupHeightCm,
             weight: _setupWeightKg,
-            preferredWeight: _setupPreferredWeightKg,
+            weightGoal: _setupWeightGoal,
+            goalWeightDelta: _setupGoalWeightDeltaKg,
             waistline: _setupWaistlineCm,
             activityLevel: _setupActivityLevel,
           ),
@@ -186,7 +188,8 @@ void main() {
     expect(profile.activityLevel, _setupActivityLevel);
     expect(profile.height, closeTo(_setupHeightCm, 0.01));
     expect(profile.weight, closeTo(_setupWeightKg, 0.01));
-    expect(profile.preferredWeight, closeTo(_setupPreferredWeightKg, 0.01));
+    expect(profile.weightGoal, _setupWeightGoal);
+    expect(profile.goalWeightDelta, closeTo(_setupGoalWeightDeltaKg, 0.01));
     expect(profile.waistline, closeTo(_setupWaistlineCm, 0.01));
 
     expect(storage.getLastCheckInDate(), today);

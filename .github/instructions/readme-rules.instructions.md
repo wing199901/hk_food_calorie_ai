@@ -53,7 +53,9 @@ Based on the project's README, please adhere to these core architectural and dom
 - **Settings Page:**
   - Must be split into 5 sections: Account Profile, Body Metrics, Data Management, About FitCalorie, and Sign Out.
   - Account Profile details are read-only by default (editable via an inline Edit button).
-  - Body Metrics (weight, preferred weight, height, waistline, activity level) are always editable and when updated, must be saved to both `user_profiles` and `body_metrics` for today.
+  - Body Metrics quick-edit in Settings keeps essential inputs (weight, height, and waistline) and when updated, must be saved to both `user_profiles` and `body_metrics` for today.
+  - Settings should include a dedicated Weight Goal section (goal direction, goal change amount, target-weight preview).
+  - "Run Setup Again" should remain available for users who prefer the guided multi-step setup flow.
   - Data Management must use a Cupertino confirmation for "Clear All Meal Data".
 - **Quick Add Delete Interaction (iOS-style):**
   - Long-press to enter edit mode.

@@ -101,7 +101,7 @@ void main() {
       profile: UserProfile(unitSystem: 'imperial', height: 180),
       bodyHistory: const [],
     );
-    final expectedInches = UnitConverter.cmToIn(180).toStringAsFixed(1);
+    final expectedFeet = UnitConverter.cmToFt(180).toStringAsFixed(1);
 
     await tester.pumpWidget(
       buildTestApp(
@@ -111,9 +111,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('in'), findsOneWidget);
-    expect(find.text(expectedInches), findsOneWidget);
-    expect(find.text('$expectedInches in'), findsNothing);
+    expect(find.text('ft'), findsOneWidget);
+    expect(find.text(expectedFeet), findsOneWidget);
+    expect(find.text('$expectedFeet ft'), findsNothing);
   });
 
   testWidgets('shows year in date when item is not in current year', (

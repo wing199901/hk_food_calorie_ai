@@ -48,7 +48,7 @@ class AllRecordedDataPage extends ConsumerWidget {
       case DataType.weight:
         return isMetric ? 'kg' : 'lbs';
       case DataType.height:
-        return isMetric ? 'cm' : 'in';
+        return isMetric ? 'cm' : 'ft';
       case DataType.energy:
         return 'kcal';
       case DataType.macro:
@@ -266,10 +266,10 @@ class AllRecordedDataPage extends ConsumerWidget {
 
       final displayValue = isMetric
           ? overrideHeight
-          : UnitConverter.cmToIn(overrideHeight);
+          : UnitConverter.cmToFt(overrideHeight);
       final value = displayValue.toStringAsFixed(1);
       if (!includeUnit) return value;
-      return '$value ${isMetric ? 'cm' : 'in'}';
+      return '$value ${isMetric ? 'cm' : 'ft'}';
     }
 
     if (item?.bmi != null) {

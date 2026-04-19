@@ -194,9 +194,12 @@ class StorageService extends ChangeNotifier {
 
   ({int min, int max}) getDailyTargetRange() {
     final profile = getUserProfile();
-    final preferredWeight = profile.preferredWeight;
+    final weightGoal = profile.weightGoal ?? 'maintain';
+    final goalWeightDelta = profile.goalWeightDelta;
 
-    if (preferredWeight == null || preferredWeight <= 0) {
+    if (weightGoal == 'maintain' ||
+        goalWeightDelta == null ||
+        goalWeightDelta <= 0) {
       final target = getDailyTarget();
       return (min: target, max: target);
     }
@@ -261,22 +264,58 @@ class StorageService extends ChangeNotifier {
     await _supabase.saveProfile(profile, calorieTarget: intakeRange.max);
   }
 
-  /// Returns intake range where min=max when no preferred weight is set.
+  /// Returns intake range where min=max for maintain mode.
   static ({int min, int max}) calculateCalorieIntakeRange(UserProfile profile) {
     final currentTee = calculateTEE(profile);
-    final preferredWeight = profile.preferredWeight;
+    final weightGoal = profile.weightGoal ?? 'maintain';
+    final currentWeight = profile.weight;
+    final goalWeightDelta = profile.goalWeightDelta;
 
-    if (preferredWeight == null || preferredWeight <= 0) {
+    if (weightGoal == 'maintain' ||
+        currentWeight == null ||
+        currentWeight <= 0 ||
+        goalWeightDelta == null ||
+        goalWeightDelta <= 0) {
       return (min: currentTee, max: currentTee);
     }
 
-    final preferredTee = calculateTEE(
-      profile.copyWith(weight: preferredWeight),
+    final goalWeight = switch (weightGoal) {
+      'lose' => currentWeight - goalWeightDelta,
+      'gain' => currentWeight + goalWeightDelta,
+      _ => currentWeight,
+    };
+
+    if (goalWeight <= 0 || goalWeight == currentWeight) {
+      return (min: currentTee, max: currentTee);
+    }
+
+    final goalActivityLevel = weightGoal == 'gain'
+        ? _goalGainActivityLevel(profile.activityLevel)
+        : (profile.activityLevel ?? 'moderate');
+
+    final goalTee = calculateTEE(
+      profile.copyWith(weight: goalWeight, activityLevel: goalActivityLevel),
     );
+
     return (
-      min: math.min(currentTee, preferredTee),
-      max: math.max(currentTee, preferredTee),
+      min: math.min(currentTee, goalTee),
+      max: math.max(currentTee, goalTee),
     );
+  }
+
+  /// Gain target should not be based on ultra-low activity.
+  /// We clamp to at least moderate so max TEE remains practical.
+  static String _goalGainActivityLevel(String? activityLevel) {
+    switch (activityLevel) {
+      case 'moderate':
+      case 'active':
+      case 'very-active':
+        return activityLevel!;
+      case 'sedentary':
+      case 'light':
+      default:
+        return 'moderate';
+    }
   }
 
   /// Centralized TEE (Total Energy Expenditure) calculator.

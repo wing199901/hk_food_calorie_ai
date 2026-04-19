@@ -59,7 +59,7 @@ make serve-functions
 {
   "image_path": "<user_id>/20260409/1712661234567.jpg",
   "meal_date": "2026-02-28",
-  "model": "gemini-3-flash"
+  "model": "gemini-2.5-flash"
 }
 ```
 
@@ -70,8 +70,14 @@ make serve-functions
 Model strategy:
 
 - Primary model: `gemini-2.5-flash`
-- Fallback model: `gemini-3-flash` (used when primary returns retryable provider errors like 429/5xx/network timeout)
+- Fallback model: `gemini-3-flash-preview` (used when primary returns retryable provider errors like 429/5xx/network timeout)
 - API version: `v1beta` only.
+
+Portion contract:
+
+- Use `grams` for solid food and set `ml` to `null`.
+- Use `ml` for liquids/drinks and set `grams` to `null`.
+- `grams` and `ml` must never both be non-null for the same ingredient.
 
 **Response:**
 
@@ -83,35 +89,27 @@ Model strategy:
     "path": "<user_id>/20260409/1712661234567.jpg",
     "url": "https://<project>.supabase.co/storage/v1/object/sign/meal-images/<user_id>/20260409/1712661234567.jpg?token=<signed-token>"
   },
-  "meal": {
-    "date": "2026-02-28",
-    "items": [
-      {
-        "name_zh": "叉燒飯",
-        "name_en": "Char Siu Rice",
-        "type": "food",
-        "portion": {
-          "size": 1,
-          "unit": "plate",
-          "grams": 450,
-          "ml": null
-        },
-        "calories": 650,
-        "protein": 35,
-        "carbs": 80,
-        "fat": 20,
-        "sugar": 8,
-        "confidence": 0.92
-      }
-    ],
-    "totals": {
-      "calories": 650,
-      "protein": 35,
-      "carbs": 80,
-      "fat": 20,
-      "sugar": 8
+  "meal_date": "2026-02-28",
+  "ingredients": [
+    {
+      "id": "ingr_0000000192",
+      "name": "yam",
+      "grams": 38,
+      "ml": null,
+      "calories": 47.158,
+      "fat": 0.076,
+      "carb": 11.172,
+      "protein": 0.608,
+      "sugar": 1.2,
+      "confidence": 0.91
     }
-  }
+  ],
+  "total_calories": 47.158001,
+  "total_mass": 38,
+  "total_fat": 0.076,
+  "total_carb": 11.172,
+  "total_protein": 0.608,
+  "total_sugar": 1.2
 }
 ```
 

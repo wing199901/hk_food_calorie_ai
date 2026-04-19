@@ -1,0 +1,29 @@
+Gemini Nutrition Accuracy Evaluation
+======================================================
+Dataset: mmathys/food-nutrients (test)
+Sample size target: 100
+Random seed: 42
+Model: gemini-3.1-flash-lite-preview
+
+Run summary
+------------------------------------------------------
+Attempt rows (all runs): 104
+Latest unique images: 100
+Successful predictions: 100
+Failed predictions: 0
+
+MAPE by schema total field (%)
+------------------------------------------------------
+   total_calories (kcal):   55.265 (valid comparisons=100)
+       total_protein (g):   51.501 (valid comparisons=100)
+          total_carb (g):   68.043 (valid comparisons=100)
+           total_fat (g):  108.139 (valid comparisons=100)
+          total_mass (g):   31.476 (valid comparisons=100)
+
+Overall
+------------------------------------------------------
+Overall MAPE: 62.885%
+Estimated accuracy (100 - MAPE): 37.115%
+
+Note: This report strictly follows public schema totals (total_calories, total_mass, total_fat, total_carb, total_protein).
+Model switching policy: changing --model starts a fresh full comparison run.

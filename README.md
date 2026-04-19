@@ -5,12 +5,13 @@ AI-powered food calorie tracking app built with Flutter, Supabase, and Google Ge
 ## Features
 
 - **AI Meal Scanning** — Take a photo of your meal; app uploads to a private Supabase Storage bucket, sends the storage path to edge function for analysis, then requires user confirmation before saving
+- **Structured Analysis Contract** — `analyze-meal` returns flat `ingredients` and `total_*` fields (`grams` for solids, `ml` for liquids, and never both on the same ingredient)
 - **Human-in-the-Loop Review** — If AI output is inaccurate, user can edit meal name/macros, confirm corrected values, and save with feedback marked as corrected
 - **Quick Add** — Customizable quick-add food shortcuts with emoji icons; long-press to delete (iOS-style)
 - **Daily Tracking** — Track calories, protein, carbs, fat, and sugar throughout the day
 - **Weekly Analysis** — Charts showing energy intake, macros, and body metrics over 7 days
 - **AI Insights** — Weekly/monthly AI-generated dietary analysis and suggestions
-- **Body Metrics** — Track weight, preferred weight, and waistline; auto-calculate BMI, WHtR, and TEE-based intake targets
+- **Body Metrics** — Track weight, goal direction (Lose / Maintain / Gain), goal change amount, and waistline; auto-calculate BMI, WHtR, and TEE-based intake targets
 - **Cloud Sync** — Local-first with Supabase cloud sync; works offline
 
 ## Tech Stack

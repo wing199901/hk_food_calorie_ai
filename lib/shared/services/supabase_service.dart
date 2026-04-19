@@ -81,8 +81,9 @@ class SupabaseService extends ChangeNotifier {
       weight: data['weight'] != null
           ? (data['weight'] as num).toDouble()
           : null,
-      preferredWeight: data['preferred_weight'] != null
-          ? (data['preferred_weight'] as num).toDouble()
+      weightGoal: data['weight_goal'] as String?,
+      goalWeightDelta: data['goal_weight_delta'] != null
+          ? (data['goal_weight_delta'] as num).toDouble()
           : null,
       height: data['height'] != null
           ? (data['height'] as num).toDouble()
@@ -103,8 +104,9 @@ class SupabaseService extends ChangeNotifier {
       'user_id': uid,
       if (profile.birthdate != null) 'birthdate': profile.birthdate,
       if (profile.weight != null) 'weight': profile.weight,
-      if (profile.preferredWeight != null)
-        'preferred_weight': profile.preferredWeight,
+      if (profile.weightGoal != null) 'weight_goal': profile.weightGoal,
+      if (profile.goalWeightDelta != null)
+        'goal_weight_delta': profile.goalWeightDelta,
       if (profile.height != null) 'height': profile.height,
       if (profile.waistline != null) 'waistline': profile.waistline,
       if (profile.gender != null) 'gender': profile.gender,

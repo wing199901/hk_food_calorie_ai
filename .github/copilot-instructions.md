@@ -54,6 +54,6 @@
 
 ## Architecture & Database Security
 
-- **Database:** See `README.md` for schemas (`user_profiles`, `body_metrics`, `meal_records`, `quick_add_items`).
+- **Database:** See `README.md` for schemas (`user_profiles`, `body_metrics`, `meal_records`, `quick_add_items`) including weight goal fields (`weight_goal`, `goal_weight_delta`).
 - **Source of Truth:** `supabase/schema.sql`.
 - **RLS:** All tables must enforce Row Level Security. All policies use `auth.uid() = user_id`. Never bypass RLS on the client side.

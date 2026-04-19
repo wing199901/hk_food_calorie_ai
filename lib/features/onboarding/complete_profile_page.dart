@@ -11,6 +11,7 @@ import 'widgets/profile_field_label.dart';
 import 'widgets/profile_input_field.dart';
 import '../../shared/widgets/gender_selector.dart';
 import '../../shared/widgets/unit_system_selector.dart';
+import '../../shared/widgets/weight_goal_selector.dart';
 import '../../core/utils/unit_converter.dart';
 import 'widgets/profile_activity_selector.dart';
 
@@ -43,8 +44,9 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
 
   // Step 2: Optional
   final _weightCtrl = TextEditingController();
-  final _preferredWeightCtrl = TextEditingController();
+  final _goalWeightDeltaCtrl = TextEditingController();
   final _waistlineCtrl = TextEditingController();
+  String _weightGoal = 'maintain';
   String _activityLevel = 'moderate';
 
   @override
@@ -59,7 +61,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     if (p.unitSystem != null) _unitSystem = p.unitSystem!;
     final isMetric = _unitSystem == 'metric';
     if (p.height != null) {
-      _heightCtrl.text = UnitConverter.lengthToDisplay(
+      _heightCtrl.text = UnitConverter.heightToDisplay(
         p.height,
         isMetric: isMetric,
       );
@@ -70,9 +72,9 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         isMetric: isMetric,
       );
     }
-    if (p.preferredWeight != null) {
-      _preferredWeightCtrl.text = UnitConverter.weightToDisplay(
-        p.preferredWeight,
+    if (p.goalWeightDelta != null) {
+      _goalWeightDeltaCtrl.text = UnitConverter.weightToDisplay(
+        p.goalWeightDelta,
         isMetric: isMetric,
       );
     }
@@ -82,14 +84,18 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         isMetric: isMetric,
       );
     }
+    if (p.weightGoal != null) _weightGoal = p.weightGoal!;
     if (p.activityLevel != null) _activityLevel = p.activityLevel!;
+    if (_weightGoal == 'maintain') {
+      _goalWeightDeltaCtrl.clear();
+    }
   }
 
   @override
   void dispose() {
     _heightCtrl.dispose();
     _weightCtrl.dispose();
-    _preferredWeightCtrl.dispose();
+    _goalWeightDeltaCtrl.dispose();
     _waistlineCtrl.dispose();
     super.dispose();
   }
@@ -150,14 +156,14 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     try {
       final isMetric = _unitSystem == 'metric';
       final height =
-          UnitConverter.parseLength(_heightCtrl.text, isMetric: isMetric) ??
+          UnitConverter.parseHeight(_heightCtrl.text, isMetric: isMetric) ??
           175.0;
       final weight = UnitConverter.parseWeight(
         _weightCtrl.text,
         isMetric: isMetric,
       );
-      final preferredWeight = UnitConverter.parseWeight(
-        _preferredWeightCtrl.text,
+      final goalWeightDelta = UnitConverter.parseWeight(
+        _goalWeightDeltaCtrl.text,
         isMetric: isMetric,
       );
       final waistline = UnitConverter.parseLength(
@@ -172,7 +178,8 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         gender: _gender,
         height: height,
         weight: weight,
-        preferredWeight: preferredWeight,
+        weightGoal: _weightGoal,
+        goalWeightDelta: _weightGoal == 'maintain' ? null : goalWeightDelta,
         waistline: waistline,
         activityLevel: _activityLevel,
         unitSystem: _unitSystem,
@@ -204,6 +211,49 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  String _buildStep2TargetWeightPreview() {
+    final isMetric = _unitSystem == 'metric';
+    final unit = isMetric ? 'kg' : 'lbs';
+
+    final currentWeightKg = UnitConverter.parseWeight(
+      _weightCtrl.text,
+      isMetric: isMetric,
+    );
+
+    if (currentWeightKg == null || currentWeightKg <= 0) {
+      return 'Enter weight to preview target weight.';
+    }
+
+    if (_weightGoal == 'maintain') {
+      final displayWeight = isMetric
+          ? currentWeightKg
+          : UnitConverter.kgToLbs(currentWeightKg);
+      return 'Target weight preview: ${displayWeight.toStringAsFixed(1)} $unit';
+    }
+
+    final goalDeltaKg = UnitConverter.parseWeight(
+      _goalWeightDeltaCtrl.text,
+      isMetric: isMetric,
+    );
+
+    if (goalDeltaKg == null || goalDeltaKg <= 0) {
+      return 'Enter change amount to preview target weight.';
+    }
+
+    final targetWeightKg = _weightGoal == 'lose'
+        ? currentWeightKg - goalDeltaKg
+        : currentWeightKg + goalDeltaKg;
+
+    if (targetWeightKg <= 0) {
+      return 'Target weight must be above 0.';
+    }
+
+    final displayWeight = isMetric
+        ? targetWeightKg
+        : UnitConverter.kgToLbs(targetWeightKg);
+    return 'Target weight preview: ${displayWeight.toStringAsFixed(1)} $unit';
   }
 
   @override
@@ -239,7 +289,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                     _step == 0
                         ? 'We need a few details to calculate your daily targets.'
                         : _step == 1
-                        ? 'Optional — helps us fine-tune your calorie goal.'
+                        ? 'Set your weight goal direction and change amount.'
                         : 'How active are you on a typical day?',
                     style: const TextStyle(
                       color: AppTheme.mutedForeground,
@@ -337,13 +387,13 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         const SizedBox(height: 24),
         // Height
         ProfileFieldLabel(
-          'Height (${_unitSystem == 'metric' ? 'cm' : 'in'})',
+          'Height (${_unitSystem == 'metric' ? 'cm' : 'ft'})',
           isRequired: false,
         ),
         const SizedBox(height: 8),
         ProfileInputField(
           controller: _heightCtrl,
-          hint: _unitSystem == 'metric' ? '175' : '69',
+          hint: _unitSystem == 'metric' ? '175' : '5.7',
           icon: Icons.height,
         ),
       ],
@@ -353,6 +403,14 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
   // ─── Step 2
 
   Widget _buildStep2() {
+    final unit = _unitSystem == 'metric' ? 'kg' : 'lbs';
+    final goalHint = _unitSystem == 'metric' ? '5' : '11';
+    final goalHelper = switch (_weightGoal) {
+      'lose' => 'Enter how much weight you want to lose.',
+      'gain' => 'Enter how much weight you want to gain.',
+      _ => 'Maintain keeps your current weight target.',
+    };
+
     return Column(
       children: [
         ProfileFieldLabel('Weight (${_unitSystem == 'metric' ? 'kg' : 'lbs'})'),
@@ -361,16 +419,59 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
           controller: _weightCtrl,
           hint: _unitSystem == 'metric' ? '70' : '154',
           icon: Icons.monitor_weight_outlined,
+          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 24),
-        ProfileFieldLabel(
-          'Preferred Weight (${_unitSystem == 'metric' ? 'kg' : 'lbs'})',
+        ProfileFieldLabel('Goal Direction'),
+        const SizedBox(height: 8),
+        WeightGoalSelector(
+          value: _weightGoal,
+          onChanged: (value) {
+            setState(() {
+              _weightGoal = value;
+              if (_weightGoal == 'maintain') {
+                _goalWeightDeltaCtrl.clear();
+              }
+            });
+          },
         ),
+        const SizedBox(height: 24),
+        ProfileFieldLabel('Change Amount ($unit)'),
         const SizedBox(height: 8),
         ProfileInputField(
-          controller: _preferredWeightCtrl,
-          hint: _unitSystem == 'metric' ? '65' : '143',
+          controller: _goalWeightDeltaCtrl,
+          hint: goalHint,
           icon: Icons.flag_outlined,
+          enabled: _weightGoal != 'maintain',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            goalHelper,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.mutedForeground,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.muted,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            _buildStep2TargetWeightPreview(),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.foreground,
+            ),
+          ),
         ),
         const SizedBox(height: 24),
         ProfileFieldLabel(

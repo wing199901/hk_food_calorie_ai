@@ -7,23 +7,33 @@ class ProfileInputField extends StatelessWidget {
     required this.controller,
     required this.hint,
     required this.icon,
+    this.enabled = true,
+    this.onChanged,
   });
 
   final TextEditingController controller;
   final String hint;
   final IconData icon;
+  final bool enabled;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      enabled: enabled,
+      onChanged: onChanged,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: AppTheme.mutedForeground),
-        prefixIcon: Icon(icon, size: 20, color: AppTheme.primary),
+        prefixIcon: Icon(
+          icon,
+          size: 20,
+          color: enabled ? AppTheme.primary : AppTheme.mutedForeground,
+        ),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: enabled ? Colors.white : AppTheme.muted,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppTheme.border),

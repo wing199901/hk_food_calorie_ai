@@ -3,7 +3,7 @@
 //  - Step 1 validation (birthdate required)
 //  - Step 2 "Continue" advances to Step 3
 //  - Step 3 "Save & Start Tracking" saves profile and calls onComplete
-//  - Empty Step 2 saves null weight/preferredWeight/waistline (no default injection)
+//  - Empty Step 2 saves null weight/goal delta/waistline (no default injection)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -200,42 +200,42 @@ void main() {
 
     // ── Regression: null weight/waistline when Step 2 fields left empty ──────
 
-    testWidgets(
-      'Empty Step 2 saves null weight, preferred weight and waistline',
-      (tester) async {
-        usePhoneSize(tester);
-        await tester.pumpWidget(
-          buildPage(
-            storage: fakeStorage,
-            onComplete: () => completeCalled = true,
-          ),
-        );
-        await confirmBirthdate(tester);
-        await scrollAndTap(tester, find.text('Continue'));
-        // Continue on Step 2 with empty weight/waistline fields
-        await scrollAndTap(tester, find.text('Continue'));
-        // Save on Step 3
-        await tapSaveButton(tester, find.text('Save & Start Tracking'));
+    testWidgets('Empty Step 2 saves null weight, goal delta and waistline', (
+      tester,
+    ) async {
+      usePhoneSize(tester);
+      await tester.pumpWidget(
+        buildPage(
+          storage: fakeStorage,
+          onComplete: () => completeCalled = true,
+        ),
+      );
+      await confirmBirthdate(tester);
+      await scrollAndTap(tester, find.text('Continue'));
+      // Continue on Step 2 with empty weight/waistline fields
+      await scrollAndTap(tester, find.text('Continue'));
+      // Save on Step 3
+      await tapSaveButton(tester, find.text('Save & Start Tracking'));
 
-        expect(fakeStorage.savedProfiles, isNotEmpty);
-        final saved = fakeStorage.savedProfiles.last;
-        expect(
-          saved.weight,
-          isNull,
-          reason: 'Weight should be null when left empty on Step 2',
-        );
-        expect(
-          saved.preferredWeight,
-          isNull,
-          reason: 'Preferred weight should be null when left empty on Step 2',
-        );
-        expect(
-          saved.waistline,
-          isNull,
-          reason: 'Waistline should be null when left empty on Step 2',
-        );
-      },
-    );
+      expect(fakeStorage.savedProfiles, isNotEmpty);
+      final saved = fakeStorage.savedProfiles.last;
+      expect(
+        saved.weight,
+        isNull,
+        reason: 'Weight should be null when left empty on Step 2',
+      );
+      expect(
+        saved.goalWeightDelta,
+        isNull,
+        reason: 'Goal change amount should be null when left empty on Step 2',
+      );
+      expect(saved.weightGoal, 'maintain');
+      expect(
+        saved.waistline,
+        isNull,
+        reason: 'Waistline should be null when left empty on Step 2',
+      );
+    });
 
     testWidgets('Entering weight on Step 2 saves it correctly', (tester) async {
       usePhoneSize(tester);
@@ -257,7 +257,7 @@ void main() {
       expect(fakeStorage.savedProfiles.last.weight, 65.0);
     });
 
-    testWidgets('Entering preferred weight on Step 2 saves it correctly', (
+    testWidgets('Selecting lose and entering change amount saves goal', (
       tester,
     ) async {
       usePhoneSize(tester);
@@ -269,12 +269,66 @@ void main() {
       );
       await confirmBirthdate(tester);
       await scrollAndTap(tester, find.text('Continue'));
-      await tester.enterText(find.widgetWithText(TextField, '65'), '60');
+      await scrollAndTap(tester, find.text('Lose'));
+      await tester.enterText(find.widgetWithText(TextField, '5'), '5');
       await scrollAndTap(tester, find.text('Continue'));
       await tapSaveButton(tester, find.text('Save & Start Tracking'));
 
       expect(fakeStorage.savedProfiles, isNotEmpty);
-      expect(fakeStorage.savedProfiles.last.preferredWeight, 60.0);
+      expect(fakeStorage.savedProfiles.last.weightGoal, 'lose');
+      expect(fakeStorage.savedProfiles.last.goalWeightDelta, 5.0);
+    });
+
+    testWidgets('Step 2 shows real-time target weight preview', (tester) async {
+      usePhoneSize(tester);
+      await tester.pumpWidget(
+        buildPage(
+          storage: fakeStorage,
+          onComplete: () => completeCalled = true,
+        ),
+      );
+
+      await confirmBirthdate(tester);
+      await scrollAndTap(tester, find.text('Continue'));
+
+      await tester.enterText(find.byType(TextField).at(0), '70');
+      await scrollAndTap(tester, find.text('Lose'));
+      await tester.enterText(find.byType(TextField).at(1), '5');
+      await tester.pump();
+
+      expect(find.text('Target weight preview: 65.0 kg'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).at(0), '72');
+      await tester.pump();
+      expect(find.text('Target weight preview: 67.0 kg'), findsOneWidget);
+    });
+
+    testWidgets('Maintain clears and disables change amount input', (
+      tester,
+    ) async {
+      usePhoneSize(tester);
+      await tester.pumpWidget(
+        buildPage(
+          storage: fakeStorage,
+          onComplete: () => completeCalled = true,
+        ),
+      );
+
+      await confirmBirthdate(tester);
+      await scrollAndTap(tester, find.text('Continue'));
+
+      await scrollAndTap(tester, find.text('Lose'));
+      await tester.enterText(find.byType(TextField).at(1), '5');
+
+      await scrollAndTap(tester, find.text('Maintain'));
+      await tester.pump();
+
+      final changeAmountField = tester.widget<TextField>(
+        find.byType(TextField).at(1),
+      );
+
+      expect(changeAmountField.enabled, isFalse);
+      expect(changeAmountField.controller?.text, isEmpty);
     });
   });
 }

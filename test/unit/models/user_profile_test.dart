@@ -26,7 +26,8 @@ void main() {
       final profile = UserProfile(
         birthdate: '1995-06-12',
         weight: 71.2,
-        preferredWeight: 65.0,
+        weightGoal: 'lose',
+        goalWeightDelta: 6.2,
         height: 173.4,
         waistline: 82.0,
         gender: 'female',
@@ -39,7 +40,8 @@ void main() {
 
       expect(restored.birthdate, '1995-06-12');
       expect(restored.weight, 71.2);
-      expect(restored.preferredWeight, 65.0);
+      expect(restored.weightGoal, 'lose');
+      expect(restored.goalWeightDelta, 6.2);
       expect(restored.height, 173.4);
       expect(restored.waistline, 82.0);
       expect(restored.gender, 'female');
@@ -51,20 +53,23 @@ void main() {
       final base = UserProfile(
         birthdate: '1990-01-01',
         weight: 70,
-        preferredWeight: 66,
+        weightGoal: 'maintain',
+        goalWeightDelta: 0,
         height: 175,
         gender: 'male',
       );
 
       final updated = base.copyWith(
         weight: 72.5,
-        preferredWeight: 68.5,
+        weightGoal: 'gain',
+        goalWeightDelta: 3.5,
         unitSystem: 'imperial',
       );
 
       expect(updated.birthdate, '1990-01-01');
       expect(updated.weight, 72.5);
-      expect(updated.preferredWeight, 68.5);
+      expect(updated.weightGoal, 'gain');
+      expect(updated.goalWeightDelta, 3.5);
       expect(updated.height, 175);
       expect(updated.gender, 'male');
       expect(updated.unitSystem, 'imperial');
