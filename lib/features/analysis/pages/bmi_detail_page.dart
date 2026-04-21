@@ -23,7 +23,8 @@ class BmiDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(storageProvider).getUserProfile();
+    ref.watch(storageSignalProvider);
+    final profile = ref.read(storageProvider).getUserProfile();
 
     final weeklyMetrics = List<Map<String, dynamic>>.generate(7, (i) {
       final day = currentWeekStart.add(Duration(days: i));

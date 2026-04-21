@@ -20,7 +20,6 @@ void main() {
           'meal_date': '2026-04-09',
           'ingredients': [
             {
-              'id': 'ingr_0000000001',
               'name': 'Test Meal',
               'grams': 320,
               'ml': null,
@@ -52,7 +51,7 @@ void main() {
       expect(totals['calories'], 500);
       expect(totals['protein'], 20);
       expect(portion['size'], 1);
-      expect(portion['unit'], 'plate');
+      expect(portion['unit'], 'g');
       expect(portion['grams'], 320);
       expect(portion['ml'], isNull);
       expect(
@@ -80,7 +79,6 @@ void main() {
             'meal_date': '2026-04-09',
             'ingredients': [
               {
-                'id': 'ingr_0000000002',
                 'name': 'Milk Tea',
                 'grams': 120,
                 'ml': 350,
@@ -113,7 +111,7 @@ void main() {
     );
 
     test(
-      'accepts legacy nested meal payload for backward compatibility',
+      'rejects legacy nested meal payload when ingredients field is missing',
       () async {
         final service = FoodAnalysisService(
           uploadImage: (_) async => const UploadedImage(
@@ -154,13 +152,16 @@ void main() {
           },
         );
 
-        final result = await service.analyzeImage('meal.jpg');
-        final meal = result['meal'] as Map<String, dynamic>;
-        final totals = meal['totals'] as Map<String, dynamic>;
-
-        expect(result['name'], 'Legacy Meal');
-        expect(totals['calories'], 430);
-        expect(totals['carbs'], 54);
+        expect(
+          () => service.analyzeImage('meal.jpg'),
+          throwsA(
+            isA<FoodAnalysisException>().having(
+              (error) => error.message,
+              'message',
+              'Unexpected response from analysis service.',
+            ),
+          ),
+        );
       },
     );
 
@@ -177,7 +178,6 @@ void main() {
             'meal_date': '2026-04-09',
             'ingredients': [
               {
-                'id': 'ingr_0000000003',
                 'name': 'Fallback Meal',
                 'grams': 300,
                 'ml': null,
@@ -225,7 +225,6 @@ void main() {
             'meal_date': '2026-04-09',
             'ingredients': [
               {
-                'id': 'ingr_0000000004',
                 'name': 'Date Meal',
                 'grams': 240,
                 'ml': null,
@@ -338,7 +337,6 @@ void main() {
             'meal_date': '2026-04-09',
             'ingredients': [
               {
-                'id': 'ingr_0000000005',
                 'name': 'Internal Host Meal',
                 'grams': 280,
                 'ml': null,

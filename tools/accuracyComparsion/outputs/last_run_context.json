@@ -3,7 +3,7 @@
   "model_slug": "gemini_2_5_flash",
   "dataset_name": "mmathys/food-nutrients",
   "dataset_split": "test",
-  "sample_size": 20,
+  "sample_size": 100,
   "random_seed": 42,
-  "updated_at": 1776454647
+  "updated_at": 1776777698
 }

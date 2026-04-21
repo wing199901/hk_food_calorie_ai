@@ -10,11 +10,11 @@ applyTo: "lib/**/*.dart"
 - **Feature folder owns its page + widgets subtree.** Never import from one feature into another — share through `shared/` instead.
 - **One page file per route.** Extract child widgets into `features/<name>/widgets/`.
 - **`core/` has zero feature/shared dependencies.** Only Flutter SDK + `dart:` packages allowed.
-- **Providers live in `shared/providers/`.** Both are `ChangeNotifierProvider` overridden in `main()`.
+- **Providers live in `shared/providers/`.** Service providers use Riverpod 3 `Provider` (non-legacy) and are overridden in `main()` when needed. For `StorageService`-driven UI refreshes, watch `storageSignalProvider` and read `storageProvider`.
 
 ## State & Services
 
-- **State Management:** All pages must extend `ConsumerStatefulWidget`; use `ref.read(storageProvider)` for one-off reads, `ref.watch(storageProvider)` to rebuild.
+- **State Management:** All pages must extend `ConsumerStatefulWidget`; use `ref.read(storageProvider)` for one-off reads, and for `StorageService`-driven rebuilds use `ref.watch(storageSignalProvider)` plus `ref.read(storageProvider)`.
 - **Services:** All Supabase calls must go through `SupabaseService`. Never use `supabase.from()` directly inside a UI widget.
 - **Models:** `UserProfile` calculates `age` dynamically via getter. Never store or accept `age` as input. Ensure `isProfileComplete` check is valid.
 

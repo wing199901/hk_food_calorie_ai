@@ -11,7 +11,7 @@ AI-powered food calorie tracking app built with Flutter, Supabase, and Google Ge
 - **Daily Tracking** — Track calories, protein, carbs, fat, and sugar throughout the day
 - **Weekly Analysis** — Charts showing energy intake, macros, and body metrics over 7 days
 - **AI Insights** — Weekly/monthly AI-generated dietary analysis and suggestions
-- **Body Metrics** — Track weight, goal direction (Lose / Maintain / Gain), goal change amount, and waistline; auto-calculate BMI, WHtR, and TEE-based intake targets
+- **Body Metrics** — Track weight, target weight, and waistline; auto-calculate goal direction plus BMI, WHtR, and TEE-based intake targets
 - **Cloud Sync** — Local-first with Supabase cloud sync; works offline
 
 ## Tech Stack
@@ -53,12 +53,14 @@ Run static analysis and all tests before merging changes:
 
 1. `dart analyze`
 2. `flutter test`
-3. `flutter test test/e2e/app_test.dart`
+3. `make test-auto-setup-flow`
+4. `make test-analysis-flow EMAIL="<test-email>" PASSWORD="<test-password>"`
 
 Notes:
 
 - Unit and widget tests are organized in `test/unit` and `test/widget`.
-- End-to-end coverage is in `test/e2e/app_test.dart` using `integration_test`.
+- Deterministic cross-screen critical flow coverage is in `test/widget/screens/app_critical_flow_test.dart`.
+- End-to-end backend coverage is in `integration_test/auto_login_setup_flow_test.dart` and `integration_test/analysis_food_flow_test.dart`.
 - `postman/run-local-tests.sh` auto-provisions fixtures for the authenticated `userId` by default (set `POSTMAN_SETUP_FIXTURES=0` to skip).
 
 ## Developer Guidelines & Rules

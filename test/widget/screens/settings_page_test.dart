@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hk_food_calorie_ai/core/theme/app_theme.dart';
 import 'package:hk_food_calorie_ai/features/settings/settings_page.dart';
 import 'package:hk_food_calorie_ai/shared/models/user_profile.dart';
 import 'package:hk_food_calorie_ai/shared/providers/providers.dart';
@@ -8,6 +9,14 @@ import '../../helpers/fake_storage_service.dart';
 import '../../helpers/fake_supabase_service.dart';
 import '../../helpers/plugin_mocks.dart';
 import '../../helpers/test_app.dart';
+
+RichText _goalSummaryRichText(WidgetTester tester, String plainText) {
+  return tester.widget<RichText>(
+    find.byWidgetPredicate(
+      (widget) => widget is RichText && widget.text.toPlainText() == plainText,
+    ),
+  );
+}
 
 void main() {
   setUp(() async {
@@ -27,9 +36,8 @@ void main() {
         gender: 'male',
         unitSystem: 'metric',
         weight: 70,
+        targetWeight: 65,
         height: 175,
-        weightGoal: 'lose',
-        goalWeightDelta: 5,
         waistline: 80,
         activityLevel: 'light',
       ),
@@ -50,21 +58,39 @@ void main() {
     expect(find.text('Weight'), findsOneWidget);
     expect(find.text('Height'), findsOneWidget);
     expect(find.text('Waistline'), findsOneWidget);
-    expect(find.text('Activity Level'), findsNothing);
+    expect(find.text('Target Weight'), findsOneWidget);
+    expect(find.text('Change Amount'), findsNothing);
+    expect(
+      find.text('Healthy range: 56.7 ~ 70.5 kg (BMI 18.5 to Devine IBW)'),
+      findsOneWidget,
+    );
 
-    expect(find.text('Weight Goal'), findsOneWidget);
-    expect(find.text('Goal Direction'), findsOneWidget);
-    expect(find.text('Change Amount'), findsOneWidget);
-    expect(find.text('Target weight preview: 65.0 kg'), findsOneWidget);
+    final initialGoal = _goalSummaryRichText(tester, 'Goal: -5.0 kg, 21.2 BMI');
+    final initialGoalSpan = initialGoal.text as TextSpan;
+    expect(initialGoalSpan.style?.color, AppTheme.foreground);
+    expect(initialGoalSpan.children, hasLength(2));
+    final initialGoalValue = initialGoalSpan.children!.last as TextSpan;
+    expect(initialGoalValue.text, '-5.0 kg, 21.2 BMI');
+    expect(initialGoalValue.style?.color, AppTheme.accent);
 
     await tester.enterText(find.byType(TextField).at(0), '72');
     await tester.pump();
-    expect(find.text('Target weight preview: 67.0 kg'), findsOneWidget);
+
+    final lossGoal = _goalSummaryRichText(tester, 'Goal: -7.0 kg, 21.2 BMI');
+    final lossGoalSpan = lossGoal.text as TextSpan;
+    final lossGoalValue = lossGoalSpan.children!.last as TextSpan;
+    expect(lossGoalValue.style?.color, AppTheme.accent);
+
+    await tester.enterText(find.byType(TextField).at(3), '75');
+    await tester.pump();
+
+    final gainGoal = _goalSummaryRichText(tester, 'Goal: +3.0 kg, 24.5 BMI');
+    final gainGoalSpan = gainGoal.text as TextSpan;
+    final gainGoalValue = gainGoalSpan.children!.last as TextSpan;
+    expect(gainGoalValue.style?.color, AppTheme.primary);
 
     expect(
-      find.text(
-        'Use this to review your weight-goal setup in guided steps.',
-      ),
+      find.text('Use this to review your target-weight setup in guided steps.'),
       findsOneWidget,
     );
 

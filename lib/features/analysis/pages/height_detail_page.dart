@@ -12,7 +12,8 @@ class HeightDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(storageProvider).getUserProfile();
+    ref.watch(storageSignalProvider);
+    final profile = ref.read(storageProvider).getUserProfile();
     final height = profile.height;
 
     return Scaffold(

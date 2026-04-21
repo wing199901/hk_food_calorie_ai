@@ -25,7 +25,8 @@ class HealthScoresCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final storage = ref.watch(storageProvider);
+    ref.watch(storageSignalProvider);
+    final storage = ref.read(storageProvider);
     final profile = storage.getUserProfile();
     final bmi = HealthScoreUtils.calculateBMIFromProfile(profile);
     final whtr = HealthScoreUtils.calculateWHtRFromProfile(profile);

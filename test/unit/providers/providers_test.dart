@@ -33,6 +33,33 @@ void main() {
       expect(container.read(supabaseProvider), isA<SupabaseService>());
     });
 
+    test('storageSignalProvider updates when storage notifies', () {
+      final fakeStorage = FakeStorageService();
+      final container = ProviderContainer(
+        overrides: [storageProvider.overrideWith((ref) => fakeStorage)],
+      );
+      addTearDown(container.dispose);
+
+      var events = 0;
+      int? lastValue;
+      final subscription = container.listen<int>(
+        storageSignalProvider,
+        (previous, next) {
+          events = events + 1;
+          lastValue = next;
+        },
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+
+      expect(lastValue, 0);
+
+      fakeStorage.setDailyTarget(2100);
+
+      expect(container.read(storageSignalProvider), 1);
+      expect(events, 2);
+    });
+
     test('foodAnalysisServiceProvider exposes FoodAnalysisService', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);

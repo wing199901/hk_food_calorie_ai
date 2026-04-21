@@ -18,8 +18,7 @@ delete cascade,
   birthdate         date,          -- YYYY-MM-DD
   weight            numeric
 (5,2),
-  weight_goal       text default 'maintain', -- 'lose' | 'maintain' | 'gain'
-  goal_weight_delta numeric
+  target_weight     numeric
 (5,2),
   height            numeric
 (5,2),

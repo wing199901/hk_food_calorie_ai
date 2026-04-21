@@ -34,7 +34,8 @@ class _LogPageState extends ConsumerState<LogPage> {
   @override
   Widget build(BuildContext context) {
     // Rebuild when storage notifies.
-    final storage = ref.watch(storageProvider);
+    ref.watch(storageSignalProvider);
+    final storage = ref.read(storageProvider);
     final meals = storage.getMealsForDate(_date);
     final int totalCalories = meals.fold<int>(0, (s, m) => s + m.calories);
 

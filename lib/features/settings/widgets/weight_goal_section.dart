@@ -1,32 +1,31 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/weight_goal_selector.dart';
 import 'settings_number_field.dart';
 import 'settings_section.dart';
 
 class WeightGoalSection extends StatelessWidget {
   const WeightGoalSection({
     super.key,
-    required this.goalWeightDeltaCtrl,
-    required this.weightGoal,
-    required this.targetPreview,
-    required this.onWeightGoalChanged,
-    required this.onGoalWeightDeltaChanged,
+    required this.targetWeightCtrl,
+    required this.healthyRangeCaption,
+    required this.goalSummaryValue,
+    required this.goalSummaryValueColor,
+    required this.onTargetWeightChanged,
     required this.onSave,
     required this.isMetric,
   });
 
-  final TextEditingController goalWeightDeltaCtrl;
-  final String weightGoal;
-  final String targetPreview;
-  final ValueChanged<String> onWeightGoalChanged;
-  final ValueChanged<String> onGoalWeightDeltaChanged;
+  final TextEditingController targetWeightCtrl;
+  final String healthyRangeCaption;
+  final String goalSummaryValue;
+  final Color goalSummaryValueColor;
+  final ValueChanged<String> onTargetWeightChanged;
   final VoidCallback onSave;
   final bool isMetric;
 
   @override
   Widget build(BuildContext context) {
-    final goalHint = isMetric ? '5' : '11';
+    final targetHint = isMetric ? '65' : '143';
 
     return SettingsSection(
       icon: Icons.flag_outlined,
@@ -35,23 +34,20 @@ class WeightGoalSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Goal Direction',
-            style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+          SettingsNumberField(
+            label: 'Target Weight',
+            controller: targetWeightCtrl,
+            hint: targetHint,
+            unit: isMetric ? 'kg' : 'lbs',
+            onChanged: onTargetWeightChanged,
           ),
           const SizedBox(height: 8),
-          WeightGoalSelector(
-            value: weightGoal,
-            onChanged: onWeightGoalChanged,
-          ),
-          const SizedBox(height: 12),
-          SettingsNumberField(
-            label: 'Change Amount',
-            controller: goalWeightDeltaCtrl,
-            hint: goalHint,
-            unit: isMetric ? 'kg' : 'lbs',
-            enabled: weightGoal != 'maintain',
-            onChanged: onGoalWeightDeltaChanged,
+          Text(
+            healthyRangeCaption,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.mutedForeground,
+            ),
           ),
           const SizedBox(height: 12),
           Container(
@@ -61,12 +57,20 @@ class WeightGoalSection extends StatelessWidget {
               color: AppTheme.muted,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              targetPreview,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.foreground,
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.foreground,
+                ),
+                children: [
+                  const TextSpan(text: 'Goal: '),
+                  TextSpan(
+                    text: goalSummaryValue,
+                    style: TextStyle(color: goalSummaryValueColor),
+                  ),
+                ],
               ),
             ),
           ),

@@ -33,7 +33,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     // Rebuild when storage notifies.
-    final storage = ref.watch(storageProvider);
+    ref.watch(storageSignalProvider);
+    final storage = ref.read(storageProvider);
     final stats = storage.getStatsForDate(_date);
     final meals = storage.getMealsForDate(_date);
     final targetRange = storage.getDailyTargetRange();

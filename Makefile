@@ -7,14 +7,16 @@ TEST_PASSWORD ?= 12345678
 TEST_IMAGE_PATH ?= integration_test/images/3_egg_tarts.jpg
 SUPABASE_TEST_USER_ID ?= 00000000-0000-0000-0000-000000000001
 
-test-ios-upload-flow:
-	flutter test integration_test/ios_upload_image_flow_test.dart -d "$(IOS_SIM)"
-
 test-analysis-flow:
 	flutter test integration_test/analysis_food_flow_test.dart -d "$(IOS_SIM)" \
 		--dart-define=TEST_EMAIL="$(if $(EMAIL),$(EMAIL),$(TEST_EMAIL))" \
 		--dart-define=TEST_PASSWORD="$(if $(PASSWORD),$(PASSWORD),$(TEST_PASSWORD))" \
 		--dart-define=TEST_IMAGE_PATH="$(TEST_IMAGE_PATH)"
+
+test-auto-setup-flow:
+	flutter test integration_test/auto_login_setup_flow_test.dart -d "$(IOS_SIM)" \
+		--dart-define=TEST_EMAIL="$(if $(EMAIL),$(EMAIL),$(TEST_EMAIL))" \
+		--dart-define=TEST_PASSWORD="$(if $(PASSWORD),$(PASSWORD),$(TEST_PASSWORD))"
 
 build:
 	dart run build_runner build --delete-conflicting-outputs && flutter build ios

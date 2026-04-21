@@ -4,9 +4,9 @@
 This script evaluates Gemini nutrition estimation accuracy on 100 random
 samples from Hugging Face dataset `mmathys/food-nutrients`.
 
-The evaluation follows the dataset public schema, especially these total
-fields: `total_calories`, `total_mass`, `total_fat`, `total_carb`,
-`total_protein`.
+The evaluator uses the app-aligned meal analysis contract (Supabase Edge
+Function `analyze-meal`) while computing accuracy against dataset totals:
+`total_calories`, `total_mass`, `total_fat`, `total_carb`, `total_protein`.
 
 Key features:
 - Deterministic sampling (seed=42)
@@ -24,6 +24,9 @@ Usage:
     python tools/accuracyComparsion/gemini_food_accuracy_eval.py
     python tools/accuracyComparsion/gemini_food_accuracy_eval.py --model gemini-3.1-flash-lite
     python tools/accuracyComparsion/gemini_food_accuracy_eval.py --model gemini-3.1-flash-lite --rpm-limit 15
+    python tools/accuracyComparsion/gemini_food_accuracy_eval.py --model gemini-2.5-flash --rpm-limit 4 --rpd-limit 19 --auto-wait-daily-quota
+    # Host timezone is auto-detected for daily reset estimation.
+    python tools/accuracyComparsion/gemini_food_accuracy_eval.py --model gemini-2.5-flash --rpm-limit 4 --rpd-limit 19 --auto-wait-daily-quota --daily-reset-timezone Asia/Hong_Kong
 
 Dependencies:
     pip install datasets pillow google-genai python-dotenv
@@ -38,6 +41,7 @@ from __future__ import annotations
 import argparse
 import csv
 from collections import deque
+from datetime import datetime, timedelta
 import io
 import json
 import logging
@@ -50,6 +54,7 @@ import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 from google import genai
 from google.genai import types as genai_types
@@ -92,6 +97,7 @@ class EvalConfig:
     max_backoff_seconds: float = 60.0
     # Optional extra delay after each sample, in addition to quota throttling.
     inter_request_sleep_seconds: float = 0.0
+    daily_quota_reset_timezone: str = "America/Los_Angeles"
 
     # Output settings
     output_dir: Path = Path(__file__).resolve().parent / "outputs"
@@ -172,15 +178,14 @@ INGREDIENT_FALLBACK_KEYS: Dict[str, Tuple[str, ...]] = {
     "total_protein": ("protein",),
     "total_carb": ("carb",),
     "total_fat": ("fat",),
-    "total_mass": ("grams",),
+    # App contract supports solids via grams and drinks via ml.
+    "total_mass": ("grams", "ml"),
 }
 
 
 RESPONSE_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "properties": {
-        "id": {"type": "string"},
-        "split": {"type": "string"},
         "ingredients": {
             "type": "array",
             "items": {
@@ -188,20 +193,24 @@ RESPONSE_SCHEMA: Dict[str, Any] = {
                 "properties": {
                     "id": {"type": "string"},
                     "name": {"type": "string"},
-                    "grams": {"type": "number"},
+                    "grams": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+                    "ml": {"anyOf": [{"type": "number"}, {"type": "null"}]},
                     "calories": {"type": "number"},
                     "fat": {"type": "number"},
                     "carb": {"type": "number"},
                     "protein": {"type": "number"},
+                    "sugar": {"type": "number"},
+                    "confidence": {"type": "number"},
                 },
                 "required": [
                     "id",
                     "name",
-                    "grams",
                     "calories",
                     "fat",
                     "carb",
                     "protein",
+                    "sugar",
+                    "confidence",
                 ],
                 "additionalProperties": False,
             },
@@ -211,10 +220,10 @@ RESPONSE_SCHEMA: Dict[str, Any] = {
         "total_fat": {"type": "number"},
         "total_carb": {"type": "number"},
         "total_protein": {"type": "number"},
+        "total_sugar": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+        "error": {"anyOf": [{"type": "string"}, {"type": "null"}]},
     },
     "required": [
-        "id",
-        "split",
         "ingredients",
         "total_calories",
         "total_mass",
@@ -350,6 +359,8 @@ def resolve_model_name(model_name: str) -> str:
 
 def parse_cli_args(config: EvalConfig, argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse optional runtime overrides from CLI arguments."""
+    detected_reset_tz = detect_host_timezone_name(config.daily_quota_reset_timezone)
+
     parser = argparse.ArgumentParser(
         description=(
             "Evaluate Gemini nutrition accuracy on mmathys/food-nutrients "
@@ -399,7 +410,137 @@ def parse_cli_args(config: EvalConfig, argv: Optional[List[str]] = None) -> argp
         action="store_true",
         help="Reset current model outputs and rerun from scratch.",
     )
+    parser.add_argument(
+        "--auto-wait-daily-quota",
+        action="store_true",
+        help=(
+            "When daily quota is exhausted, sleep until quota is likely available "
+            "and continue automatically."
+        ),
+    )
+    parser.add_argument(
+        "--daily-reset-timezone",
+        default=detected_reset_tz,
+        help=(
+            "IANA timezone used to estimate daily quota reset time "
+            "(default: auto-detected host timezone, current=%(default)s)."
+        ),
+    )
     return parser.parse_args(argv)
+
+
+def is_valid_iana_timezone(timezone_name: str) -> bool:
+    """Return whether timezone_name is a valid IANA timezone."""
+    if not timezone_name.strip():
+        return False
+
+    try:
+        ZoneInfo(timezone_name)
+        return True
+    except Exception:
+        return False
+
+
+def detect_host_timezone_name(fallback_timezone: str) -> str:
+    """Detect host IANA timezone, falling back when detection is inconclusive."""
+    env_tz = os.environ.get("TZ", "").strip()
+    if env_tz and is_valid_iana_timezone(env_tz):
+        return env_tz
+
+    local_tz = datetime.now().astimezone().tzinfo
+    zone_key = getattr(local_tz, "key", None)
+    if isinstance(zone_key, str) and is_valid_iana_timezone(zone_key):
+        return zone_key
+
+    # Best-effort fallback for systems where /etc/localtime points into zoneinfo.
+    try:
+        resolved = Path("/etc/localtime").resolve()
+        marker = "/zoneinfo/"
+        resolved_text = resolved.as_posix()
+        if marker in resolved_text:
+            candidate = resolved_text.split(marker, 1)[1]
+            if is_valid_iana_timezone(candidate):
+                return candidate
+    except OSError:
+        pass
+
+    return fallback_timezone
+
+
+def parse_quota_wait_seconds(message: str) -> Optional[int]:
+    """Parse a suggested wait duration in seconds from quota error message."""
+    match = re.search(r"approximately\s+([0-9]+)\s+seconds", message, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+
+    match = re.search(r"retry in\s+([0-9]+(?:\.[0-9]+)?)s", message, re.IGNORECASE)
+    if match:
+        return max(1, int(float(match.group(1))))
+
+    return None
+
+
+def seconds_until_next_daily_reset(timezone_name: str) -> int:
+    """Estimate seconds until next daily reset at local midnight in timezone."""
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception:
+        logging.warning("Invalid timezone '%s'. Falling back to UTC for reset estimate.", timezone_name)
+        tz = ZoneInfo("UTC")
+
+    now = datetime.now(tz)
+    next_reset = (now + timedelta(days=1)).replace(
+        hour=0,
+        minute=0,
+        second=5,
+        microsecond=0,
+    )
+    return max(1, int((next_reset - now).total_seconds()))
+
+
+def choose_daily_quota_wait_seconds(
+    message: str,
+    reset_timezone: str,
+) -> Tuple[int, str]:
+    """Choose a wait strategy for daily quota exhaustion.
+
+    Prefer timezone reset estimate when provider retry hint is very short
+    (for example 59s) but daily quota exhaustion was detected.
+    """
+    provider_wait = parse_quota_wait_seconds(message)
+    reset_wait = seconds_until_next_daily_reset(reset_timezone)
+
+    if provider_wait is None:
+        return reset_wait, f"estimated next daily reset in {reset_timezone}"
+
+    # Daily quota errors may still include short retry hints. Use reset estimate
+    # when hint looks minute-level but reset estimate is much longer.
+    if provider_wait < 900 and reset_wait > 1800:
+        return reset_wait, (
+            f"provider hint={provider_wait}s looked short; "
+            f"using estimated reset in {reset_timezone}"
+        )
+
+    return max(30, provider_wait), "provider retry hint"
+
+
+def warn_if_quota_seems_too_high(config: EvalConfig) -> None:
+    """Warn when configured limits exceed common Gemini 2.5 Flash free-tier limits."""
+    model = config.model_name.strip().lower()
+    if model != "gemini-2.5-flash":
+        return
+
+    if config.gemini_rpm_limit > 5:
+        logging.warning(
+            "Configured RPM=%d exceeds common free-tier RPM=5 for gemini-2.5-flash.",
+            config.gemini_rpm_limit,
+        )
+
+    if config.gemini_rpd_limit > 20:
+        logging.warning(
+            "Configured RPD=%d exceeds common free-tier RPD=20 for gemini-2.5-flash.",
+            config.gemini_rpd_limit,
+        )
 
 
 def load_run_context(context_path: Path) -> Dict[str, Any]:
@@ -649,42 +790,52 @@ def load_pil_image(
 
 
 def build_prompt(image_id: str) -> str:
-    """Build strict prompt aligned with mmathys/food-nutrients public schema."""
+    """Build strict prompt aligned with app analyze-meal contract."""
     return f"""
-You are estimating plate-level nutrition from a food image.
+You are a professional nutritionist specialising in analysing food and drink photos from any cuisine.
 
-Target sample id: {image_id}
+Core capabilities:
+- All cuisines: Western, Japanese/Korean, Southeast Asian, Chinese, Hong Kong-style.
+- Familiar with Hong Kong local food (cha chaan teng, dai pai dong, dim sum, street snacks).
 
-Return ONLY a valid JSON object and nothing else.
+Sample reference id for evaluator bookkeeping only: {image_id}
 
-The JSON structure must match this shape and key names exactly.
-Follow the mmathys/food-nutrients public schema for these fields:
+Return one JSON object only (no markdown, no code fence, no extra text).
+
+The JSON must strictly follow this app contract:
 {{
-    "id": "{image_id}",
-    "split": "test",
     "ingredients": [
         {{
             "id": string,
             "name": string,
-            "grams": number,
+            "grams": number|null,
+            "ml": number|null,
             "calories": number,
             "fat": number,
             "carb": number,
-            "protein": number
+            "protein": number,
+            "sugar": number,
+            "confidence": number
         }}
     ],
     "total_calories": number,
     "total_mass": number,
     "total_fat": number,
     "total_carb": number,
-    "total_protein": number
+    "total_protein": number,
+    "total_sugar": number|null,
+    "error": string|null
 }}
 
 Rules:
-1) Do not include markdown, code fences, explanations, or extra keys.
-2) Use grams for nutrient values (except calories in kcal).
-3) Use numeric values (float is allowed).
-4) Keep key names exactly as shown.
+1) Ingredient id should follow ingr_########## format (example: ingr_0000000192).
+2) Solid food: grams > 0 and ml = null.
+3) Liquid/drink: ml > 0 and grams = null.
+4) Never set both grams and ml to non-null values.
+5) confidence must be between 0.0 and 1.0.
+6) All numeric values must be non-negative.
+7) Totals should match ingredient sums as closely as possible.
+8) If no food/drink or image is unclear: return ingredients as [], set all totals to 0, set error to a short reason.
 """.strip()
 
 
@@ -1218,6 +1369,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         gemini_rpm_limit=args.rpm_limit,
         gemini_tpm_limit=args.tpm_limit,
         gemini_rpd_limit=args.rpd_limit,
+        daily_quota_reset_timezone=str(args.daily_reset_timezone).strip() or CFG.daily_quota_reset_timezone,
         output_dir=CFG.output_dir / model_slug(selected_model),
     )
 
@@ -1311,6 +1463,8 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     logging.info("Running model: %s", runtime_cfg.model_name)
     logging.info("Output folder: %s", runtime_cfg.output_dir)
+    logging.info("Daily quota reset timezone: %s", runtime_cfg.daily_quota_reset_timezone)
+    warn_if_quota_seems_too_high(runtime_cfg)
     logging.info(
         "Quota policy: RPM=%d (burst then wait next minute) | TPM=%d (target=%.0f%%) | "
         "RPD=%d | est_tokens/request=%d",
@@ -1381,45 +1535,67 @@ def main(argv: Optional[List[str]] = None) -> None:
         ground_truth = extract_ground_truth(sample)
         prediction = empty_prediction()
         raw_payload: Dict[str, Any] = {}
+        status = "failed"
+        error_message = "Unexpected control flow before request execution."
 
-        try:
-            image = load_pil_image(
-                sample=sample,
-                dataset_name=runtime_cfg.dataset_name,
-                snapshot_root=metadata_snapshot_root,
-            )
-            prediction, raw_payload = call_gemini_with_retry(
-                client=client,
-                image=image,
-                image_id=image_id,
-                config=runtime_cfg,
-                rate_limiter=rate_limiter,
-            )
-            status = "ok"
-            error_message = ""
+        while True:
+            try:
+                image = load_pil_image(
+                    sample=sample,
+                    dataset_name=runtime_cfg.dataset_name,
+                    snapshot_root=metadata_snapshot_root,
+                )
+                prediction, raw_payload = call_gemini_with_retry(
+                    client=client,
+                    image=image,
+                    image_id=image_id,
+                    config=runtime_cfg,
+                    rate_limiter=rate_limiter,
+                )
+                status = "ok"
+                error_message = ""
+                break
 
-        except KeyboardInterrupt:
-            interrupted = True
-            logging.warning(
-                "Execution interrupted by user. Saving progress and exiting.")
+            except KeyboardInterrupt:
+                interrupted = True
+                logging.warning(
+                    "Execution interrupted by user. Saving progress and exiting.")
+                break
+
+            except QuotaExhaustedError as exc:
+                if args.auto_wait_daily_quota:
+                    wait_seconds, wait_reason = choose_daily_quota_wait_seconds(
+                        message=str(exc),
+                        reset_timezone=runtime_cfg.daily_quota_reset_timezone,
+                    )
+                    logging.warning(
+                        "Daily quota limit hit for %s. Auto-wait enabled; sleeping %ds and retrying (%s).",
+                        image_id,
+                        wait_seconds,
+                        wait_reason,
+                    )
+                    time.sleep(wait_seconds)
+                    continue
+
+                stopped_due_to_quota = True
+                logging.warning(
+                    "Stopping run due to quota limit (API/local guard): %s", exc)
+                break
+
+            except FatalModelConfigError as exc:
+                stopped_due_to_model_config = True
+                logging.error(
+                    "Stopping run due to model configuration error: %s", exc)
+                break
+
+            except Exception as exc:
+                logging.exception("Failed sample %s", image_id)
+                status = "failed"
+                error_message = str(exc)
+                break
+
+        if interrupted or stopped_due_to_quota or stopped_due_to_model_config:
             break
-
-        except QuotaExhaustedError as exc:
-            stopped_due_to_quota = True
-            logging.warning(
-                "Stopping run due to quota limit (API/local guard): %s", exc)
-            break
-
-        except FatalModelConfigError as exc:
-            stopped_due_to_model_config = True
-            logging.error(
-                "Stopping run due to model configuration error: %s", exc)
-            break
-
-        except Exception as exc:
-            logging.exception("Failed sample %s", image_id)
-            status = "failed"
-            error_message = str(exc)
 
         errors = compute_errors(ground_truth, prediction)
 

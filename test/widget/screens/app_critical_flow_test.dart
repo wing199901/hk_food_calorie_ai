@@ -8,12 +8,11 @@ import 'package:hk_food_calorie_ai/features/onboarding/complete_profile_page.dar
 import 'package:hk_food_calorie_ai/main.dart';
 import 'package:hk_food_calorie_ai/shared/models/user_profile.dart';
 import 'package:hk_food_calorie_ai/shared/providers/providers.dart';
-import 'package:integration_test/integration_test.dart';
 
-import '../test/helpers/fake_food_analysis_service.dart';
-import '../test/helpers/fake_storage_service.dart';
-import '../test/helpers/fake_supabase_service.dart';
-import '../test/helpers/plugin_mocks.dart';
+import '../../helpers/fake_food_analysis_service.dart';
+import '../../helpers/fake_storage_service.dart';
+import '../../helpers/fake_supabase_service.dart';
+import '../../helpers/plugin_mocks.dart';
 
 enum _FlowStep { login, completeProfile, checkIn, main }
 
@@ -56,7 +55,7 @@ class _FlowHostState extends State<_FlowHost> {
 }
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
     'critical flow: login -> profile -> check-in -> photo analysis -> quick add -> log/analysis with negative cases',

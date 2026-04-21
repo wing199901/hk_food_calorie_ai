@@ -92,7 +92,6 @@ Portion contract:
   "meal_date": "2026-02-28",
   "ingredients": [
     {
-      "id": "ingr_0000000192",
       "name": "yam",
       "grams": 38,
       "ml": null,

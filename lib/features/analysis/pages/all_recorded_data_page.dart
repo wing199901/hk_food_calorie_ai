@@ -16,7 +16,8 @@ class AllRecordedDataPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final storage = ref.watch(storageProvider);
+    ref.watch(storageSignalProvider);
+    final storage = ref.read(storageProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.background,

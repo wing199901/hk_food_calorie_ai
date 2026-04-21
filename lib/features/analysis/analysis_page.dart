@@ -123,7 +123,8 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
   @override
   Widget build(BuildContext context) {
     // --- Data Fetching & State ---
-    final storage = ref.watch(storageProvider);
+    ref.watch(storageSignalProvider);
+    final storage = ref.read(storageProvider);
     final weeklyData = storage.getRangeData(currentWeekStart, 7);
     final bodyData = storage.getBodyHistory();
     final todayStats = storage.getStatsForDate(DateTime.now());

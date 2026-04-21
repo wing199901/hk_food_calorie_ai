@@ -43,7 +43,9 @@ class _EnergyChartCardState extends ConsumerState<EnergyChartCard> {
     final hourlyCalories = List<int>.filled(24, 0);
     for (final meal in meals) {
       final mealTime = DateTime.fromMillisecondsSinceEpoch(meal.timestamp);
-      hourlyCalories[mealTime.hour] += meal.calories.toInt();
+      final mealCalories = (meal.calories as num).toInt();
+      hourlyCalories[mealTime.hour] =
+          hourlyCalories[mealTime.hour] + mealCalories;
     }
 
     return Column(

@@ -3,7 +3,7 @@
 //  - Step 1 validation (birthdate required)
 //  - Step 2 "Continue" advances to Step 3
 //  - Step 3 "Save & Start Tracking" saves profile and calls onComplete
-//  - Empty Step 2 saves null weight/goal delta/waistline (no default injection)
+//  - Empty Step 2 saves null weight/target weight/waistline (no default injection)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -200,7 +200,7 @@ void main() {
 
     // ── Regression: null weight/waistline when Step 2 fields left empty ──────
 
-    testWidgets('Empty Step 2 saves null weight, goal delta and waistline', (
+    testWidgets('Empty Step 2 saves null weight, target weight and waistline', (
       tester,
     ) async {
       usePhoneSize(tester);
@@ -225,11 +225,10 @@ void main() {
         reason: 'Weight should be null when left empty on Step 2',
       );
       expect(
-        saved.goalWeightDelta,
+        saved.targetWeight,
         isNull,
-        reason: 'Goal change amount should be null when left empty on Step 2',
+        reason: 'Target weight should be null when left empty on Step 2',
       );
-      expect(saved.weightGoal, 'maintain');
       expect(
         saved.waistline,
         isNull,
@@ -257,9 +256,7 @@ void main() {
       expect(fakeStorage.savedProfiles.last.weight, 65.0);
     });
 
-    testWidgets('Selecting lose and entering change amount saves goal', (
-      tester,
-    ) async {
+    testWidgets('Entering target weight saves goal target', (tester) async {
       usePhoneSize(tester);
       await tester.pumpWidget(
         buildPage(
@@ -269,17 +266,17 @@ void main() {
       );
       await confirmBirthdate(tester);
       await scrollAndTap(tester, find.text('Continue'));
-      await scrollAndTap(tester, find.text('Lose'));
-      await tester.enterText(find.widgetWithText(TextField, '5'), '5');
+      await tester.enterText(find.widgetWithText(TextField, '65'), '60');
       await scrollAndTap(tester, find.text('Continue'));
       await tapSaveButton(tester, find.text('Save & Start Tracking'));
 
       expect(fakeStorage.savedProfiles, isNotEmpty);
-      expect(fakeStorage.savedProfiles.last.weightGoal, 'lose');
-      expect(fakeStorage.savedProfiles.last.goalWeightDelta, 5.0);
+      expect(fakeStorage.savedProfiles.last.targetWeight, 60.0);
     });
 
-    testWidgets('Step 2 shows real-time target weight preview', (tester) async {
+    testWidgets('Step 2 auto-calculates goal amount from target weight', (
+      tester,
+    ) async {
       usePhoneSize(tester);
       await tester.pumpWidget(
         buildPage(
@@ -292,43 +289,94 @@ void main() {
       await scrollAndTap(tester, find.text('Continue'));
 
       await tester.enterText(find.byType(TextField).at(0), '70');
-      await scrollAndTap(tester, find.text('Lose'));
-      await tester.enterText(find.byType(TextField).at(1), '5');
+      await tester.enterText(find.byType(TextField).at(1), '65');
       await tester.pump();
 
-      expect(find.text('Target weight preview: 65.0 kg'), findsOneWidget);
+      expect(
+        find.text('Healthy range: 56.7 ~ 70.5 kg (BMI 18.5 to Devine IBW)'),
+        findsOneWidget,
+      );
 
-      await tester.enterText(find.byType(TextField).at(0), '72');
-      await tester.pump();
-      expect(find.text('Target weight preview: 67.0 kg'), findsOneWidget);
-    });
-
-    testWidgets('Maintain clears and disables change amount input', (
-      tester,
-    ) async {
-      usePhoneSize(tester);
-      await tester.pumpWidget(
-        buildPage(
-          storage: fakeStorage,
-          onComplete: () => completeCalled = true,
+      final loseGoal = tester.widget<RichText>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText() == 'Goal: -5.0 kg, 21.2 BMI',
         ),
       );
+      final loseGoalSpan = loseGoal.text as TextSpan;
+      expect(loseGoalSpan.style?.color, AppTheme.foreground);
+      expect(loseGoalSpan.children, hasLength(2));
+      final loseGoalValue = loseGoalSpan.children!.last as TextSpan;
+      expect(loseGoalValue.style?.color, AppTheme.accent);
 
-      await confirmBirthdate(tester);
-      await scrollAndTap(tester, find.text('Continue'));
-
-      await scrollAndTap(tester, find.text('Lose'));
-      await tester.enterText(find.byType(TextField).at(1), '5');
-
-      await scrollAndTap(tester, find.text('Maintain'));
+      await tester.enterText(find.byType(TextField).at(1), '75');
       await tester.pump();
-
-      final changeAmountField = tester.widget<TextField>(
-        find.byType(TextField).at(1),
+      final gainGoal = tester.widget<RichText>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText() == 'Goal: +5.0 kg, 24.5 BMI',
+        ),
       );
+      final gainGoalSpan = gainGoal.text as TextSpan;
+      final gainGoalValue = gainGoalSpan.children!.last as TextSpan;
+      expect(gainGoalValue.style?.color, AppTheme.primary);
 
-      expect(changeAmountField.enabled, isFalse);
-      expect(changeAmountField.controller?.text, isEmpty);
+      await tester.enterText(find.byType(TextField).at(1), '70');
+      await tester.pump();
+      final maintainGoal = tester.widget<RichText>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText() == 'Goal: 0.0 kg, 22.9 BMI',
+        ),
+      );
+      final maintainGoalSpan = maintainGoal.text as TextSpan;
+      final maintainGoalValue = maintainGoalSpan.children!.last as TextSpan;
+      expect(maintainGoalValue.style?.color, AppTheme.mutedForeground);
     });
+
+    testWidgets(
+      'Step 2 direction hint appears before both weights are entered',
+      (tester) async {
+        usePhoneSize(tester);
+        await tester.pumpWidget(
+          buildPage(
+            storage: fakeStorage,
+            onComplete: () => completeCalled = true,
+          ),
+        );
+
+        await confirmBirthdate(tester);
+        await scrollAndTap(tester, find.text('Continue'));
+
+        expect(
+          find.text('Set your target weight and we auto-calculate direction.'),
+          findsOneWidget,
+        );
+
+        await tester.enterText(find.byType(TextField).at(0), '70');
+        await tester.pump();
+
+        expect(
+          find.text('Set your target weight and we auto-calculate direction.'),
+          findsOneWidget,
+        );
+
+        await tester.enterText(find.byType(TextField).at(1), '68');
+        await tester.pump();
+        final finalGoal = tester.widget<RichText>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is RichText &&
+                widget.text.toPlainText() == 'Goal: -2.0 kg, 22.2 BMI',
+          ),
+        );
+        final finalGoalSpan = finalGoal.text as TextSpan;
+        final finalGoalValue = finalGoalSpan.children!.last as TextSpan;
+        expect(finalGoalValue.style?.color, AppTheme.accent);
+      },
+    );
   });
 }

@@ -8,6 +8,8 @@ This folder contains fast, deterministic test suites for app logic and UI.
 - `test/widget/`: Widget tests for screens and reusable UI components.
 - `test/helpers/`: Shared fakes, mocks, and test utilities.
 
+Key flow coverage now includes `test/widget/screens/app_critical_flow_test.dart` to keep critical-path validation fast without platform build overhead.
+
 For end-to-end flows, use `integration_test/` (see `integration_test/README.md`).
 
 ## Recommended Commands

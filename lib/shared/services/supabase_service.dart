@@ -76,15 +76,31 @@ class SupabaseService extends ChangeNotifier {
         .eq('user_id', uid)
         .maybeSingle();
     if (data == null) return UserProfile();
+
+    final currentWeight = data['weight'] != null
+        ? (data['weight'] as num).toDouble()
+        : null;
+    final targetWeight = data['target_weight'] != null
+        ? (data['target_weight'] as num).toDouble()
+        : null;
+    final legacyGoal = data['weight_goal'] as String?;
+    final legacyDelta = data['goal_weight_delta'] != null
+        ? (data['goal_weight_delta'] as num).toDouble()
+        : null;
+
+    final fallbackTargetWeight = switch (legacyGoal) {
+      'lose' when currentWeight != null && legacyDelta != null =>
+        currentWeight - legacyDelta,
+      'gain' when currentWeight != null && legacyDelta != null =>
+        currentWeight + legacyDelta,
+      'maintain' when currentWeight != null => currentWeight,
+      _ => null,
+    };
+
     return UserProfile(
       birthdate: data['birthdate'] as String?,
-      weight: data['weight'] != null
-          ? (data['weight'] as num).toDouble()
-          : null,
-      weightGoal: data['weight_goal'] as String?,
-      goalWeightDelta: data['goal_weight_delta'] != null
-          ? (data['goal_weight_delta'] as num).toDouble()
-          : null,
+      weight: currentWeight,
+      targetWeight: targetWeight ?? fallbackTargetWeight,
       height: data['height'] != null
           ? (data['height'] as num).toDouble()
           : null,
@@ -104,9 +120,7 @@ class SupabaseService extends ChangeNotifier {
       'user_id': uid,
       if (profile.birthdate != null) 'birthdate': profile.birthdate,
       if (profile.weight != null) 'weight': profile.weight,
-      if (profile.weightGoal != null) 'weight_goal': profile.weightGoal,
-      if (profile.goalWeightDelta != null)
-        'goal_weight_delta': profile.goalWeightDelta,
+      if (profile.targetWeight != null) 'target_weight': profile.targetWeight,
       if (profile.height != null) 'height': profile.height,
       if (profile.waistline != null) 'waistline': profile.waistline,
       if (profile.gender != null) 'gender': profile.gender,

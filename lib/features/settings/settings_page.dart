@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/models/user_profile.dart';
 import '../../shared/models/body_metric.dart';
+import '../../shared/services/storage_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/unit_converter.dart';
 import '../onboarding/complete_profile_page.dart';
@@ -30,8 +31,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _weightCtrl = TextEditingController();
   final _heightCtrl = TextEditingController();
   final _waistlineCtrl = TextEditingController();
-  final _goalWeightDeltaCtrl = TextEditingController();
-  String _weightGoal = 'maintain';
+  final _targetWeightCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -45,7 +45,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _weightCtrl.dispose();
     _heightCtrl.dispose();
     _waistlineCtrl.dispose();
-    _goalWeightDeltaCtrl.dispose();
+    _targetWeightCtrl.dispose();
     super.dispose();
   }
 
@@ -77,15 +77,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         profile.waistline,
         isMetric: isMetric,
       );
-      _goalWeightDeltaCtrl.text = UnitConverter.weightToDisplay(
-        profile.goalWeightDelta,
+      _targetWeightCtrl.text = UnitConverter.weightToDisplay(
+        profile.targetWeight,
         isMetric: isMetric,
       );
-      _weightGoal = profile.weightGoal ?? 'maintain';
-
-      if (_weightGoal == 'maintain') {
-        _goalWeightDeltaCtrl.clear();
-      }
     });
   }
 
@@ -187,60 +182,92 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  void _handleWeightGoalChanged(String value) {
-    setState(() {
-      _weightGoal = value;
-      if (_weightGoal == 'maintain') {
-        _goalWeightDeltaCtrl.clear();
-      }
-    });
-  }
-
   void _refreshWeightGoalPreview(_) {
     if (!mounted) return;
     setState(() {});
   }
 
-  String _buildTargetWeightPreview() {
+  String _buildHealthyWeightCaption() {
+    final isMetric = (_profile.unitSystem ?? 'metric') == 'metric';
+    final unit = isMetric ? 'kg' : 'lbs';
+
+    final heightCm =
+        UnitConverter.parseHeight(_heightCtrl.text, isMetric: isMetric) ??
+        _profile.height;
+    final guide = StorageService.calculateHealthyWeightGuide(
+      heightCm: heightCm,
+      gender: _profile.gender,
+    );
+
+    if (guide == null) {
+      return 'Enter height to preview healthy weight range.';
+    }
+
+    final minDisplay = isMetric ? guide.minKg : UnitConverter.kgToLbs(guide.minKg);
+    final maxDisplay = isMetric ? guide.maxKg : UnitConverter.kgToLbs(guide.maxKg);
+
+    return 'Healthy range: ${minDisplay.toStringAsFixed(1)} ~ '
+        '${maxDisplay.toStringAsFixed(1)} $unit (BMI 18.5 to Devine IBW)';
+  }
+
+  ({String value, Color valueColor}) _buildGoalSummary() {
     final isMetric = (_profile.unitSystem ?? 'metric') == 'metric';
     final unit = isMetric ? 'kg' : 'lbs';
 
     final currentWeightKg =
         UnitConverter.parseWeight(_weightCtrl.text, isMetric: isMetric) ??
         _profile.weight;
-
-    if (currentWeightKg == null || currentWeightKg <= 0) {
-      return 'Enter weight to preview target weight.';
-    }
-
-    if (_weightGoal == 'maintain') {
-      final displayWeight = isMetric
-          ? currentWeightKg
-          : UnitConverter.kgToLbs(currentWeightKg);
-      return 'Target weight preview: ${displayWeight.toStringAsFixed(1)} $unit';
-    }
-
-    final goalDeltaKg = UnitConverter.parseWeight(
-      _goalWeightDeltaCtrl.text,
+    final targetWeightKg = UnitConverter.parseWeight(
+      _targetWeightCtrl.text,
       isMetric: isMetric,
     );
 
-    if (goalDeltaKg == null || goalDeltaKg <= 0) {
-      return 'Enter change amount to preview target weight.';
+    if (currentWeightKg == null ||
+        currentWeightKg <= 0 ||
+        targetWeightKg == null ||
+        targetWeightKg <= 0) {
+      return (
+        value: 'Enter weight and target weight to calculate goal.',
+        valueColor: AppTheme.mutedForeground,
+      );
     }
 
-    final targetWeightKg = _weightGoal == 'lose'
-        ? currentWeightKg - goalDeltaKg
-        : currentWeightKg + goalDeltaKg;
+    final direction = StorageService.inferGoalDirection(
+      currentWeight: currentWeightKg,
+      targetWeight: targetWeightKg,
+    );
 
-    if (targetWeightKg <= 0) {
-      return 'Target weight must be above 0.';
+    final deltaKg = targetWeightKg - currentWeightKg;
+    final deltaDisplay = isMetric ? deltaKg : UnitConverter.kgToLbs(deltaKg);
+    final heightCm =
+        UnitConverter.parseHeight(_heightCtrl.text, isMetric: isMetric) ??
+        _profile.height;
+
+    String withGoalBmi(String deltaLabel) {
+      if (heightCm == null || heightCm <= 0) return deltaLabel;
+      final heightM = heightCm / 100;
+      final targetBmi = targetWeightKg / (heightM * heightM);
+      return '$deltaLabel, ${targetBmi.toStringAsFixed(1)} BMI';
     }
 
-    final displayWeight = isMetric
-        ? targetWeightKg
-        : UnitConverter.kgToLbs(targetWeightKg);
-    return 'Target weight preview: ${displayWeight.toStringAsFixed(1)} $unit';
+    if (direction == 'maintain') {
+      return (
+        value: withGoalBmi('0.0 $unit'),
+        valueColor: AppTheme.mutedForeground,
+      );
+    }
+
+    if (direction == 'gain') {
+      return (
+        value: withGoalBmi('+${deltaDisplay.abs().toStringAsFixed(1)} $unit'),
+        valueColor: AppTheme.primary,
+      );
+    }
+
+    return (
+      value: withGoalBmi('-${deltaDisplay.abs().toStringAsFixed(1)} $unit'),
+      valueColor: AppTheme.accent,
+    );
   }
 
   void _handleSaveWeightGoal() {
@@ -250,16 +277,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       _weightCtrl.text,
       isMetric: isMetric,
     );
-    final goalWeightDelta = UnitConverter.parseWeight(
-      _goalWeightDeltaCtrl.text,
+    final targetWeight = UnitConverter.parseWeight(
+      _targetWeightCtrl.text,
       isMetric: isMetric,
     );
+    final hasTargetInput = _targetWeightCtrl.text.trim().isNotEmpty;
 
-    if (_weightGoal != 'maintain' &&
-        (goalWeightDelta == null || goalWeightDelta <= 0)) {
+    if (hasTargetInput && (targetWeight == null || targetWeight <= 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter a valid goal change amount.'),
+          content: Text('Please enter a valid target weight.'),
           backgroundColor: AppTheme.destructive,
           behavior: SnackBarBehavior.floating,
         ),
@@ -269,9 +296,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     final newProfile = _profile.copyWith(
       weight: inputWeight ?? _profile.weight,
-      weightGoal: _weightGoal,
-      goalWeightDelta: _weightGoal == 'maintain' ? null : goalWeightDelta,
-      clearGoalWeightDelta: _weightGoal == 'maintain',
+      targetWeight: targetWeight,
+      clearTargetWeight: !hasTargetInput,
     );
 
     storage.setUserProfile(newProfile);
@@ -334,7 +360,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return const Align(
       alignment: Alignment.centerLeft,
       child: Text(
-        'Use this to review your weight-goal setup in guided steps.',
+        'Use this to review your target-weight setup in guided steps.',
         style: TextStyle(fontSize: 13, color: AppTheme.mutedForeground),
       ),
     );
@@ -372,6 +398,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget build(BuildContext context) {
     ref.watch(storageProvider);
     final isMetric = (_profile.unitSystem ?? 'metric') == 'metric';
+    final goalSummary = _buildGoalSummary();
 
     return Column(
       children: [
@@ -429,11 +456,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                   const SizedBox(height: 24),
                   WeightGoalSection(
-                    goalWeightDeltaCtrl: _goalWeightDeltaCtrl,
-                    weightGoal: _weightGoal,
-                    targetPreview: _buildTargetWeightPreview(),
-                    onWeightGoalChanged: _handleWeightGoalChanged,
-                    onGoalWeightDeltaChanged: _refreshWeightGoalPreview,
+                    targetWeightCtrl: _targetWeightCtrl,
+                    healthyRangeCaption: _buildHealthyWeightCaption(),
+                    goalSummaryValue: goalSummary.value,
+                    goalSummaryValueColor: goalSummary.valueColor,
+                    onTargetWeightChanged: _refreshWeightGoalPreview,
                     onSave: _handleSaveWeightGoal,
                     isMetric: isMetric,
                   ),

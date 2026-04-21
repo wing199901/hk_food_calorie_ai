@@ -65,14 +65,13 @@ void main() {
     );
 
     test(
-      'goal direction and change amount produce intake range and use max as target',
+      'target weight produces intake range and uses max as target',
       () async {
         final profile = UserProfile(
           birthdate: '1992-03-12',
           gender: 'female',
           weight: 78,
-          weightGoal: 'lose',
-          goalWeightDelta: 13,
+          targetWeight: 65,
           height: 165,
           activityLevel: 'light',
           unitSystem: 'metric',
@@ -95,8 +94,7 @@ void main() {
         birthdate: '1992-03-12',
         gender: 'female',
         weight: 60,
-        weightGoal: 'gain',
-        goalWeightDelta: 8,
+        targetWeight: 68,
         height: 165,
         activityLevel: 'light',
       );
@@ -104,7 +102,7 @@ void main() {
       final range = StorageService.calculateCalorieIntakeRange(profile);
       final expectedModerateGoalTee = StorageService.calculateTEE(
         profile.copyWith(
-          weight: profile.weight! + profile.goalWeightDelta!,
+          weight: profile.targetWeight,
           activityLevel: 'moderate',
         ),
       );
@@ -117,18 +115,42 @@ void main() {
         birthdate: '1992-03-12',
         gender: 'female',
         weight: 60,
-        weightGoal: 'gain',
-        goalWeightDelta: 8,
+        targetWeight: 68,
         height: 165,
         activityLevel: 'active',
       );
 
       final range = StorageService.calculateCalorieIntakeRange(profile);
       final expectedActiveGoalTee = StorageService.calculateTEE(
-        profile.copyWith(weight: profile.weight! + profile.goalWeightDelta!),
+        profile.copyWith(weight: profile.targetWeight),
       );
 
       expect(range.max, expectedActiveGoalTee);
+    });
+
+    test('calculates Devine IBW for male and female', () {
+      final maleIbw = StorageService.calculateDevineIbwKg(
+        heightCm: 175,
+        gender: 'male',
+      );
+      final femaleIbw = StorageService.calculateDevineIbwKg(
+        heightCm: 165,
+        gender: 'female',
+      );
+
+      expect(maleIbw, closeTo(70.5, 0.1));
+      expect(femaleIbw, closeTo(56.9, 0.1));
+    });
+
+    test('calculates healthy range from BMI 18.5 weight to Devine IBW', () {
+      final guide = StorageService.calculateHealthyWeightGuide(
+        heightCm: 175,
+        gender: 'male',
+      );
+
+      expect(guide, isNotNull);
+      expect(guide!.minKg, closeTo(56.7, 0.1));
+      expect(guide.maxKg, closeTo(70.5, 0.1));
     });
 
     test('addBodyMetric auto-computes bmi, whtr and tee', () async {

@@ -194,12 +194,18 @@ class StorageService extends ChangeNotifier {
 
   ({int min, int max}) getDailyTargetRange() {
     final profile = getUserProfile();
-    final weightGoal = profile.weightGoal ?? 'maintain';
-    final goalWeightDelta = profile.goalWeightDelta;
+    final currentWeight = profile.weight;
+    final targetWeight = profile.targetWeight;
 
-    if (weightGoal == 'maintain' ||
-        goalWeightDelta == null ||
-        goalWeightDelta <= 0) {
+    if (currentWeight == null ||
+        currentWeight <= 0 ||
+        targetWeight == null ||
+        targetWeight <= 0 ||
+        inferGoalDirection(
+              currentWeight: currentWeight,
+              targetWeight: targetWeight,
+            ) ==
+            'maintain') {
       final target = getDailyTarget();
       return (min: target, max: target);
     }
@@ -267,39 +273,98 @@ class StorageService extends ChangeNotifier {
   /// Returns intake range where min=max for maintain mode.
   static ({int min, int max}) calculateCalorieIntakeRange(UserProfile profile) {
     final currentTee = calculateTEE(profile);
-    final weightGoal = profile.weightGoal ?? 'maintain';
     final currentWeight = profile.weight;
-    final goalWeightDelta = profile.goalWeightDelta;
+    final targetWeight = profile.targetWeight;
 
-    if (weightGoal == 'maintain' ||
-        currentWeight == null ||
+    if (currentWeight == null ||
         currentWeight <= 0 ||
-        goalWeightDelta == null ||
-        goalWeightDelta <= 0) {
+        targetWeight == null ||
+        targetWeight <= 0) {
       return (min: currentTee, max: currentTee);
     }
 
-    final goalWeight = switch (weightGoal) {
-      'lose' => currentWeight - goalWeightDelta,
-      'gain' => currentWeight + goalWeightDelta,
-      _ => currentWeight,
-    };
+    final goalDirection = inferGoalDirection(
+      currentWeight: currentWeight,
+      targetWeight: targetWeight,
+    );
 
-    if (goalWeight <= 0 || goalWeight == currentWeight) {
+    if (goalDirection == 'maintain') {
       return (min: currentTee, max: currentTee);
     }
 
-    final goalActivityLevel = weightGoal == 'gain'
+    final goalActivityLevel = goalDirection == 'gain'
         ? _goalGainActivityLevel(profile.activityLevel)
         : (profile.activityLevel ?? 'moderate');
 
     final goalTee = calculateTEE(
-      profile.copyWith(weight: goalWeight, activityLevel: goalActivityLevel),
+      profile.copyWith(weight: targetWeight, activityLevel: goalActivityLevel),
     );
 
     return (
       min: math.min(currentTee, goalTee),
       max: math.max(currentTee, goalTee),
+    );
+  }
+
+  /// Infers goal direction from current and target weight.
+  /// Returns: lose | maintain | gain
+  static String inferGoalDirection({
+    required double currentWeight,
+    required double targetWeight,
+  }) {
+    const maintainThresholdKg = 0.05;
+    if (targetWeight < currentWeight - maintainThresholdKg) {
+      return 'lose';
+    }
+    if (targetWeight > currentWeight + maintainThresholdKg) {
+      return 'gain';
+    }
+    return 'maintain';
+  }
+
+  /// Returns weight (kg) at BMI 18.5 for the given height.
+  static double? calculateHealthyBmiLowerWeightKg({required double? heightCm}) {
+    if (heightCm == null || heightCm <= 0) return null;
+    final heightM = heightCm / 100;
+    return 18.5 * heightM * heightM;
+  }
+
+  /// Devine ideal body weight in kg based on height and gender.
+  /// Formula base is at 5 ft (60 in), with 2.3 kg per inch difference.
+  static double? calculateDevineIbwKg({
+    required double? heightCm,
+    required String? gender,
+  }) {
+    if (heightCm == null || heightCm <= 0) return null;
+
+    final heightIn = heightCm / 2.54;
+    final inchDiffFromFiveFeet = heightIn - 60;
+    final maleIbw = 50 + (2.3 * inchDiffFromFiveFeet);
+    final femaleIbw = 45.5 + (2.3 * inchDiffFromFiveFeet);
+
+    return switch (gender) {
+      'male' => maleIbw,
+      'female' => femaleIbw,
+      _ => (maleIbw + femaleIbw) / 2,
+    };
+  }
+
+  /// Healthy range guide where lower bound is BMI 18.5 weight
+  /// and upper bound is Devine IBW.
+  static ({double minKg, double maxKg})? calculateHealthyWeightGuide({
+    required double? heightCm,
+    required String? gender,
+  }) {
+    final healthyLower = calculateHealthyBmiLowerWeightKg(heightCm: heightCm);
+    final devineIbw = calculateDevineIbwKg(
+      heightCm: heightCm,
+      gender: gender,
+    );
+    if (healthyLower == null || devineIbw == null) return null;
+
+    return (
+      minKg: math.min(healthyLower, devineIbw),
+      maxKg: math.max(healthyLower, devineIbw),
     );
   }
 

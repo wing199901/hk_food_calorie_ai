@@ -134,6 +134,7 @@ void main() {
       '/storage/v1/object/sign/meal-images/user-1/20260409/meal.jpg',
     );
     expect(savedImageUri.query, 'token=test-token');
+    expect(meals.first.imagePath, 'user-1/20260409/meal.jpg');
   });
 
   testWidgets('AddFoodPage lets user edit analysis before confirming save', (
