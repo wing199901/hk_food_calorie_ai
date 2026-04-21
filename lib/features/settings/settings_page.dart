@@ -203,8 +203,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       return 'Enter height to preview healthy weight range.';
     }
 
-    final minDisplay = isMetric ? guide.minKg : UnitConverter.kgToLbs(guide.minKg);
-    final maxDisplay = isMetric ? guide.maxKg : UnitConverter.kgToLbs(guide.maxKg);
+    final minDisplay = isMetric
+        ? guide.minKg
+        : UnitConverter.kgToLbs(guide.minKg);
+    final maxDisplay = isMetric
+        ? guide.maxKg
+        : UnitConverter.kgToLbs(guide.maxKg);
 
     return 'Healthy range: ${minDisplay.toStringAsFixed(1)} ~ '
         '${maxDisplay.toStringAsFixed(1)} $unit (BMI 18.5 to Devine IBW)';

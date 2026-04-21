@@ -356,10 +356,7 @@ class StorageService extends ChangeNotifier {
     required String? gender,
   }) {
     final healthyLower = calculateHealthyBmiLowerWeightKg(heightCm: heightCm);
-    final devineIbw = calculateDevineIbwKg(
-      heightCm: heightCm,
-      gender: gender,
-    );
+    final devineIbw = calculateDevineIbwKg(heightCm: heightCm, gender: gender);
     if (healthyLower == null || devineIbw == null) return null;
 
     return (
