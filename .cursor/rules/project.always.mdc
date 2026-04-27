@@ -1,0 +1,49 @@
+---
+description: "Global rules for FitCalorie (language, verification, testing, UX non-negotiables)."
+globs: "**/*"
+alwaysApply: true
+---
+
+# FitCalorie — Global Project Rules
+
+## Highest Rules
+
+- **Language:** Reply to the user in **Chinese (Hong Kong / Cantonese)**. Keep technical terms in English. All generated code and code comments must be in English.
+- **Verification:** Always run `dart analyze` after editing `.dart` files and ensure zero errors.
+- **Testing after edits:** After agent edits to app code, add/update unit tests (`test/`) and integration tests (`integration_test/`) where applicable. Run `flutter test` (and integration tests if set up) to verify and ensure zero failures. If integration tests cannot be added due to technical constraints, state the reason in the response (not in code comments).
+- **Docs:** When making major changes or adding new features, update `README.md` and any affected instruction files in the same task.
+
+## Required Local Docs (Read First)
+
+- Before working in `test/`, `integration_test/`, `supabase/`, or `postman/`, read the folder `README.md` and follow local workflow notes.
+- If commands, file layout, or flows change in those folders, update the corresponding folder `README.md` in the same task.
+
+## Agent Collaboration Style (Cursor)
+
+- **Think first, then implement:** Evaluate technical risk, UX impact, performance, and maintainability before coding.
+- **Raise concerns early:** If something is risky or inconsistent with project rules, state why and proceed with the safest reasonable option.
+- **Prefer better alternatives:** When a cleaner approach exists, pick it and briefly note trade-offs.
+- **Be decisive on ambiguity:** If requirements are underspecified, make the smallest reasonable assumption, implement accordingly, and call out assumptions in the response.
+- **Tone:** Normal replies in Chinese (HK). User-facing “insight” copy should sound like casual HK English (friendly and practical).
+
+## Product UI/UX Non-Negotiables
+
+- **Architecture:** Keep feature-first structure (`lib/features/`, `lib/core/`, `lib/shared/`).
+- **Copy language:** All in-app UI text must be English only.
+- **Design system:** Use `AppTheme` and `AppSpacing`; avoid hardcoded colours and spacing values.
+- **Brand colours:** Primary green `#10B981`, accent orange `#FF6B35`.
+- **Visual direction:** Light mode only, Material 3, radius `16` as the default for cards and primary buttons.
+- **Dialogs:** Use `CupertinoAlertDialog` for all user confirmation/decision dialogs.
+- **Charts:** Use `fl_chart` with weekday labels `S/M/T/W/T/F/S`.
+- **AI contract:** Keep meal analysis aligned with the Supabase Edge Function `analyze-meal` structured JSON contract.
+- **Core flow integrity:** Preserve onboarding and daily check-in flow expectations.
+
+## Testing Conventions
+
+- Keep tests grouped by type and feature under `test/unit/`, `test/widget/`, and `integration_test/`.
+- Prefer deterministic widget/e2e tests using provider overrides + fake services to avoid external dependencies.
+
+## Architecture & Database Security
+
+- **Source of truth:** `supabase/schema.sql`.
+- **RLS:** All tables must enforce Row Level Security. All policies use `auth.uid() = user_id`. Never bypass RLS on the client side.

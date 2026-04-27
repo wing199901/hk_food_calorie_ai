@@ -205,6 +205,7 @@ class _EnergyChartCardState extends ConsumerState<EnergyChartCard> {
 
     return ChartCard(
       title: 'Energy Intake',
+      showTitleBadge: false,
       header: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -240,7 +241,7 @@ class _EnergyChartCardState extends ConsumerState<EnergyChartCard> {
             Expanded(
               child: SummaryChip(
                 color: AppTheme.accent,
-                label: 'TEE',
+                label: 'Target Intake',
                 value: '$avgTarget kcal',
               ),
             ),

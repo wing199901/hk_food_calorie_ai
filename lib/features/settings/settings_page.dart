@@ -1,13 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/models/user_profile.dart';
 import '../../shared/models/body_metric.dart';
 import '../../shared/services/storage_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_time_policy.dart';
 import '../../core/utils/unit_converter.dart';
 import '../onboarding/complete_profile_page.dart';
 import '../profile/profile_page.dart';
@@ -155,7 +155,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       _waistlineCtrl.text,
       isMetric: isMetric,
     );
-    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final todayStr = AppTimePolicy.formatDateKeyLocal(DateTime.now());
 
     // Keep advanced goals unchanged and only quick-edit essential metrics.
     final newProfile = _profile.copyWith(
@@ -210,8 +210,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ? guide.maxKg
         : UnitConverter.kgToLbs(guide.maxKg);
 
-    return 'Healthy range: ${minDisplay.toStringAsFixed(1)} ~ '
-        '${maxDisplay.toStringAsFixed(1)} $unit (BMI 18.5 to Devine IBW)';
+    return 'Healthy range: ${minDisplay.toStringAsFixed(1)} $unit ~ '
+        '${maxDisplay.toStringAsFixed(1)} $unit';
   }
 
   ({String value, Color valueColor}) _buildGoalSummary() {

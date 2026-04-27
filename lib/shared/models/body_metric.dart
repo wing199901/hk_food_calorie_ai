@@ -1,3 +1,5 @@
+import '../../core/utils/app_time_policy.dart';
+
 class BodyMetric {
   final String date; // YYYY-MM-DD
   final double? weight;
@@ -24,7 +26,7 @@ class BodyMetric {
     'bmi': bmi,
     'whtr': whtr,
     'tee': tee,
-    'created_at': createdAt,
+    'created_at': AppTimePolicy.normalizeTransportTimestamp(createdAt),
   };
 
   factory BodyMetric.fromJson(Map<String, dynamic> json) => BodyMetric(
@@ -36,7 +38,9 @@ class BodyMetric {
     bmi: json['bmi'] != null ? (json['bmi'] as num).toDouble() : null,
     whtr: json['whtr'] != null ? (json['whtr'] as num).toDouble() : null,
     tee: json['tee'] != null ? (json['tee'] as num).toInt() : null,
-    createdAt: json['created_at'] as String?,
+    createdAt: AppTimePolicy.normalizeTransportTimestamp(
+      json['created_at'] as String?,
+    ),
   );
 
   BodyMetric copyWith({

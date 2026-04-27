@@ -358,7 +358,9 @@ class FoodAnalysisService {
 
     final items = rawItems
         .whereType<Map>()
-        .map((item) => _normalizeIngredientItem(Map<String, dynamic>.from(item)))
+        .map(
+          (item) => _normalizeIngredientItem(Map<String, dynamic>.from(item)),
+        )
         .toList();
 
     if (items.isEmpty) {

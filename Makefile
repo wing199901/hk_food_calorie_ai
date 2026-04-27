@@ -1,12 +1,34 @@
-run:
-	dart run build_runner build --delete-conflicting-outputs && flutter run
-
 IOS_SIM ?= iPhone 13 Pro
 TEST_EMAIL ?= test@example.com
 TEST_PASSWORD ?= 12345678
 TEST_IMAGE_PATH ?= integration_test/images/3_egg_tarts.jpg
 SUPABASE_TEST_USER_ID ?= 00000000-0000-0000-0000-000000000001
 
+.PHONY: \
+	build \
+	db-migrate \
+	db-reset \
+	deploy-fn \
+	deploy-functions \
+	gen \
+	postman-fixtures \
+	run \
+	serve-functions \
+	set-secrets \
+	test-analysis-flow \
+	test-auto-setup-flow
+
+## ── Flutter / codegen ─────────────────────────────────────────────────────────
+run:
+	dart run build_runner build --delete-conflicting-outputs && flutter run
+
+build:
+	dart run build_runner build --delete-conflicting-outputs && flutter build ios
+
+gen:
+	dart run build_runner build --delete-conflicting-outputs
+
+## ── Integration tests ─────────────────────────────────────────────────────────
 test-analysis-flow:
 	flutter test integration_test/analysis_food_flow_test.dart -d "$(IOS_SIM)" \
 		--dart-define=TEST_EMAIL="$(if $(EMAIL),$(EMAIL),$(TEST_EMAIL))" \
@@ -18,12 +40,7 @@ test-auto-setup-flow:
 		--dart-define=TEST_EMAIL="$(if $(EMAIL),$(EMAIL),$(TEST_EMAIL))" \
 		--dart-define=TEST_PASSWORD="$(if $(PASSWORD),$(PASSWORD),$(TEST_PASSWORD))"
 
-build:
-	dart run build_runner build --delete-conflicting-outputs && flutter build ios
-
-gen:
-	dart run build_runner build --delete-conflicting-outputs
-
+## ── Postman fixtures / local DB ───────────────────────────────────────────────
 # Upload Postman fixture images to local Supabase Storage for a specific user id.
 postman-fixtures:
 	POSTMAN_FIXTURE_USER_ID="$(SUPABASE_TEST_USER_ID)" bash postman/setup-local-fixtures.sh
@@ -37,7 +54,7 @@ db-reset:
 	fi
 	POSTMAN_FIXTURE_USER_ID="$(SUPABASE_TEST_USER_ID)" bash postman/setup-local-fixtures.sh
 
-# ── Supabase Edge Functions ──────────────────────────
+## ── Supabase Edge Functions ───────────────────────────────────────────────────
 # Deploy all edge functions at once
 deploy-functions:
 	supabase functions deploy

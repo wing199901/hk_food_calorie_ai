@@ -202,17 +202,6 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- Section Title ---
-                  const Text(
-                    'Today',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
                   // --- 1. Energy Intake Preview Card ---
                   AnalysisPreviewCard(
                     title: 'Energy Intake',

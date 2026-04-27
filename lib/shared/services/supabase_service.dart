@@ -5,6 +5,7 @@ import '../models/user_profile.dart';
 import '../models/body_metric.dart';
 import '../models/quick_add_item.dart';
 import '../../env/env.dart';
+import '../../core/utils/app_time_policy.dart';
 import '../utils/storage_url_utils.dart';
 
 class SupabaseService extends ChangeNotifier {
@@ -309,6 +310,10 @@ class SupabaseService extends ChangeNotifier {
 
   Future<void> saveBodyMetric(BodyMetric metric) async {
     final uid = _requireUid();
+    final normalizedCreatedAt = AppTimePolicy.normalizeTransportTimestamp(
+      metric.createdAt,
+    );
+
     await _client.from('body_metrics').insert({
       'user_id': uid,
       'date': metric.date,
@@ -317,7 +322,7 @@ class SupabaseService extends ChangeNotifier {
       'bmi': metric.bmi,
       'whtr': metric.whtr,
       'tee': metric.tee,
-      if (metric.createdAt != null) 'created_at': metric.createdAt,
+      if (normalizedCreatedAt != null) 'created_at': normalizedCreatedAt,
     });
   }
 

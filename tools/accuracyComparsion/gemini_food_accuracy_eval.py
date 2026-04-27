@@ -359,7 +359,8 @@ def resolve_model_name(model_name: str) -> str:
 
 def parse_cli_args(config: EvalConfig, argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse optional runtime overrides from CLI arguments."""
-    detected_reset_tz = detect_host_timezone_name(config.daily_quota_reset_timezone)
+    detected_reset_tz = detect_host_timezone_name(
+        config.daily_quota_reset_timezone)
 
     parser = argparse.ArgumentParser(
         description=(
@@ -469,11 +470,13 @@ def detect_host_timezone_name(fallback_timezone: str) -> str:
 
 def parse_quota_wait_seconds(message: str) -> Optional[int]:
     """Parse a suggested wait duration in seconds from quota error message."""
-    match = re.search(r"approximately\s+([0-9]+)\s+seconds", message, re.IGNORECASE)
+    match = re.search(
+        r"approximately\s+([0-9]+)\s+seconds", message, re.IGNORECASE)
     if match:
         return int(match.group(1))
 
-    match = re.search(r"retry in\s+([0-9]+(?:\.[0-9]+)?)s", message, re.IGNORECASE)
+    match = re.search(
+        r"retry in\s+([0-9]+(?:\.[0-9]+)?)s", message, re.IGNORECASE)
     if match:
         return max(1, int(float(match.group(1))))
 
@@ -485,7 +488,8 @@ def seconds_until_next_daily_reset(timezone_name: str) -> int:
     try:
         tz = ZoneInfo(timezone_name)
     except Exception:
-        logging.warning("Invalid timezone '%s'. Falling back to UTC for reset estimate.", timezone_name)
+        logging.warning(
+            "Invalid timezone '%s'. Falling back to UTC for reset estimate.", timezone_name)
         tz = ZoneInfo("UTC")
 
     now = datetime.now(tz)
@@ -1369,7 +1373,8 @@ def main(argv: Optional[List[str]] = None) -> None:
         gemini_rpm_limit=args.rpm_limit,
         gemini_tpm_limit=args.tpm_limit,
         gemini_rpd_limit=args.rpd_limit,
-        daily_quota_reset_timezone=str(args.daily_reset_timezone).strip() or CFG.daily_quota_reset_timezone,
+        daily_quota_reset_timezone=str(
+            args.daily_reset_timezone).strip() or CFG.daily_quota_reset_timezone,
         output_dir=CFG.output_dir / model_slug(selected_model),
     )
 
@@ -1463,7 +1468,8 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     logging.info("Running model: %s", runtime_cfg.model_name)
     logging.info("Output folder: %s", runtime_cfg.output_dir)
-    logging.info("Daily quota reset timezone: %s", runtime_cfg.daily_quota_reset_timezone)
+    logging.info("Daily quota reset timezone: %s",
+                 runtime_cfg.daily_quota_reset_timezone)
     warn_if_quota_seems_too_high(runtime_cfg)
     logging.info(
         "Quota policy: RPM=%d (burst then wait next minute) | TPM=%d (target=%.0f%%) | "

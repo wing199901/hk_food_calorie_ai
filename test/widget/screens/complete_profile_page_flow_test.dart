@@ -293,7 +293,7 @@ void main() {
       await tester.pump();
 
       expect(
-        find.text('Healthy range: 56.7 ~ 70.5 kg (BMI 18.5 to Devine IBW)'),
+        find.text('Healthy range: 56.7 kg~ 70.5 kg'),
         findsOneWidget,
       );
 

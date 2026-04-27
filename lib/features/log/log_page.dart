@@ -152,7 +152,7 @@ class _LogPageState extends ConsumerState<LogPage> {
                 Expanded(
                   child: meals.isEmpty
                       ? Align(
-                          alignment: Alignment.center,
+                          alignment: Alignment.topCenter,
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(32),

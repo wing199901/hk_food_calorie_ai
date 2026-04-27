@@ -58,6 +58,8 @@ class AppLoader extends ConsumerStatefulWidget {
 enum _Phase { loading, landing, auth, app }
 
 class _AppLoaderState extends ConsumerState<AppLoader> {
+  static const _startupTimeout = Duration(seconds: 12);
+
   _Phase _phase = _Phase.loading;
 
   // When the app starts with an existing session, Supabase fires a signedIn
@@ -94,9 +96,16 @@ class _AppLoaderState extends ConsumerState<AppLoader> {
           }
           // Fresh login: clear any stale local/demo data, then sync cloud data.
           storage.clearAllLocalData();
-          storage.syncFromSupabase().then((_) {
-            if (mounted) setState(() => _phase = _Phase.app);
-          });
+          storage
+              .syncFromSupabase()
+              .timeout(_startupTimeout)
+              .then((_) {
+                if (mounted) setState(() => _phase = _Phase.app);
+              })
+              .catchError((e) {
+                debugPrint('Signed-in sync timeout/error: $e');
+                if (mounted) setState(() => _phase = _Phase.app);
+              });
         } else if (event.event == AuthChangeEvent.signedOut) {
           _skipNextSignIn = false;
           setState(() => _phase = _Phase.landing);
@@ -105,7 +114,7 @@ class _AppLoaderState extends ConsumerState<AppLoader> {
 
       if (isAuth) {
         // Already logged in: sync first, then show app.
-        await storage.syncFromSupabase();
+        await storage.syncFromSupabase().timeout(_startupTimeout);
       }
       if (!mounted) return;
       setState(() {
@@ -174,7 +183,10 @@ class _AppShellState extends ConsumerState<AppShell> {
       final supabase = ref.read(supabaseProvider);
       if (supabase.isAuthenticated) {
         try {
-          final remote = await supabase.fetchProfile();
+          final remote = await supabase.fetchProfile().timeout(
+            _AppLoaderState._startupTimeout,
+            onTimeout: () => profile,
+          );
           if (remote.isProfileComplete) {
             await storage.setUserProfile(remote);
             profile = remote;
@@ -228,15 +240,26 @@ class _AppShellState extends ConsumerState<AppShell> {
 /// Main app scaffold with bottom navigation.
 class MainScaffold extends ConsumerStatefulWidget {
   final bool showTestControls;
+  final int initialIndex;
 
-  const MainScaffold({super.key, this.showTestControls = false});
+  static final ValueNotifier<int?> _tabJumpNotifier = ValueNotifier<int?>(null);
+
+  static void jumpToTab(int index) {
+    _tabJumpNotifier.value = index;
+  }
+
+  const MainScaffold({
+    super.key,
+    this.showTestControls = false,
+    this.initialIndex = 0,
+  });
 
   @override
   ConsumerState<MainScaffold> createState() => _MainScaffoldState();
 }
 
 class _MainScaffoldState extends ConsumerState<MainScaffold> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   late final List<Widget> _pages = [
     HomePage(
@@ -257,6 +280,31 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     const LogPage(),
     const SettingsPage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    MainScaffold._tabJumpNotifier.addListener(_handleExternalTabJump);
+  }
+
+  @override
+  void dispose() {
+    MainScaffold._tabJumpNotifier.removeListener(_handleExternalTabJump);
+    super.dispose();
+  }
+
+  void _handleExternalTabJump() {
+    final target = MainScaffold._tabJumpNotifier.value;
+    if (target == null || !mounted) return;
+    if (target < 0 || target > 4) {
+      MainScaffold._tabJumpNotifier.value = null;
+      return;
+    }
+
+    setState(() => _currentIndex = target);
+    MainScaffold._tabJumpNotifier.value = null;
+  }
 
   void _onNavTap(int index) {
     if (index == 2) {

@@ -42,14 +42,13 @@ void main() {
 
       var events = 0;
       int? lastValue;
-      final subscription = container.listen<int>(
-        storageSignalProvider,
-        (previous, next) {
-          events = events + 1;
-          lastValue = next;
-        },
-        fireImmediately: true,
-      );
+      final subscription = container.listen<int>(storageSignalProvider, (
+        previous,
+        next,
+      ) {
+        events = events + 1;
+        lastValue = next;
+      }, fireImmediately: true);
       addTearDown(subscription.close);
 
       expect(lastValue, 0);

@@ -7,23 +7,23 @@ Model: gemini-2.5-flash
 
 Run summary
 ------------------------------------------------------
-Attempt rows (all runs): 38
-Latest unique images: 38
-Successful predictions: 38
+Attempt rows (all runs): 101
+Latest unique images: 100
+Successful predictions: 100
 Failed predictions: 0
 
 MAPE by schema total field (%)
 ------------------------------------------------------
-   total_calories (kcal):   75.726 (valid comparisons=38)
-       total_protein (g):   80.109 (valid comparisons=38)
-          total_carb (g):  125.830 (valid comparisons=38)
-           total_fat (g):  149.690 (valid comparisons=38)
-          total_mass (g):   41.877 (valid comparisons=38)
+   total_calories (kcal):   59.756 (valid comparisons=100)
+       total_protein (g):   64.636 (valid comparisons=100)
+          total_carb (g):  101.775 (valid comparisons=100)
+           total_fat (g):   97.260 (valid comparisons=100)
+          total_mass (g):   39.943 (valid comparisons=100)
 
 Overall
 ------------------------------------------------------
-Overall MAPE: 94.646%
-Estimated accuracy (100 - MAPE): 5.354%
+Overall MAPE: 72.674%
+Estimated accuracy (100 - MAPE): 27.326%
 
 Note: This report strictly follows public schema totals (total_calories, total_mass, total_fat, total_carb, total_protein).
 Model switching policy: changing --model starts a fresh full comparison run.

@@ -15,8 +15,9 @@ final storageProvider = Provider<StorageService>((ref) {
 ///
 /// This keeps the app on Riverpod's non-legacy API while preserving
 /// ChangeNotifier-driven refresh behavior from [StorageService].
-final storageSignalProvider =
-    NotifierProvider<_StorageSignalNotifier, int>(_StorageSignalNotifier.new);
+final storageSignalProvider = NotifierProvider<_StorageSignalNotifier, int>(
+  _StorageSignalNotifier.new,
+);
 
 class _StorageSignalNotifier extends Notifier<int> {
   @override

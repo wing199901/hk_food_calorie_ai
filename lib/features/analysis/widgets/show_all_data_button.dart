@@ -23,12 +23,6 @@ class ShowAllDataButton extends StatelessWidget {
         ),
         child: Row(
           children: const [
-            Icon(
-              Icons.calendar_view_month_rounded,
-              color: AppTheme.mutedForeground,
-              size: 20,
-            ),
-            SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
                 'Show All Data',

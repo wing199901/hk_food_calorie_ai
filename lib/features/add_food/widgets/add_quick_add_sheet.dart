@@ -4,7 +4,7 @@ import '../../../shared/providers/providers.dart';
 import '../../../shared/models/quick_add_item.dart';
 import '../../../core/theme/app_theme.dart';
 
-void showAddQuickAddSheet({
+Future<void> showAddQuickAddSheet({
   required BuildContext context,
   required WidgetRef ref,
   required List<String> availableIcons,
@@ -18,7 +18,7 @@ void showAddQuickAddSheet({
   String selectedIcon = '🍽️';
   bool nameError = false;
 
-  showModalBottomSheet(
+  return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,

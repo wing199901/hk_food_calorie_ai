@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/models/body_metric.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_time_policy.dart';
 import '../../core/utils/unit_converter.dart';
-import 'package:intl/intl.dart';
 
 class CheckInPage extends ConsumerStatefulWidget {
   final VoidCallback onComplete;
@@ -56,7 +56,7 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
       _waistlineController.text,
       isMetric: _isMetric,
     );
-    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final todayStr = AppTimePolicy.formatDateKeyLocal(DateTime.now());
 
     storage.addBodyMetric(
       BodyMetric(date: todayStr, weight: newWeight, waistline: newWaistline),
@@ -74,7 +74,7 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
   }
 
   void _handleSkip() {
-    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final todayStr = AppTimePolicy.formatDateKeyLocal(DateTime.now());
     ref.read(storageProvider).setLastCheckInDate(todayStr);
     widget.onComplete();
   }

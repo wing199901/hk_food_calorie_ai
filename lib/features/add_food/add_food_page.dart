@@ -36,6 +36,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
   bool _saving = false;
   Map<String, dynamic>? _result;
   bool _analysisEdited = false;
+  bool _isAiResult = false;
   bool _isEditMode = false;
   List<QuickAddItem> _quickAddItems = [];
 
@@ -103,6 +104,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       _analyzing = true;
       _saving = false;
       _result = null;
+      _isAiResult = false;
     });
 
     try {
@@ -113,6 +115,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       setState(() {
         _result = result;
         _analysisEdited = false;
+        _isAiResult = true;
         final image = result['image'] as Map<String, dynamic>?;
         final imageUrl = image?['url'] as String?;
         if (imageUrl != null && imageUrl.isNotEmpty) {
@@ -139,6 +142,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       _selectedImage = null;
       _result = null;
       _analysisEdited = false;
+      _isAiResult = false;
     });
 
     final onAnalysisFailed = widget.onAnalysisFailed;
@@ -191,6 +195,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
     setState(() {
       _selectedImage = null;
       _analysisEdited = false;
+      _isAiResult = false;
       _result = {
         'name': item.name,
         'meal': {
@@ -251,6 +256,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       _analyzing = false;
       _saving = false;
       _analysisEdited = false;
+      _isAiResult = false;
     });
   }
 
@@ -278,7 +284,7 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
       builder: (sheetContext) => MealEditorModal(
         date: _resolveMealDate(currentResult),
         initialMeal: initialMeal,
-        modalTitle: 'Edit AI Result',
+        modalTitle: _isAiResult ? 'Edit AI Result' : 'Edit Meal',
         saveToStorage: false,
       ),
     );
@@ -508,7 +514,15 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => Navigator.of(context).pop(),
+                        onTap: () {
+                          // If user is viewing a quick-add / analysis result, close should return
+                          // to the Add Food capture view instead of exiting the page.
+                          if (_result != null || _selectedImage != null) {
+                            _handleReset();
+                            return;
+                          }
+                          Navigator.of(context).pop();
+                        },
                         child: Container(
                           width: 36,
                           height: 36,
@@ -655,11 +669,15 @@ class _AddFoodPageState extends ConsumerState<AddFoodPage> {
               )
             else
               GestureDetector(
-                onTap: () => showAddQuickAddSheet(
-                  context: context,
-                  ref: ref,
-                  availableIcons: _availableIcons,
-                ),
+                onTap: () async {
+                  await showAddQuickAddSheet(
+                    context: context,
+                    ref: ref,
+                    availableIcons: _availableIcons,
+                  );
+                  if (!mounted) return;
+                  _loadQuickAddItems();
+                },
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(

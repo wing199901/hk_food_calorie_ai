@@ -70,3 +70,13 @@ All deep architectural rules, database schema details, and UI flow constraints h
 - **Coding Rules**: Read [`.github/copilot-instructions.md`](.github/copilot-instructions.md) for codebase conventions, file structures, and Dart/Flutter visual guidelines.
 - **App Architecture & Flow**: See [`.github/instructions/readme-rules.instructions.md`](.github/instructions/readme-rules.instructions.md) for routing (`AppLoader` rules), edge cases, and UI rules like the settings page structure and iOS-style interactions.
 - **Database Schema**: The absolute source of truth is [`supabase/schema.sql`](supabase/schema.sql). Never bypass Row Level Security policies.
+
+## Timezone Policy
+
+FitCalorie uses a single timezone policy across app and backend integration:
+
+- **Write layer:** Persist transport timestamps in UTC ISO 8601 (for example, `created_at`).
+- **Display layer:** Convert timestamps to device local time before rendering to users.
+- **Grouping layer:** Day/week/month buckets must explicitly use device local timezone.
+- **Transport layer:** API timestamp payloads should include timezone (`Z` or offset). Avoid timezone-naive timestamp strings.
+- **Spec layer:** Date-only keys (`YYYY-MM-DD`) represent the device local calendar day.

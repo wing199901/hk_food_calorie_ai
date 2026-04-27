@@ -26,6 +26,7 @@ class WeightGoalSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final targetHint = isMetric ? '65' : '143';
+    final isTargetWeightEmpty = targetWeightCtrl.text.trim().isEmpty;
 
     return SettingsSection(
       icon: Icons.flag_outlined,
@@ -57,21 +58,40 @@ class WeightGoalSection extends StatelessWidget {
               color: AppTheme.muted,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.foreground,
-                ),
-                children: [
-                  const TextSpan(text: 'Goal: '),
-                  TextSpan(
-                    text: goalSummaryValue,
-                    style: TextStyle(color: goalSummaryValueColor),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Goal: ',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.foreground,
                   ),
-                ],
-              ),
+                ),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: isTargetWeightEmpty
+                          ? const SizedBox.shrink(key: Key('weight_goal_empty'))
+                          : Text(
+                              key: const ValueKey('weight_goal_text'),
+                              goalSummaryValue,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: goalSummaryValueColor,
+                                height: 1.25,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),

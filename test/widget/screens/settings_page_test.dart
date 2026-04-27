@@ -10,10 +10,13 @@ import '../../helpers/fake_supabase_service.dart';
 import '../../helpers/plugin_mocks.dart';
 import '../../helpers/test_app.dart';
 
-RichText _goalSummaryRichText(WidgetTester tester, String plainText) {
-  return tester.widget<RichText>(
+Text _goalSummaryText(WidgetTester tester, String goalSummaryValue) {
+  return tester.widget<Text>(
     find.byWidgetPredicate(
-      (widget) => widget is RichText && widget.text.toPlainText() == plainText,
+      (widget) =>
+          widget is Text &&
+          widget.key == const ValueKey('weight_goal_text') &&
+          widget.data == goalSummaryValue,
     ),
   );
 }
@@ -60,34 +63,22 @@ void main() {
     expect(find.text('Waistline'), findsOneWidget);
     expect(find.text('Target Weight'), findsOneWidget);
     expect(find.text('Change Amount'), findsNothing);
-    expect(
-      find.text('Healthy range: 56.7 ~ 70.5 kg (BMI 18.5 to Devine IBW)'),
-      findsOneWidget,
-    );
+    expect(find.text('Healthy range: 56.7 kg ~ 70.5 kg'), findsOneWidget);
 
-    final initialGoal = _goalSummaryRichText(tester, 'Goal: -5.0 kg, 21.2 BMI');
-    final initialGoalSpan = initialGoal.text as TextSpan;
-    expect(initialGoalSpan.style?.color, AppTheme.foreground);
-    expect(initialGoalSpan.children, hasLength(2));
-    final initialGoalValue = initialGoalSpan.children!.last as TextSpan;
-    expect(initialGoalValue.text, '-5.0 kg, 21.2 BMI');
-    expect(initialGoalValue.style?.color, AppTheme.accent);
+    final initialGoal = _goalSummaryText(tester, '-5.0 kg, 21.2 BMI');
+    expect(initialGoal.style?.color, AppTheme.accent);
 
     await tester.enterText(find.byType(TextField).at(0), '72');
     await tester.pump();
 
-    final lossGoal = _goalSummaryRichText(tester, 'Goal: -7.0 kg, 21.2 BMI');
-    final lossGoalSpan = lossGoal.text as TextSpan;
-    final lossGoalValue = lossGoalSpan.children!.last as TextSpan;
-    expect(lossGoalValue.style?.color, AppTheme.accent);
+    final lossGoal = _goalSummaryText(tester, '-7.0 kg, 21.2 BMI');
+    expect(lossGoal.style?.color, AppTheme.accent);
 
     await tester.enterText(find.byType(TextField).at(3), '75');
     await tester.pump();
 
-    final gainGoal = _goalSummaryRichText(tester, 'Goal: +3.0 kg, 24.5 BMI');
-    final gainGoalSpan = gainGoal.text as TextSpan;
-    final gainGoalValue = gainGoalSpan.children!.last as TextSpan;
-    expect(gainGoalValue.style?.color, AppTheme.primary);
+    final gainGoal = _goalSummaryText(tester, '+3.0 kg, 24.5 BMI');
+    expect(gainGoal.style?.color, AppTheme.primary);
 
     expect(
       find.text('Use this to review your target-weight setup in guided steps.'),
@@ -112,5 +103,40 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Complete Your Profile'), findsOneWidget);
+  });
+
+  testWidgets('shows goal skeleton when target weight is empty', (
+    tester,
+  ) async {
+    final storage = FakeStorageService(
+      profile: UserProfile(
+        birthdate: '1996-02-02',
+        gender: 'male',
+        unitSystem: 'metric',
+        weight: 70,
+        targetWeight: null,
+        height: 175,
+        waistline: 80,
+        activityLevel: 'light',
+      ),
+    );
+
+    await tester.pumpWidget(
+      buildTestApp(
+        overrides: [
+          storageProvider.overrideWith((ref) => storage),
+          supabaseProvider.overrideWith((ref) => FakeSupabaseService()),
+        ],
+        child: const Scaffold(body: SettingsPage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Weight Goal'), findsOneWidget);
+    expect(find.text('Goal: '), findsOneWidget);
+    expect(find.byKey(const Key('weight_goal_empty')), findsOneWidget);
+    expect(find.byKey(const Key('weight_goal_skeleton')), findsNothing);
+    expect(find.byKey(const ValueKey('weight_goal_text')), findsNothing);
   });
 }

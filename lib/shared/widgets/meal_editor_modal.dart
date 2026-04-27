@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -30,6 +31,9 @@ class MealEditorModal extends ConsumerStatefulWidget {
 }
 
 class _MealEditorModalState extends ConsumerState<MealEditorModal> {
+  final _formKey = GlobalKey<FormState>();
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+
   late TextEditingController _nameCtrl;
   late TextEditingController _caloriesCtrl;
   late TextEditingController _proteinCtrl;
@@ -37,6 +41,7 @@ class _MealEditorModalState extends ConsumerState<MealEditorModal> {
   late TextEditingController _fatCtrl;
   late TextEditingController _sugarCtrl;
   String? _image;
+  bool _canSave = false;
 
   @override
   void initState() {
@@ -58,10 +63,16 @@ class _MealEditorModalState extends ConsumerState<MealEditorModal> {
       text: widget.initialMeal?.sugar?.toString() ?? '',
     );
     _image = widget.initialMeal?.image;
+
+    _nameCtrl.addListener(_recomputeCanSave);
+    _caloriesCtrl.addListener(_recomputeCanSave);
+    _recomputeCanSave();
   }
 
   @override
   void dispose() {
+    _nameCtrl.removeListener(_recomputeCanSave);
+    _caloriesCtrl.removeListener(_recomputeCanSave);
     _nameCtrl.dispose();
     _caloriesCtrl.dispose();
     _proteinCtrl.dispose();
@@ -69,6 +80,15 @@ class _MealEditorModalState extends ConsumerState<MealEditorModal> {
     _fatCtrl.dispose();
     _sugarCtrl.dispose();
     super.dispose();
+  }
+
+  void _recomputeCanSave() {
+    final name = _nameCtrl.text.trim();
+    final caloriesRaw = _caloriesCtrl.text.trim();
+    final calories = int.tryParse(caloriesRaw);
+    final nextCanSave = name.isNotEmpty && calories != null && calories > 0;
+    if (_canSave == nextCanSave) return;
+    setState(() => _canSave = nextCanSave);
   }
 
   String get _resolvedTitle {
@@ -91,14 +111,17 @@ class _MealEditorModalState extends ConsumerState<MealEditorModal> {
   }
 
   void _handleSave() {
-    final name = _nameCtrl.text.trim();
-    final calories = int.tryParse(_caloriesCtrl.text.trim());
-    if (name.isEmpty || calories == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter meal name and calories')),
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) {
+      _messengerKey.currentState?.hideCurrentSnackBar();
+      _messengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text('Please fix the errors and try again')),
       );
       return;
     }
+
+    final name = _nameCtrl.text.trim();
+    final calories = int.parse(_caloriesCtrl.text.trim());
 
     final protein = int.tryParse(_proteinCtrl.text.trim());
     final carbs = int.tryParse(_carbsCtrl.text.trim());
@@ -132,28 +155,35 @@ class _MealEditorModalState extends ConsumerState<MealEditorModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-      ),
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          24,
-          24,
-          MediaQuery.of(context).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return ScaffoldMessenger(
+      key: _messengerKey,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+          ),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
+            child: Form(
+              key: _formKey,
+              autovalidateMode: AutovalidateMode.disabled,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -171,13 +201,32 @@ class _MealEditorModalState extends ConsumerState<MealEditorModal> {
               ],
             ),
             const SizedBox(height: 24),
-            _buildField('Meal Name', _nameCtrl, 'e.g., Grilled Chicken'),
+            _buildField(
+              'Meal Name *',
+              _nameCtrl,
+              'e.g., Grilled Chicken',
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (v) {
+                final value = v?.trim() ?? '';
+                if (value.isEmpty) return 'Meal name is required';
+                return null;
+              },
+            ),
             const SizedBox(height: 16),
             _buildField(
               'Calories (kcal) *',
               _caloriesCtrl,
-              '0',
+              'e.g., 450',
               isNumber: true,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (v) {
+                final raw = v?.trim() ?? '';
+                final parsed = int.tryParse(raw);
+                if (raw.isEmpty) return 'Calories is required';
+                if (parsed == null) return 'Calories must be a number';
+                if (parsed <= 0) return 'Calories must be greater than 0';
+                return null;
+              },
             ),
             const SizedBox(height: 16),
             Row(
@@ -322,7 +371,7 @@ class _MealEditorModalState extends ConsumerState<MealEditorModal> {
                   child: SizedBox(
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _handleSave,
+                      onPressed: _canSave ? _handleSave : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primary,
                         foregroundColor: Colors.white,
@@ -340,7 +389,10 @@ class _MealEditorModalState extends ConsumerState<MealEditorModal> {
                 ),
               ],
             ),
-          ],
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -351,6 +403,8 @@ class _MealEditorModalState extends ConsumerState<MealEditorModal> {
     TextEditingController ctrl,
     String hint, {
     bool isNumber = false,
+    String? Function(String?)? validator,
+    AutovalidateMode? autovalidateMode,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,9 +414,13 @@ class _MealEditorModalState extends ConsumerState<MealEditorModal> {
           style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
         ),
         const SizedBox(height: 8),
-        TextField(
+        TextFormField(
           controller: ctrl,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          inputFormatters:
+              isNumber ? [FilteringTextInputFormatter.digitsOnly] : null,
+          validator: validator,
+          autovalidateMode: autovalidateMode,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: AppTheme.mutedForeground),

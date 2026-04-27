@@ -6,6 +6,7 @@ import '../../shared/providers/providers.dart';
 import '../../shared/models/user_profile.dart';
 import '../../shared/models/body_metric.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_time_policy.dart';
 import 'widgets/profile_progress_dots.dart';
 import 'widgets/profile_field_label.dart';
 import 'widgets/profile_input_field.dart';
@@ -180,7 +181,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
       );
       await ref.read(storageProvider).setUserProfile(profile);
 
-      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final todayStr = AppTimePolicy.formatDateKeyLocal(DateTime.now());
       final storage = ref.read(storageProvider);
       storage.addBodyMetric(
         BodyMetric(date: todayStr, weight: weight, waistline: waistline),
@@ -291,7 +292,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         ? guide.maxKg
         : UnitConverter.kgToLbs(guide.maxKg);
 
-    return 'Healthy range: ${minDisplay.toStringAsFixed(1)} ~ '
+    return 'Healthy range: ${minDisplay.toStringAsFixed(1)} $unit ~ '
         '${maxDisplay.toStringAsFixed(1)} $unit';
   }
 

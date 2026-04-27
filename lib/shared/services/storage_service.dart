@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/utils/app_time_policy.dart';
 import '../models/meal.dart';
 import '../models/user_profile.dart';
 import '../models/body_metric.dart';
@@ -434,12 +435,12 @@ class StorageService extends ChangeNotifier {
   // ─── Body History ────────────────────────────────────────────
 
   static DateTime _metricSortDateTime(BodyMetric metric) {
-    final createdAt = metric.createdAt != null
-        ? DateTime.tryParse(metric.createdAt!)?.toUtc()
-        : null;
+    final createdAt = AppTimePolicy.parseTransportTimestampToUtc(
+      metric.createdAt,
+    );
     if (createdAt != null) return createdAt;
 
-    final parsedDate = DateTime.tryParse(metric.date)?.toUtc();
+    final parsedDate = AppTimePolicy.parseDateKeyLocal(metric.date)?.toUtc();
     return parsedDate ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
   }
 
@@ -485,7 +486,7 @@ class StorageService extends ChangeNotifier {
 
     final enriched = BodyMetric(
       date: metric.date,
-      createdAt: DateTime.now().toUtc().toIso8601String(),
+      createdAt: AppTimePolicy.nowUtcIsoString(),
       weight:
           metric.weight ??
           (history.isNotEmpty
