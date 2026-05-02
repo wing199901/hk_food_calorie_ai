@@ -292,10 +292,7 @@ void main() {
       await tester.enterText(find.byType(TextField).at(1), '65');
       await tester.pump();
 
-      expect(
-        find.text('Healthy range: 56.7 kg~ 70.5 kg'),
-        findsOneWidget,
-      );
+      expect(find.text('Healthy range: 56.7 kg ~ 70.5 kg'), findsOneWidget);
 
       final loseGoal = tester.widget<RichText>(
         find.byWidgetPredicate(

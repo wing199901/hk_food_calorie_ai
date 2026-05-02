@@ -22,7 +22,7 @@ void main() {
       expect(restored.bmi, 23.0);
       expect(restored.whtr, 0.47);
       expect(restored.tee, 2100);
-      expect(restored.createdAt, '2026-04-08T10:00:00Z');
+      expect(restored.createdAt, '2026-04-08T10:00:00.000Z');
     });
 
     test('copyWith updates selected fields only', () {

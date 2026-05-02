@@ -18,7 +18,7 @@ class StorageService extends ChangeNotifier {
   static const _targetKey = 'fitcalorie_target';
   static const _profileKey = 'fitcalorie_profile';
   static const _bodyHistoryKey = 'fitcalorie_body_history';
-  static const _lastCheckInKey = 'fitcalorie_last_checkin';
+  static const _lastCheckInKey = 'fitcalorie_last_check_in';
   static const _shortcutsKey = 'fitcalorie_shortcuts';
   static const _quickAddKey = 'fitcalorie_quick_add_items';
 

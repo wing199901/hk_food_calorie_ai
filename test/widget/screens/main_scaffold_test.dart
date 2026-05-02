@@ -51,7 +51,7 @@ void main() {
 
     await tester.tap(find.text('Analysis'));
     await tester.pumpAndSettle();
-    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Energy Intake'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('main_nav_add_button')));
     await tester.pumpAndSettle();

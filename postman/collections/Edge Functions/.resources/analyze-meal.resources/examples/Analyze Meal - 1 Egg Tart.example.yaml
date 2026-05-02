@@ -1,21 +1,60 @@
 $kind: http-example
-name: Analyze Meal - 1 Egg Tart
 request:
   url: "{{baseUrl}}/analyze-meal"
   method: POST
   body:
     type: json
-    content: >-
+    content: |-
       {
           "image_path": "{{userId}}/postman/egg-tart-1.jpg",
-          "meal_date": "{{date}}"
+          "meal_date": "{{date}}",
+          "model": "gemini-2.5-flash"
       }
 response:
   statusCode: 200
   statusText: OK
   headers:
     content-type: application/json
+    content-length: "612"
+    connection: keep-alive
+    access-control-allow-origin: "*"
+    access-control-allow-headers: authorization, x-client-info, apikey, content-type
+    access-control-allow-methods: POST, GET, OPTIONS, DELETE, PATCH
+    vary: Accept-Encoding
+    content-encoding: gzip
+    date: Sat, 02 May 2026 13:05:40 GMT
+    x-kong-upstream-latency: "6266"
+    x-kong-proxy-latency: "0"
+    via: kong/2.8.1
   body:
     type: json
-    content: '{"success":true,"analysis_id":"5be1f5d0-4a19-45ee-bc52-71374d84898d","image":{"path":"{{userId}}/postman/egg-tart-1.jpg","url":"https://YOUR_PROJECT.supabase.co/storage/v1/object/sign/meal-images/{{userId}}/postman/egg-tart-1.jpg?token=<signed-token>"},"meal_date":"{{date}}","ingredients":[{"id":"ingr_0000000192","name":"egg tart","grams":65,"ml":null,"calories":230,"fat":18,"carb":22,"protein":5,"sugar":12,"confidence":0.95}],"total_calories":230,"total_mass":65,"total_fat":18,"total_carb":22,"total_protein":5,"total_sugar":12}'
-order: 1772639047963
+    content: |-
+      {
+        "success": true,
+        "analysis_id": "90e33f77-9e35-4556-9904-0f1633234dd8",
+        "image": {
+          "path": "00000000-0000-0000-0000-000000000001/postman/egg-tart-1.jpg",
+          "url": "http://kong:8000/storage/v1/object/sign/meal-images/00000000-0000-0000-0000-000000000001/postman/egg-tart-1.jpg?token=eyJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtZWFsLWltYWdlcy8wMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEvcG9zdG1hbi9lZ2ctdGFydC0xLmpwZyIsImlhdCI6MTc3NzcyNzEzNCwiZXhwIjoxNzc4MzMxOTM0fQ.CHdm9TYGlLzUbcqynoLn57BMzB5Gp18fClHLu3ffUg0"
+        },
+        "meal_date": "2026-03-02",
+        "ingredients": [
+          {
+            "name": "Egg Tart (Puff Pastry)",
+            "grams": 70,
+            "ml": null,
+            "calories": 220,
+            "fat": 15,
+            "carb": 20,
+            "protein": 5,
+            "sugar": 10,
+            "confidence": 0.95
+          }
+        ],
+        "total_calories": 220,
+        "total_mass": 70,
+        "total_fat": 15,
+        "total_carb": 20,
+        "total_protein": 5,
+        "total_sugar": 10
+      }
+order: 1777727146853

@@ -13,4 +13,4 @@ body:
         "record_id": "{{recordId}}",
         "hard_delete": true
     }
-order: 5000
+order: 10000

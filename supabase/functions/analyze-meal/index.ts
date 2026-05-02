@@ -37,7 +37,8 @@ const ALLOWED_IMAGE_MIME_TYPES = [
 let bucketEnsured = false;
 
 // -- System Instruction (behavioural / domain knowledge only) --
-const SYSTEM_INSTRUCTION = `You are a professional nutritionist specialising in analysing food and drink photos from any cuisine.
+const SYSTEM_INSTRUCTION =
+  `You are a professional nutritionist specialising in analysing food and drink photos from any cuisine.
 
 Core capabilities:
 - All cuisines: Western (steak, burgers, pasta, salads), Japanese/Korean (ramen, sushi, fried chicken), Southeast Asian (Thai, Vietnamese), Chinese, Hong Kong-style, etc.
@@ -46,7 +47,7 @@ Core capabilities:
 
 Analysis rules:
 - Return output using this JSON contract: ingredients[] + total_* fields
-- For each ingredient include: id, name, grams, ml, calories, fat, carb, protein, sugar, confidence
+- For each ingredient include: name, grams, ml, calories, fat, carb, protein, sugar, confidence
 - For solid food: fill grams, set ml to null
 - For liquids/drinks: fill ml, set grams to null
 - Never fill both grams and ml for the same ingredient
@@ -65,11 +66,6 @@ const RESPONSE_SCHEMA = {
       items: {
         type: "OBJECT",
         properties: {
-          id: {
-            type: "STRING",
-            description:
-              "Ingredient id using ingr_ prefix (for example ingr_0000000192)",
-          },
           name: {
             type: "STRING",
             description: "Ingredient name in English",
@@ -97,7 +93,6 @@ const RESPONSE_SCHEMA = {
           },
         },
         required: [
-          "id",
           "name",
           "calories",
           "fat",
@@ -131,7 +126,6 @@ const RESPONSE_SCHEMA = {
     total_sugar: {
       type: "NUMBER",
       description: "Sum of sugar across all ingredients",
-      nullable: true,
     },
     error: {
       type: "STRING",
@@ -151,7 +145,6 @@ const RESPONSE_SCHEMA = {
 };
 
 interface IngredientItem {
-  id?: string;
   name: string;
   grams?: number | null;
   ml?: number | null;
@@ -164,7 +157,6 @@ interface IngredientItem {
 }
 
 interface PublicIngredientItem {
-  id: string;
   name: string;
   grams: number | null;
   ml: number | null;
@@ -183,7 +175,7 @@ interface AnalysisResult {
   total_fat: number;
   total_carb: number;
   total_protein: number;
-  total_sugar?: number;
+  total_sugar: number;
   error?: string;
 }
 
@@ -193,6 +185,36 @@ function buildSummaryName(items: PublicIngredientItem[]): string {
   const firstName = items[0].name?.trim() || "AI Scanned Meal";
   if (items.length === 1) return firstName;
   return `${firstName} + ${items.length - 1} more`;
+}
+
+function normalizeGeminiJsonText(rawText: string): string {
+  const trimmed = rawText.trim();
+
+  // Gemini can occasionally wrap JSON in markdown fences even when structured output is enabled.
+  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenceMatch?.[1]) return fenceMatch[1].trim();
+
+  return trimmed;
+}
+
+function parseGeminiJson(rawText: string): AnalysisResult {
+  const normalized = normalizeGeminiJsonText(rawText);
+
+  try {
+    return JSON.parse(normalized) as AnalysisResult;
+  } catch {
+    // Fall back to the widest object slice if Gemini adds stray text around the payload.
+    const firstBrace = normalized.indexOf("{");
+    const lastBrace = normalized.lastIndexOf("}");
+
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      return JSON.parse(
+        normalized.slice(firstBrace, lastBrace + 1),
+      ) as AnalysisResult;
+    }
+
+    throw new Error("Unable to parse Gemini JSON output");
+  }
 }
 
 function toNonNegativeNumber(value: unknown): number {
@@ -229,18 +251,6 @@ function toConfidence(value: unknown): number {
   const confidence = toNonNegativeNumber(value);
   if (confidence > 1) return 1;
   return confidence;
-}
-
-function normalizeIngredientId(rawId: unknown, index: number): string {
-  if (typeof rawId === "string") {
-    const trimmed = rawId.trim();
-    if (trimmed.length > 0) {
-      return trimmed;
-    }
-  }
-
-  const serial = String(index + 1).padStart(10, "0");
-  return `ingr_${serial}`;
 }
 
 function looksLikeDrink(name: string): boolean {
@@ -290,7 +300,6 @@ function normalizeIngredient(
   }
 
   return {
-    id: normalizeIngredientId(item.id, index),
     name: normalizedName,
     grams,
     ml,
@@ -542,7 +551,8 @@ async function callGeminiVersionedEndpointWithRetry(
   geminiKey: string,
   model: string,
 ): Promise<Response> {
-  const modelUrl = `https://generativelanguage.googleapis.com/${DEFAULT_GEMINI_API_VERSION}/models/${model}:generateContent`;
+  const modelUrl =
+    `https://generativelanguage.googleapis.com/${DEFAULT_GEMINI_API_VERSION}/models/${model}:generateContent`;
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt <= GEMINI_MAX_RETRIES; attempt++) {
@@ -558,7 +568,8 @@ async function callGeminiVersionedEndpointWithRetry(
             {
               parts: [
                 {
-                  text: "Analyse all food and drink items visible in this photo.",
+                  text:
+                    "Analyse all food and drink items visible in this photo.",
                 },
                 {
                   inline_data: {
@@ -571,7 +582,8 @@ async function callGeminiVersionedEndpointWithRetry(
           ],
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 2048,
+            // Complex mixed dishes can require more tokens for a complete structured response.
+            maxOutputTokens: 4096,
             responseMimeType: "application/json",
             responseSchema: RESPONSE_SCHEMA,
           },
@@ -616,10 +628,12 @@ function parseProviderErrorDetails(
     const providerError = parsed?.error ?? {};
 
     return {
-      message:
-        typeof providerError.message === "string" ? providerError.message : "",
-      status:
-        typeof providerError.status === "string" ? providerError.status : "",
+      message: typeof providerError.message === "string"
+        ? providerError.message
+        : "",
+      status: typeof providerError.status === "string"
+        ? providerError.status
+        : "",
       code: typeof providerError.code === "number" ? providerError.code : null,
     };
   } catch {
@@ -713,11 +727,13 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json();
     const requestedModel = resolveRequestedModel(body?.model);
-    const modelsToTry =
-      requestedModel != null ? [requestedModel] : GEMINI_MODELS;
+    const modelsToTry = requestedModel != null
+      ? [requestedModel]
+      : GEMINI_MODELS;
 
-    const imagePath =
-      typeof body?.image_path === "string" ? body.image_path.trim() : "";
+    const imagePath = typeof body?.image_path === "string"
+      ? body.image_path.trim()
+      : "";
     const mealDate =
       typeof body?.meal_date === "string" && body.meal_date.length > 0
         ? body.meal_date
@@ -834,12 +850,12 @@ Deno.serve(async (req: Request) => {
     const inputTokens = toOptionalInt(usageMetadata.promptTokenCount);
     const outputTokens = toOptionalInt(usageMetadata.candidatesTokenCount);
     const totalTokens = toOptionalInt(usageMetadata.totalTokenCount);
-    const rawText =
-      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+    const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      "{}";
 
     let analysis: AnalysisResult;
     try {
-      analysis = JSON.parse(rawText);
+      analysis = parseGeminiJson(rawText);
     } catch {
       console.error("Failed to parse Gemini response:", rawText);
       return errorResponse(

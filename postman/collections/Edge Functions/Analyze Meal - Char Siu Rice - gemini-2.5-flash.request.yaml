@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/analyze-meal"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "image_path": "{{userId}}/postman/char-siu-rice.jpg",
+        "meal_date": "{{date}}",
+        "model": "gemini-2.5-flash"
+    }
+auth:
+  credentials:
+    id: 65b90fcf-7a32-446d-b2b8-59ca70ca7e9f
+  type: inherit
+examples: .resources/Analyze Meal - Char Siu Rice - gemini-2.5-flash.resources/examples
+order: 4000

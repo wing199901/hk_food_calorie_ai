@@ -20,10 +20,19 @@ MAPE by schema total field (%)
            total_fat (g):   97.260 (valid comparisons=100)
           total_mass (g):   39.943 (valid comparisons=100)
 
+MAE / Median APE / P90 APE by schema total field
+------------------------------------------------------
+   total_calories (kcal): MAE= 106.327 | medianAPE=33.861% | P90APE=118.732% (n=100)
+       total_protein (g): MAE=   8.661 | medianAPE=40.104% | P90APE=159.806% (n=100)
+          total_carb (g): MAE=  11.173 | medianAPE=46.702% | P90APE=220.421% (n=100)
+           total_fat (g): MAE=   6.791 | medianAPE=40.654% | P90APE=140.972% (n=100)
+          total_mass (g): MAE=  70.704 | medianAPE=28.169% | P90APE=85.354% (n=100)
+
 Overall
 ------------------------------------------------------
 Overall MAPE: 72.674%
 Estimated accuracy (100 - MAPE): 27.326%
+Overall MAE: 40.731 | medianAPE: 34.949% | P90APE: 146.085%
 
 Note: This report strictly follows public schema totals (total_calories, total_mass, total_fat, total_carb, total_protein).
 Model switching policy: changing --model starts a fresh full comparison run.

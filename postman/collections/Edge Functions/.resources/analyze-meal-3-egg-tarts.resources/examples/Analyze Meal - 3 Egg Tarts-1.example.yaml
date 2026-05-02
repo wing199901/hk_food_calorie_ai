@@ -1,0 +1,82 @@
+$kind: http-example
+name: Analyze Meal - 3 Egg Tarts
+request:
+  url: "{{baseUrl}}/analyze-meal"
+  method: POST
+  body:
+    type: json
+    content: |-
+      {
+          "image_path": "{{userId}}/postman/egg-tart-3.jpg",
+          "meal_date": "{{date}}"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    content-type: application/json
+    content-length: "625"
+    connection: keep-alive
+    access-control-allow-origin: "*"
+    access-control-allow-headers: authorization, x-client-info, apikey, content-type
+    access-control-allow-methods: POST, GET, OPTIONS, DELETE, PATCH
+    vary: Accept-Encoding
+    content-encoding: gzip
+    date: Sat, 02 May 2026 13:05:09 GMT
+    x-kong-upstream-latency: "5736"
+    x-kong-proxy-latency: "0"
+    via: kong/2.8.1
+  body:
+    type: json
+    content: |-
+      {
+        "success": true,
+        "analysis_id": "9cdccae2-5931-41d0-a84f-366054cb7491",
+        "image": {
+          "path": "00000000-0000-0000-0000-000000000001/postman/egg-tart-3.jpg",
+          "url": "http://kong:8000/storage/v1/object/sign/meal-images/00000000-0000-0000-0000-000000000001/postman/egg-tart-3.jpg?token=eyJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtZWFsLWltYWdlcy8wMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEvcG9zdG1hbi9lZ2ctdGFydC0zLmpwZyIsImlhdCI6MTc3NzcyNzEwMywiZXhwIjoxNzc4MzMxOTAzfQ.mgRK4g-sJ2VTBr1QrPkAx870wr4hcynQPHhBKk8wpOA"
+        },
+        "meal_date": "2026-03-02",
+        "ingredients": [
+          {
+            "name": "Puff Pastry Egg Tart",
+            "grams": 70,
+            "ml": null,
+            "calories": 220,
+            "fat": 15,
+            "carb": 20,
+            "protein": 4,
+            "sugar": 10,
+            "confidence": 0.95
+          },
+          {
+            "name": "Puff Pastry Egg Tart",
+            "grams": 70,
+            "ml": null,
+            "calories": 220,
+            "fat": 15,
+            "carb": 20,
+            "protein": 4,
+            "sugar": 10,
+            "confidence": 0.95
+          },
+          {
+            "name": "Puff Pastry Egg Tart",
+            "grams": 70,
+            "ml": null,
+            "calories": 220,
+            "fat": 15,
+            "carb": 20,
+            "protein": 4,
+            "sugar": 10,
+            "confidence": 0.95
+          }
+        ],
+        "total_calories": 660,
+        "total_mass": 210,
+        "total_fat": 45,
+        "total_carb": 60,
+        "total_protein": 12,
+        "total_sugar": 30
+      }
+order: 3623712573168470

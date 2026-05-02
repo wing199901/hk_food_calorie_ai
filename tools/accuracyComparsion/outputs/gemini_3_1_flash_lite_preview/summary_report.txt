@@ -7,23 +7,32 @@ Model: gemini-3.1-flash-lite-preview
 
 Run summary
 ------------------------------------------------------
-Attempt rows (all runs): 104
+Attempt rows (all runs): 100
 Latest unique images: 100
 Successful predictions: 100
 Failed predictions: 0
 
 MAPE by schema total field (%)
 ------------------------------------------------------
-   total_calories (kcal):   55.265 (valid comparisons=100)
-       total_protein (g):   51.501 (valid comparisons=100)
-          total_carb (g):   68.043 (valid comparisons=100)
-           total_fat (g):  108.139 (valid comparisons=100)
-          total_mass (g):   31.476 (valid comparisons=100)
+   total_calories (kcal):   40.663 (valid comparisons=100)
+       total_protein (g):   37.452 (valid comparisons=100)
+          total_carb (g):   51.050 (valid comparisons=100)
+           total_fat (g):   85.983 (valid comparisons=100)
+          total_mass (g):   29.220 (valid comparisons=100)
+
+MAE / Median APE / P90 APE by schema total field
+------------------------------------------------------
+   total_calories (kcal): MAE=  84.533 | medianAPE=29.928% | P90APE=65.921% (n=100)
+       total_protein (g): MAE=   7.506 | medianAPE=29.608% | P90APE=66.180% (n=100)
+          total_carb (g): MAE=   6.196 | medianAPE=30.042% | P90APE=101.121% (n=100)
+           total_fat (g): MAE=   5.920 | medianAPE=40.768% | P90APE=108.633% (n=100)
+          total_mass (g): MAE=  56.130 | medianAPE=25.163% | P90APE=46.884% (n=100)
 
 Overall
 ------------------------------------------------------
-Overall MAPE: 62.885%
-Estimated accuracy (100 - MAPE): 37.115%
+Overall MAPE: 48.874%
+Estimated accuracy (100 - MAPE): 51.126%
+Overall MAE: 32.057 | medianAPE: 30.243% | P90APE: 81.568%
 
 Note: This report strictly follows public schema totals (total_calories, total_mass, total_fat, total_carb, total_protein).
 Model switching policy: changing --model starts a fresh full comparison run.

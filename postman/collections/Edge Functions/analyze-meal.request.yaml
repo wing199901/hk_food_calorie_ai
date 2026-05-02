@@ -14,5 +14,5 @@ body:
         "meal_date": "{{date}}",
         "model": "gemini-2.5-flash"
     }
+examples: .resources/analyze-meal.resources/examples
 order: 1000
-examples: ./.resources/analyze-meal.resources/examples

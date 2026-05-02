@@ -8,10 +8,10 @@ auth:
     id: 65b90fcf-7a32-446d-b2b8-59ca70ca7e9f
 body:
   type: json
-  content: >-
+  content: |-
     {
         "image_path": "{{userId}}/postman/egg-tart-3.jpg",
         "meal_date": "{{date}}"
     }
-order: 1053
-examples: ./.resources/analyze-meal-3-egg-tarts.resources/examples
+order: 2000
+examples: .resources/analyze-meal-3-egg-tarts.resources/examples

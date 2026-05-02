@@ -34,10 +34,15 @@ print(f"{api_url}\t{service_role_key}")
 
 IFS=$'\t' read -r API_URL SERVICE_ROLE_KEY <<< "$STATUS_VALUES"
 
-declare -a FIXTURES=(
-  "1_egg_tarts.jpg:postman/egg-tart-1.jpg"
-  "3_egg_tarts.jpg:postman/egg-tart-3.jpg"
-)
+# Collect fixture images from the fixtures folder (jpg/jpeg/png).
+# The script will upload every matching image it finds, using the
+# filename as the object suffix under the user's folder in the bucket.
+shopt -s nullglob
+images=( "$FIXTURE_DIR"/*.jpg "$FIXTURE_DIR"/*.jpeg "$FIXTURE_DIR"/*.png )
+if [ "${#images[@]}" -eq 0 ]; then
+  echo "No fixture images found in $FIXTURE_DIR"
+  exit 0
+fi
 
 upload_fixture() {
   local source_name="$1"
@@ -74,8 +79,9 @@ upload_fixture() {
   echo "Uploaded ${source_name} -> ${BUCKET}/${object_path}"
 }
 
-for entry in "${FIXTURES[@]}"; do
-  IFS=':' read -r source_name object_suffix <<< "$entry"
+for img_path in "${images[@]}"; do
+  source_name="$(basename "$img_path")"
+  object_suffix="$source_name"
   upload_fixture "$source_name" "$object_suffix"
 done
 

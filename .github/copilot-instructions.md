@@ -7,8 +7,8 @@
 ## Highest Rules
 
 - **Language:** Reply to the user in **Chinese (Hong Kong / Cantonese)**. Keep technical terms in English. All generated code and comments must be in English.
-- **Verification:** Always run `dart analyze` after editing `.dart` files and ensure zero errors.
-- **Testing After Edits:** After any agent edits to the app code, also add or update corresponding unit tests (in `test/`) and integration tests (in `integration_test/`) where applicable. Run `flutter test` (and integration tests if set up) to verify and ensure zero failures. If integration tests cannot be added due to technical constraints, note the reason in code comments.
+- **Verification:** Run `dart analyze` after making major or behavioural changes to `.dart` files (for example: refactors, API/logic changes, or new feature code). For very small cosmetic edits (spacing, copy, or minor layout tweaks) running `dart analyze` is optional, but avoid introducing analyzer errors when possible.
+- **Testing After Edits:** For major changes that affect behaviour, add or update corresponding unit tests (under `test/`) and integration tests (under `integration_test/`) as applicable, and run `flutter test` to verify. For minor cosmetic or documentation edits, updating tests and running the full test suite is optional—record rationale in a code comment or in the PR description when tests are skipped.
 - **Documentation Updates:** Always check and propose updates to `README.md` and instruction files whenever making major changes or adding new features.
 
 ## Folder Readmes

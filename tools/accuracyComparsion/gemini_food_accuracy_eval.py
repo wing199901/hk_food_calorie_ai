@@ -1221,6 +1221,8 @@ def summarize_results(csv_path: Path) -> Dict[str, Any]:
 
     pct_errors_by_field: Dict[str, List[float]] = {
         field: [] for field in EVAL_FIELDS}
+    abs_errors_by_field: Dict[str, List[float]] = {
+        field: [] for field in EVAL_FIELDS}
     attempt_rows = 0
     success_count = 0
     failed_count = 0
@@ -1249,20 +1251,64 @@ def summarize_results(csv_path: Path) -> Dict[str, Any]:
             if pct is not None:
                 pct_errors_by_field[field].append(pct)
 
+            abs_v = parse_float_cell(row.get(f"abs_error_{field}", ""))
+            if abs_v is not None:
+                abs_errors_by_field[field].append(abs_v)
+
     field_mapes: Dict[str, Optional[float]] = {}
+    field_maes: Dict[str, Optional[float]] = {}
+    field_median_apes: Dict[str, Optional[float]] = {}
+    field_p90_apes: Dict[str, Optional[float]] = {}
     field_counts: Dict[str, int] = {}
 
+    def _percentile(sorted_vals: List[float], pct: float) -> float:
+        # Linear interpolation percentile (0-100)
+        if not sorted_vals:
+            raise ValueError("empty list")
+        n = len(sorted_vals)
+        if n == 1:
+            return sorted_vals[0]
+        k = (pct / 100.0) * (n - 1)
+        f = int(k)
+        c = min(n - 1, f + 1)
+        if f == c:
+            return sorted_vals[int(k)]
+        d = k - f
+        return sorted_vals[f] + (sorted_vals[c] - sorted_vals[f]) * d
+
     for field in EVAL_FIELDS:
-        values = pct_errors_by_field[field]
-        field_counts[field] = len(values)
-        field_mapes[field] = statistics.mean(values) if values else None
+        pct_vals = pct_errors_by_field[field]
+        abs_vals = abs_errors_by_field[field]
+        field_counts[field] = len(pct_vals)
+        field_mapes[field] = statistics.mean(pct_vals) if pct_vals else None
+        field_maes[field] = statistics.mean(abs_vals) if abs_vals else None
+        if pct_vals:
+            sorted_pct = sorted(pct_vals)
+            field_median_apes[field] = statistics.median(sorted_pct)
+            field_p90_apes[field] = _percentile(sorted_pct, 90.0)
+        else:
+            field_median_apes[field] = None
+            field_p90_apes[field] = None
 
     all_pct_values: List[float] = []
+    all_abs_values: List[float] = []
     for field in EVAL_FIELDS:
         all_pct_values.extend(pct_errors_by_field[field])
+        all_abs_values.extend(abs_errors_by_field[field])
 
-    overall_mape: Optional[float] = statistics.mean(
-        all_pct_values) if all_pct_values else None
+    overall_mape: Optional[float] = (
+        statistics.mean(all_pct_values) if all_pct_values else None
+    )
+    overall_mae: Optional[float] = (
+        statistics.mean(all_abs_values) if all_abs_values else None
+    )
+    overall_median_ape: Optional[float] = (
+        statistics.median(all_pct_values) if all_pct_values else None
+    )
+    overall_p90_ape: Optional[float] = (
+        (_percentile(sorted(all_pct_values), 90.0)) if all_pct_values else None
+    )
+
     overall_accuracy: Optional[float] = None
     if overall_mape is not None:
         overall_accuracy = max(0.0, 100.0 - overall_mape)
@@ -1273,8 +1319,14 @@ def summarize_results(csv_path: Path) -> Dict[str, Any]:
         "success_count": success_count,
         "failed_count": failed_count,
         "field_mapes": field_mapes,
+        "field_maes": field_maes,
+        "field_median_apes": field_median_apes,
+        "field_p90_apes": field_p90_apes,
         "field_counts": field_counts,
         "overall_mape": overall_mape,
+        "overall_mae": overall_mae,
+        "overall_median_ape": overall_median_ape,
+        "overall_p90_ape": overall_p90_ape,
         "overall_accuracy": overall_accuracy,
     }
 
@@ -1314,6 +1366,27 @@ def format_summary_text(summary: Dict[str, Any], config: EvalConfig) -> str:
             )
 
     lines.append("")
+    lines.append("MAE / Median APE / P90 APE by schema total field")
+    lines.append("-" * 54)
+
+    for field in EVAL_FIELDS:
+        mae = summary.get("field_maes", {}).get(field)
+        median_ape = summary.get("field_median_apes", {}).get(field)
+        p90 = summary.get("field_p90_apes", {}).get(field)
+        count = summary["field_counts"][field]
+        display_name = FIELD_DISPLAY_NAMES[field]
+        if mae is None and median_ape is None and p90 is None:
+            lines.append(
+                f"{display_name:>24}: N/A (valid comparisons={count})",
+            )
+        else:
+            mae_s = f"{mae:8.3f}" if mae is not None else "   N/A  "
+            med_s = f"{median_ape:6.3f}" if median_ape is not None else " N/A "
+            p90_s = f"{p90:6.3f}" if p90 is not None else " N/A "
+            lines.append(
+                f"{display_name:>24}: MAE={mae_s} | medianAPE={med_s}% | P90APE={p90_s}% (n={count})",
+            )
+    lines.append("")
     lines.append("Overall")
     lines.append("-" * 54)
     overall_mape = summary["overall_mape"]
@@ -1326,6 +1399,21 @@ def format_summary_text(summary: Dict[str, Any], config: EvalConfig) -> str:
         lines.append(f"Overall MAPE: {overall_mape:.3f}%")
         lines.append(
             f"Estimated accuracy (100 - MAPE): {overall_accuracy:.3f}%")
+
+    # Overall additional metrics: MAE, median APE, P90 APE
+    overall_mae = summary.get("overall_mae")
+    overall_median_ape = summary.get("overall_median_ape")
+    overall_p90_ape = summary.get("overall_p90_ape")
+
+    if overall_mae is None and overall_median_ape is None and overall_p90_ape is None:
+        lines.append("Overall MAE / medianAPE / P90APE: N/A")
+    else:
+        mae_s = f"{overall_mae:.3f}" if overall_mae is not None else "N/A"
+        med_s = f"{overall_median_ape:.3f}" if overall_median_ape is not None else "N/A"
+        p90_s = f"{overall_p90_ape:.3f}" if overall_p90_ape is not None else "N/A"
+        lines.append(
+            f"Overall MAE: {mae_s} | medianAPE: {med_s}% | P90APE: {p90_s}%",
+        )
 
     lines.append("")
     lines.append(

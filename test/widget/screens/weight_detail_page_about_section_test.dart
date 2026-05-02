@@ -89,8 +89,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('How Your Weight Range Is Calculated'), findsOneWidget);
-    expect(find.text('Current weight'), findsOneWidget);
-    expect(find.text('56.7kg'), findsOneWidget);
-    expect(find.text('66.0kg'), findsOneWidget);
+    expect(find.text('Weight'), findsOneWidget);
+    expect(find.byKey(const Key('weight_header_row')), findsOneWidget);
+    expect(find.byKey(const Key('weight_value_text')), findsOneWidget);
+    expect(find.byKey(const Key('weight_bmi_badge')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('weight_header_row')),
+        matching: find.byKey(const Key('weight_bmi_badge')),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(Slider), findsOneWidget);
+    expect(find.byKey(const Key('weight_zone_bar')), findsOneWidget);
+    expect(find.byKey(const Key('marker_line_current')), findsOneWidget);
+    expect(find.byKey(const Key('marker_line_minimum')), findsOneWidget);
+    expect(find.byKey(const Key('marker_line_ideal')), findsOneWidget);
+    expect(find.text('Calculation Formula'), findsOneWidget);
+    expect(find.text('Current'), findsOneWidget);
+    expect(find.text('Minimum'), findsOneWidget);
+    expect(find.text('Ideal'), findsOneWidget);
+    expect(find.text('56.7 kg'), findsOneWidget);
+    expect(find.text('66.0 kg'), findsOneWidget);
+
+    final formulaTile = find.text('Calculation Formula');
+    await tester.ensureVisible(formulaTile);
+    await tester.tap(formulaTile);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is RichText &&
+            widget.text.toPlainText().contains('Minimum threshold:'),
+      ),
+      findsOneWidget,
+    );
   });
 }

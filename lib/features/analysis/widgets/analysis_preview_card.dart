@@ -53,7 +53,7 @@ class AnalysisPreviewCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Icon(icon, color: color, size: 16),
-                      const SizedBox(width: AppSpacing.xxxs),
+                      const SizedBox(width: AppSpacing.xxs),
                       Expanded(
                         child: Text(
                           title,
@@ -77,7 +77,7 @@ class AnalysisPreviewCard extends StatelessWidget {
                                 color: AppTheme.mutedForeground,
                               ),
                             ),
-                          const SizedBox(width: AppSpacing.xxxs),
+                          const SizedBox(width: AppSpacing.xxs),
                           const Icon(
                             Icons.chevron_right,
                             size: 20,

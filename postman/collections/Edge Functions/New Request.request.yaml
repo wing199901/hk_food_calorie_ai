@@ -12,4 +12,4 @@ body:
     {
         "meal_date": "{{date}}"
     }
-order: 8000
+order: 12000

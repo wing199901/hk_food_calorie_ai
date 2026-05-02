@@ -1,0 +1,93 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/analyze-meal"
+  method: POST
+  body:
+    type: json
+    content: |-
+      {
+          "image_path": "{{userId}}/postman/char-siu-rice.jpg",
+          "meal_date": "{{date}}",
+          "model": "gemini-3-flash-preview"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    content-type: application/json
+    content-length: "770"
+    connection: keep-alive
+    access-control-allow-origin: "*"
+    access-control-allow-headers: authorization, x-client-info, apikey, content-type
+    access-control-allow-methods: POST, GET, OPTIONS, DELETE, PATCH
+    vary: Accept-Encoding
+    content-encoding: gzip
+    date: Sat, 02 May 2026 13:06:39 GMT
+    x-kong-upstream-latency: "12943"
+    x-kong-proxy-latency: "1"
+    via: kong/2.8.1
+  body:
+    type: json
+    content: |-
+      {
+        "success": true,
+        "analysis_id": "92a447f8-2091-4830-bc60-1b667212c025",
+        "image": {
+          "path": "00000000-0000-0000-0000-000000000001/postman/char-siu-rice.jpg",
+          "url": "http://kong:8000/storage/v1/object/sign/meal-images/00000000-0000-0000-0000-000000000001/postman/char-siu-rice.jpg?token=eyJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtZWFsLWltYWdlcy8wMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEvcG9zdG1hbi9jaGFyLXNpdS1yaWNlLmpwZyIsImlhdCI6MTc3NzcyNzE4NiwiZXhwIjoxNzc4MzMxOTg2fQ.5MS6XdExqMSyl3SCtiAyavbvV7NxUCgYDEyE1gh30t4"
+        },
+        "meal_date": "2026-03-02",
+        "ingredients": [
+          {
+            "name": "Char Siu (BBQ Pork)",
+            "grams": 130,
+            "ml": null,
+            "calories": 325,
+            "fat": 19.5,
+            "carb": 13,
+            "protein": 26,
+            "sugar": 10.4,
+            "confidence": 0.95
+          },
+          {
+            "name": "Steamed White Rice",
+            "grams": 220,
+            "ml": null,
+            "calories": 286,
+            "fat": 0.7,
+            "carb": 61.6,
+            "protein": 5.9,
+            "sugar": 0.2,
+            "confidence": 0.95
+          },
+          {
+            "name": "Bok Choy",
+            "grams": 60,
+            "ml": null,
+            "calories": 8,
+            "fat": 0.1,
+            "carb": 1.3,
+            "protein": 0.9,
+            "sugar": 0.7,
+            "confidence": 0.95
+          },
+          {
+            "name": "Sweet Soy Sauce",
+            "grams": 15,
+            "ml": null,
+            "calories": 23,
+            "fat": 0,
+            "carb": 5.3,
+            "protein": 0.3,
+            "sugar": 4.5,
+            "confidence": 0.9
+          }
+        ],
+        "total_calories": 642,
+        "total_mass": 425,
+        "total_fat": 20.3,
+        "total_carb": 81.2,
+        "total_protein": 33.1,
+        "total_sugar": 15.8
+      }
+order: 1777727203503
