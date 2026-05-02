@@ -37,8 +37,7 @@ const ALLOWED_IMAGE_MIME_TYPES = [
 let bucketEnsured = false;
 
 // -- System Instruction (behavioural / domain knowledge only) --
-const SYSTEM_INSTRUCTION =
-  `You are a professional nutritionist specialising in analysing food and drink photos from any cuisine.
+const SYSTEM_INSTRUCTION = `You are a professional nutritionist specialising in analysing food and drink photos from any cuisine.
 
 Core capabilities:
 - All cuisines: Western (steak, burgers, pasta, salads), Japanese/Korean (ramen, sushi, fried chicken), Southeast Asian (Thai, Vietnamese), Chinese, Hong Kong-style, etc.
@@ -551,8 +550,7 @@ async function callGeminiVersionedEndpointWithRetry(
   geminiKey: string,
   model: string,
 ): Promise<Response> {
-  const modelUrl =
-    `https://generativelanguage.googleapis.com/${DEFAULT_GEMINI_API_VERSION}/models/${model}:generateContent`;
+  const modelUrl = `https://generativelanguage.googleapis.com/${DEFAULT_GEMINI_API_VERSION}/models/${model}:generateContent`;
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt <= GEMINI_MAX_RETRIES; attempt++) {
@@ -568,8 +566,7 @@ async function callGeminiVersionedEndpointWithRetry(
             {
               parts: [
                 {
-                  text:
-                    "Analyse all food and drink items visible in this photo.",
+                  text: "Analyse all food and drink items visible in this photo.",
                 },
                 {
                   inline_data: {
@@ -628,12 +625,10 @@ function parseProviderErrorDetails(
     const providerError = parsed?.error ?? {};
 
     return {
-      message: typeof providerError.message === "string"
-        ? providerError.message
-        : "",
-      status: typeof providerError.status === "string"
-        ? providerError.status
-        : "",
+      message:
+        typeof providerError.message === "string" ? providerError.message : "",
+      status:
+        typeof providerError.status === "string" ? providerError.status : "",
       code: typeof providerError.code === "number" ? providerError.code : null,
     };
   } catch {
@@ -727,13 +722,11 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json();
     const requestedModel = resolveRequestedModel(body?.model);
-    const modelsToTry = requestedModel != null
-      ? [requestedModel]
-      : GEMINI_MODELS;
+    const modelsToTry =
+      requestedModel != null ? [requestedModel] : GEMINI_MODELS;
 
-    const imagePath = typeof body?.image_path === "string"
-      ? body.image_path.trim()
-      : "";
+    const imagePath =
+      typeof body?.image_path === "string" ? body.image_path.trim() : "";
     const mealDate =
       typeof body?.meal_date === "string" && body.meal_date.length > 0
         ? body.meal_date
@@ -850,8 +843,8 @@ Deno.serve(async (req: Request) => {
     const inputTokens = toOptionalInt(usageMetadata.promptTokenCount);
     const outputTokens = toOptionalInt(usageMetadata.candidatesTokenCount);
     const totalTokens = toOptionalInt(usageMetadata.totalTokenCount);
-    const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ??
-      "{}";
+    const rawText =
+      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
 
     let analysis: AnalysisResult;
     try {

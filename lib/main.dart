@@ -96,12 +96,16 @@ class _AppLoaderState extends ConsumerState<AppLoader> {
           }
           // Fresh login: clear any stale local/demo data, then sync cloud data.
           storage.clearAllLocalData();
-          storage.syncFromSupabase().timeout(_startupTimeout).then((_) {
-            if (mounted) setState(() => _phase = _Phase.app);
-          }).catchError((e) {
-            debugPrint('Signed-in sync timeout/error: $e');
-            if (mounted) setState(() => _phase = _Phase.app);
-          });
+          storage
+              .syncFromSupabase()
+              .timeout(_startupTimeout)
+              .then((_) {
+                if (mounted) setState(() => _phase = _Phase.app);
+              })
+              .catchError((e) {
+                debugPrint('Signed-in sync timeout/error: $e');
+                if (mounted) setState(() => _phase = _Phase.app);
+              });
         } else if (event.event == AuthChangeEvent.signedOut) {
           _skipNextSignIn = false;
           setState(() => _phase = _Phase.landing);
