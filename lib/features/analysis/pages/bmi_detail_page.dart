@@ -128,53 +128,6 @@ class BmiDetailPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: EdgeInsets.only(left: 16),
-                  child: Text(
-                    'Insights & Tips',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.foreground,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.card,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Body Mass Index (BMI) is an indicator of your body fat. It’s calculated from your height and weight, and can tell you whether you are underweight, normal, overweight or obese. It can also help you gauge your risk of diseases that can occur with more body fat.",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.foreground,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      "National Heart, Lung, and Blood Institute",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
               const AiInsightSection(focus: 'bmi'),
               const SizedBox(height: AppSpacing.lg),
               ShowAllDataButton(

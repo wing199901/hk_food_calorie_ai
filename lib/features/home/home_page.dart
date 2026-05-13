@@ -41,11 +41,9 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     final consumed = stats['consumed'] ?? 0;
     final target = targetRange.max;
-    final targetMin = targetRange.min;
     final remaining = target - consumed;
     final percentage = math.min(consumed / target, 1.0);
     final isOverTarget = consumed > target;
-    final hasTargetRange = targetMin != target;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 100),
@@ -137,9 +135,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               ),
                             ),
                             Text(
-                              hasTargetRange
-                                  ? 'of $targetMin-$target'
-                                  : 'of $target',
+                              'of $target',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.white70,

@@ -56,7 +56,7 @@ class CalorieSurplusDetailPage extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Go to Add tab to log intake',
+                  'Go to log your intake',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
               ),

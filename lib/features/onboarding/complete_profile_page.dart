@@ -8,7 +8,7 @@ import '../../shared/models/body_metric.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/app_time_policy.dart';
 import 'widgets/profile_progress_dots.dart';
-import 'widgets/profile_field_label.dart';
+import '../../shared/widgets/profile_field_label.dart';
 import 'widgets/profile_input_field.dart';
 import '../../shared/widgets/gender_selector.dart';
 import '../../shared/widgets/unit_system_selector.dart';

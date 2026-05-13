@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../core/theme/app_theme.dart';
 
 class ProfileFieldLabel extends StatelessWidget {
   const ProfileFieldLabel(this.label, {super.key, this.isRequired = false});

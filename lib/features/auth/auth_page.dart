@@ -85,17 +85,50 @@ class _AuthPageState extends ConsumerState<AuthPage> {
       debugPrint(
         '[Auth] AuthException → code=${e.statusCode} message=${e.message}',
       );
-      setState(
-        () => _errorMessage = e.message.isNotEmpty
-            ? e.message
-            : 'Unable to sign in right now. Please try again.',
-      );
+      // Convert auth errors to user-friendly messages
+      String errorMsg = _getReadableErrorMessage(e.message, _isSignIn);
+      setState(() => _errorMessage = errorMsg);
     } catch (e, st) {
       debugPrint('[Auth] unexpected error → $e\n$st');
       setState(() => _errorMessage = 'Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Convert raw Supabase auth error messages to user-friendly text
+  String _getReadableErrorMessage(String rawMessage, bool isSignIn) {
+    final msg = rawMessage.toLowerCase();
+
+    // Invalid credentials (most common)
+    if (msg.contains('invalid login credentials') ||
+        msg.contains('invalid email or password')) {
+      return 'Invalid email or password.';
+    }
+
+    // User not found
+    if (msg.contains('user not found') || msg.contains('no user found')) {
+      return 'No account found with this email.';
+    }
+
+    // Email already exists
+    if (msg.contains('user already exists') ||
+        msg.contains('already registered')) {
+      return 'This email is already registered.';
+    }
+
+    // Email not confirmed
+    if (msg.contains('email not confirmed') || msg.contains('email not verified')) {
+      return 'Please confirm your email before signing in. Check your inbox for the verification link.';
+    }
+
+    // Password too weak
+    if (msg.contains('password should be') || msg.contains('password too weak')) {
+      return 'Password must be at least 8 characters. Try a stronger password.';
+    }
+
+    // Generic fallback
+    return 'Something went wrong. Please try again or contact support.';
   }
 
   void _showConfirmationDialog() {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hk_food_calorie_ai/features/profile/profile_page.dart';
-import 'package:hk_food_calorie_ai/features/onboarding/widgets/profile_field_label.dart';
+import 'package:hk_food_calorie_ai/shared/widgets/profile_field_label.dart';
 import 'package:hk_food_calorie_ai/shared/models/user_profile.dart';
 import 'package:hk_food_calorie_ai/shared/providers/providers.dart';
 

@@ -5,10 +5,10 @@ import 'package:intl/intl.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/models/user_profile.dart';
 import '../../core/theme/app_theme.dart';
-import '../settings/widgets/settings_section.dart';
+import '../../shared/widgets/settings_section.dart';
 import '../../shared/widgets/gender_selector.dart';
 import '../../shared/widgets/unit_system_selector.dart';
-import '../onboarding/widgets/profile_field_label.dart';
+import '../../shared/widgets/profile_field_label.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});

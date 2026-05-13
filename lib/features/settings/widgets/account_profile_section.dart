@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/user_profile.dart';
-import 'settings_section.dart';
+import '../../../shared/widgets/settings_section.dart';
 import 'settings_read_only_row.dart';
 import 'settings_dropdown_field.dart';
 

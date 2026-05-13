@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
-import 'settings_section.dart';
+import '../../../shared/widgets/settings_section.dart';
 import 'settings_number_field.dart';
 
 class BodyMetricsSection extends StatelessWidget {
