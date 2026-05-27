@@ -48,7 +48,7 @@ upload_fixture() {
   local source_name="$1"
   local object_suffix="$2"
   local source_path="$FIXTURE_DIR/$source_name"
-  local object_path="${USER_ID}/${object_suffix}"
+  local object_path="${USER_ID}/postman/${object_suffix}"
   local endpoint="${API_URL}/storage/v1/object/${BUCKET}/${object_path}"
 
   if [[ ! -f "$source_path" ]]; then

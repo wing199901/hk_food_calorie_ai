@@ -19,24 +19,17 @@ const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
-    summary: { type: "STRING", description: "Overall summary of the period" },
-    analysis: {
+    summary: {
       type: "STRING",
-      description: "Detailed analysis focusing on the requested area",
-    },
-    trends: {
-      type: "ARRAY",
-      items: { type: "STRING" },
-      description: "List of key observations or trends",
+      description: "Short insight summary (1-2 sentences)",
     },
     recommendations: {
       type: "ARRAY",
       items: { type: "STRING" },
-      description:
-        "2-3 specific, actionable recommendations tailored to Hong Kong diet context",
+      description: "2-3 short tips, one sentence each",
     },
   },
-  required: ["summary", "analysis", "trends", "recommendations"],
+  required: ["summary", "recommendations"],
 };
 
 function sleep(ms: number): Promise<void> {
@@ -323,17 +316,21 @@ Deno.serve(async (req: Request) => {
 
     const systemInstruction = `You are a professional Hong Kong nutritionist AI. You specialize in analyzing users' dietary records and providing practical, personalized recommendations aligned with Hong Kong eating habits. Focus deeply on the requested focus ('${focus}').
 
-Always return all user-facing report fields in English only: summary, analysis, trends, and recommendations.
-Keep the tone friendly, practical, and concise.`;
+  Always return all user-facing report fields in English only: summary and recommendations.
+  Keep the tone friendly, practical, and concise.
+  Length limits:
+  - summary: 1-2 short sentences.
+  - recommendations: 2-3 short tips, one sentence each, no emojis.`;
 
     const insightPrompt = `Below is the user's dietary data for the past ${
       period === "week" ? "week" : "month"
-    }. Based on focus '${focus}', provide professional insights in English.
-If the data is limited, still provide a best-effort analysis and do not ask follow-up questions.
+    }. Based on focus '${focus}', provide a short insight summary and tips in English.
+Return JSON with only these fields: summary (string) and recommendations (array of strings).
+If the data is limited, still provide a best-effort insight and do not ask follow-up questions.
 
 Focus definitions:
 - general: Overall dietary performance, including calorie intake and nutrient distribution.
-- bmi: Link height/weight context with dietary structure for weight-loss or maintenance analysis.
+- bmi: Link height/weight context with dietary structure for weight-loss or maintenance.
 - macronutrients: Analyze the intake balance of protein, carbohydrates, and fat.
 - energy: Analyze calorie intake versus daily target attainment and consistency.
 
@@ -433,8 +430,6 @@ ${summaryForAI}`;
         );
         report_data = {
           summary: "Unable to parse report data.",
-          analysis: "Insight generation failed.",
-          trends: [],
           recommendations: [],
         };
       }

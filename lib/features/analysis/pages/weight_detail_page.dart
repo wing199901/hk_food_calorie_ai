@@ -37,6 +37,7 @@ class _WeightDetailPageState extends ConsumerState<WeightDetailPage> {
   _WeightRange _range = _WeightRange.w;
   double? _selectedValue;
   DateTime? _selectedDate;
+  int? _selectedSpotIndex;
 
   // For tap selection mapping.
   List<DateTime> _spotDates = const [];
@@ -225,6 +226,38 @@ class _WeightDetailPageState extends ConsumerState<WeightDetailPage> {
     final paddedMin = span < 0.5 ? minY - 0.5 : minY - span * 0.2;
     final paddedMax = span < 0.5 ? maxY + 0.5 : maxY + span * 0.2;
 
+    final showTooltip =
+        _selectedSpotIndex != null && _selectedSpotIndex! < spots.length;
+    final selectedIndex = showTooltip ? _selectedSpotIndex : null;
+    final barData = LineChartBarData(
+      spots: spots,
+      isCurved: true,
+      color: color,
+      barWidth: 2,
+      showingIndicators: selectedIndex != null ? [selectedIndex] : const [],
+      belowBarData: BarAreaData(
+        show: true,
+        color: color.withValues(alpha: 0.12),
+      ),
+      dotData: FlDotData(
+        show: true,
+        getDotPainter: (_, _, _, _) => FlDotCirclePainter(
+          radius: 3,
+          color: color,
+          strokeWidth: 1,
+          strokeColor: Colors.white,
+        ),
+      ),
+    );
+
+    final tooltipIndicators = selectedIndex != null
+        ? [
+            ShowingTooltipIndicators([
+              LineBarSpot(barData, 0, spots[selectedIndex]),
+            ]),
+          ]
+        : <ShowingTooltipIndicators>[];
+
     return ChartCard(
       title: title,
       showTitleBadge: false,
@@ -267,26 +300,9 @@ class _WeightDetailPageState extends ConsumerState<WeightDetailPage> {
             maxX: chartMaxX,
             minY: paddedMin,
             maxY: paddedMax,
+            showingTooltipIndicators: tooltipIndicators,
             lineBarsData: [
-              LineChartBarData(
-                spots: spots,
-                isCurved: true,
-                color: color,
-                barWidth: 2,
-                belowBarData: BarAreaData(
-                  show: true,
-                  color: color.withValues(alpha: 0.12),
-                ),
-                dotData: FlDotData(
-                  show: true,
-                  getDotPainter: (_, _, _, _) => FlDotCirclePainter(
-                    radius: 3,
-                    color: color,
-                    strokeWidth: 1,
-                    strokeColor: Colors.white,
-                  ),
-                ),
-              ),
+              barData,
             ],
             gridData: FlGridData(
               show: true,
@@ -300,27 +316,53 @@ class _WeightDetailPageState extends ConsumerState<WeightDetailPage> {
             borderData: FlBorderData(show: false),
             lineTouchData: LineTouchData(
               enabled: true,
-              handleBuiltInTouches: true,
+              handleBuiltInTouches: false,
               touchTooltipData: LineTouchTooltipData(
                 getTooltipColor: (_) => Colors.transparent,
-                tooltipPadding: EdgeInsets.zero,
-                tooltipMargin: 0,
+                tooltipPadding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                tooltipMargin: 8,
                 getTooltipItems: (touchedSpots) =>
-                    touchedSpots.map((_) => null).toList(growable: false),
+                    touchedSpots.map((spot) {
+                      return LineTooltipItem(
+                        '${spot.y.toStringAsFixed(1)}$valueSuffix',
+                        const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
+                      );
+                    }).toList(growable: false),
               ),
               touchCallback: (event, response) {
-                if (event is FlTapUpEvent &&
-                    response?.lineBarSpots != null &&
-                    response!.lineBarSpots!.isNotEmpty) {
-                  final s = response.lineBarSpots!.first;
+                if (event is! FlTapUpEvent) return;
+                final hits = response?.lineBarSpots;
+                if (hits != null && hits.isNotEmpty) {
+                  final s = hits.first;
                   final i = s.spotIndex;
                   if (i >= 0 && i < _spotDates.length) {
                     setState(() {
-                      _selectedValue = s.y;
-                      _selectedDate = _spotDates[i];
+                      if (_selectedSpotIndex == i) {
+                        _selectedSpotIndex = null;
+                        _selectedValue = null;
+                        _selectedDate = null;
+                      } else {
+                        _selectedSpotIndex = i;
+                        _selectedValue = s.y;
+                        _selectedDate = _spotDates[i];
+                      }
                     });
                   }
+                  return;
                 }
+                setState(() {
+                  _selectedSpotIndex = null;
+                  _selectedValue = null;
+                  _selectedDate = null;
+                });
               },
             ),
             titlesData: FlTitlesData(
@@ -697,9 +739,9 @@ class _WeightDetailPageState extends ConsumerState<WeightDetailPage> {
         ),
         const SizedBox(height: AppSpacing.lg),
         _knowledgeNavCard(
-          title: 'Why Weight Range Matters',
+          title: 'How Your Weight Range Is Calculated',
           subtitle:
-              'See Underweight / Normal / Overweight zones and where your target numbers sit.',
+              'BMI 18.5 + your height define the healthy range.',
           icon: Icons.monitor_weight_outlined,
           gradient: const LinearGradient(
             colors: [Color(0xFFD8FAEC), Color(0xFFBBF7D0)],
@@ -725,7 +767,7 @@ class _WeightDetailPageState extends ConsumerState<WeightDetailPage> {
         _knowledgeNavCard(
           title: 'How We Calculate Your Target Range',
           subtitle:
-              'Step-by-step math using base weight + height adjustment, with examples.',
+              'Devine base weight + height adjustment set your target range.',
           icon: Icons.calculate_outlined,
           gradient: const LinearGradient(
             colors: [Color(0xFFFFEAD8), Color(0xFFFFD7AE)],
@@ -743,6 +785,9 @@ class _WeightDetailPageState extends ConsumerState<WeightDetailPage> {
                   heightText: heightText,
                   lowerText: lowerText,
                   upperText: upperText,
+                  currentWeightKg: wKg,
+                  gender: profile.gender,
+                  unitSystem: profile.unitSystem,
                 ),
               ),
             );

@@ -10,7 +10,7 @@ body:
   type: json
   content: |-
     {
-        "image_path": "{{userId}}/postman/egg-tart-3.jpg",
+        "image_path": "{{userId}}/postman/3-egg-tarts.jpg",
         "meal_date": "{{date}}"
     }
 order: 2000

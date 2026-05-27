@@ -109,6 +109,30 @@ class StorageService extends ChangeNotifier {
 
   // ─── Meals ───────────────────────────────────────────────────
 
+  Future<void> refreshMealsFromSupabase() async {
+    if (!_supabase.isAuthenticated) return;
+    try {
+      final meals = await _supabase.fetchMeals();
+      await _prefs.setString(
+        _mealsKey,
+        jsonEncode(meals.map((e) => e.toJson()).toList()),
+      );
+      if (kDebugMode) {
+        final missingImages =
+            meals.where((m) => (m.image ?? '').trim().isEmpty).length;
+        debugPrint(
+          '[StorageService] refreshMealsFromSupabase: '
+          '${meals.length} meals, missingImages=$missingImages',
+        );
+      }
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[StorageService] refreshMealsFromSupabase error: $e');
+      }
+    }
+  }
+
   List<Meal> getMeals() {
     final data = _prefs.getString(_mealsKey);
     if (data == null) return [];
@@ -381,13 +405,37 @@ class StorageService extends ChangeNotifier {
     }
   }
 
+  /// Returns the weight to use for TEE calculations.
+  /// Uses ABW when actual weight is > 120% of IBW (Devine).
+  static double _resolveTeeWeightKg({
+    required double? actualWeightKg,
+    required double? heightCm,
+    required String? gender,
+  }) {
+    if (actualWeightKg == null || actualWeightKg <= 0) {
+      return 70.0;
+    }
+
+    final ibw = calculateDevineIbwKg(heightCm: heightCm, gender: gender);
+    if (ibw == null || ibw <= 0) return actualWeightKg;
+
+    final threshold = ibw * 1.2;
+    if (actualWeightKg <= threshold) return actualWeightKg;
+
+    return ibw + 0.4 * (actualWeightKg - ibw);
+  }
+
   /// Centralized TEE (Total Energy Expenditure) calculator.
   /// Uses FAO/WHO/UNU (2001) BMR equations × activity multiplier.
   static int calculateTEE(UserProfile profile) {
     final age = profile.age ?? 25;
-    final weight = profile.weight ?? 70.0;
     final gender = profile.gender ?? 'male';
     final activityLevel = profile.activityLevel ?? 'moderate';
+    final weight = _resolveTeeWeightKg(
+      actualWeightKg: profile.weight,
+      heightCm: profile.height,
+      gender: gender,
+    );
 
     double bmr;
     if (gender == 'male') {

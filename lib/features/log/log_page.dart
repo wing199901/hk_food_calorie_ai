@@ -18,8 +18,20 @@ class LogPage extends ConsumerStatefulWidget {
 class _LogPageState extends ConsumerState<LogPage> {
   DateTime _date = DateTime.now();
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshMeals();
+    });
+  }
+
   void _setDate(DateTime d) {
     setState(() => _date = d);
+  }
+
+  Future<void> _refreshMeals() async {
+    await ref.read(storageProvider).refreshMealsFromSupabase();
   }
 
   void _showMealModal({Meal? meal}) {
@@ -150,122 +162,135 @@ class _LogPageState extends ConsumerState<LogPage> {
                 ),
                 const SizedBox(height: 8),
                 Expanded(
-                  child: meals.isEmpty
-                      ? Align(
-                          alignment: Alignment.topCenter,
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(32),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppTheme.border),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 64,
-                                  height: 64,
+                  child: RefreshIndicator(
+                    color: AppTheme.primary,
+                    onRefresh: _refreshMeals,
+                    child: meals.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.zero,
+                            children: [
+                              Align(
+                                alignment: Alignment.topCenter,
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(32),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.muted,
-                                    borderRadius: BorderRadius.circular(32),
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: AppTheme.border),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 64,
+                                        height: 64,
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.muted,
+                                          borderRadius: BorderRadius.circular(
+                                            32,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.calendar_today,
+                                          size: 32,
+                                          color: AppTheme.mutedForeground,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      const Text(
+                                        'No meals recorded',
+                                        style: TextStyle(
+                                          color: AppTheme.mutedForeground,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.separated(
+                            padding: EdgeInsets.zero,
+                            itemCount: meals.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final meal = meals[index];
+                              return Dismissible(
+                                key: Key(meal.id),
+                                confirmDismiss: (direction) async {
+                                  if (direction ==
+                                      DismissDirection.startToEnd) {
+                                    // Swipe right → edit
+                                    _showMealModal(meal: meal);
+                                    return false; // don't dismiss
+                                  }
+                                  // Swipe left → delete
+                                  return await showCupertinoDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => CupertinoAlertDialog(
+                                          title: const Text('Delete Meal'),
+                                          content: const Text(
+                                            'Are you sure you want to delete this meal?',
+                                          ),
+                                          actions: [
+                                            CupertinoDialogAction(
+                                              onPressed: () =>
+                                                  Navigator.pop(ctx, false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            CupertinoDialogAction(
+                                              isDestructiveAction: true,
+                                              onPressed: () =>
+                                                  Navigator.pop(ctx, true),
+                                              child: const Text('Delete'),
+                                            ),
+                                          ],
+                                        ),
+                                      ) ??
+                                      false;
+                                },
+                                onDismissed: (_) {
+                                  ref.read(storageProvider).deleteMeal(meal.id);
+                                },
+                                // Swipe-right background (edit)
+                                background: Container(
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.only(left: 24),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primary,
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: const Icon(
-                                    Icons.calendar_today,
-                                    size: 32,
-                                    color: AppTheme.mutedForeground,
+                                    Icons.edit_outlined,
+                                    color: Colors.white,
+                                    size: 24,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'No meals recorded',
-                                  style: TextStyle(
-                                    color: AppTheme.mutedForeground,
+                                // Swipe-left background (delete)
+                                secondaryBackground: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 24),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.destructive,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.white,
+                                    size: 24,
                                   ),
                                 ),
-                              ],
-                            ),
+                                child: MealCard(
+                                  meal: meal,
+                                  onTap: () => _showMealModal(meal: meal),
+                                ),
+                              );
+                            },
                           ),
-                        )
-                      : ListView.separated(
-                          padding: EdgeInsets.zero,
-                          itemCount: meals.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final meal = meals[index];
-                            return Dismissible(
-                              key: Key(meal.id),
-                              confirmDismiss: (direction) async {
-                                if (direction == DismissDirection.startToEnd) {
-                                  // Swipe right → edit
-                                  _showMealModal(meal: meal);
-                                  return false; // don't dismiss
-                                }
-                                // Swipe left → delete
-                                return await showCupertinoDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) => CupertinoAlertDialog(
-                                        title: const Text('Delete Meal'),
-                                        content: const Text(
-                                          'Are you sure you want to delete this meal?',
-                                        ),
-                                        actions: [
-                                          CupertinoDialogAction(
-                                            onPressed: () =>
-                                                Navigator.pop(ctx, false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          CupertinoDialogAction(
-                                            isDestructiveAction: true,
-                                            onPressed: () =>
-                                                Navigator.pop(ctx, true),
-                                            child: const Text('Delete'),
-                                          ),
-                                        ],
-                                      ),
-                                    ) ??
-                                    false;
-                              },
-                              onDismissed: (_) {
-                                ref.read(storageProvider).deleteMeal(meal.id);
-                              },
-                              // Swipe-right background (edit)
-                              background: Container(
-                                alignment: Alignment.centerLeft,
-                                padding: const EdgeInsets.only(left: 24),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primary,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Icon(
-                                  Icons.edit_outlined,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                              // Swipe-left background (delete)
-                              secondaryBackground: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 24),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.destructive,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                              child: MealCard(
-                                meal: meal,
-                                onTap: () => _showMealModal(meal: meal),
-                              ),
-                            );
-                          },
-                        ),
+                  ),
                 ),
               ],
             ),

@@ -170,6 +170,21 @@ class HealthyRangeDetailPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      _benefitChip(
+                        icon: Icons.shield_outlined,
+                        label: 'Immunity',
+                      ),
+                      _benefitChip(
+                        icon: Icons.battery_full,
+                        label: 'Energy reserve',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
                   RichText(
                     text: TextSpan(
                       style: const TextStyle(
@@ -228,6 +243,38 @@ class HealthyRangeDetailPage extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _benefitChip({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.muted,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: AppTheme.primary,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.mutedForeground,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -489,22 +536,28 @@ class _WeightZoneScaleState extends State<WeightZoneScale> {
 
         final bmiBadge = ConstrainedBox(
           constraints: BoxConstraints(maxWidth: math.min(220.0, width * 0.5)),
-          child: Container(
+          child: AnimatedContainer(
             key: const Key('weight_bmi_badge'),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: bmiStatusColor.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(99),
             ),
-            child: Text(
-              'BMI $bmiText',
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.ellipsis,
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: bmiStatusColor,
+              ),
+              child: Text(
+                'BMI $bmiText',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),

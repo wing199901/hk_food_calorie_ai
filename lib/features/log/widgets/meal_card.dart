@@ -131,9 +131,11 @@ class MealCard extends StatelessWidget {
         imageUrl,
         baseUrl: Env.supabaseUrl,
       );
+      final cacheBustedUrl = _withCacheBuster(resolvedUrl, meal.timestamp);
 
       return CachedNetworkImage(
-        imageUrl: resolvedUrl,
+        imageUrl: cacheBustedUrl,
+        cacheKey: cacheBustedUrl,
         width: width,
         height: height,
         fit: BoxFit.cover,
@@ -170,5 +172,13 @@ class MealCard extends StatelessWidget {
         (parsed != null && parsed.path.startsWith('/storage/v1/'));
 
     return path.startsWith('http') || looksLikeStoragePath;
+  }
+
+  String _withCacheBuster(String url, int stamp) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return url;
+    final params = Map<String, String>.from(uri.queryParameters);
+    params['v'] = stamp.toString();
+    return uri.replace(queryParameters: params).toString();
   }
 }

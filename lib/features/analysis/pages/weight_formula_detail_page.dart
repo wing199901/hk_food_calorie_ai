@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/providers/providers.dart';
+import '../widgets/abw_formula_simulator.dart';
 import '../widgets/detail_text_card.dart';
 
-class WeightFormulaDetailPage extends StatelessWidget {
+class WeightFormulaDetailPage extends ConsumerStatefulWidget {
   final double? heightCm;
   final double? lowerKg;
   final double? upperKg;
@@ -12,6 +15,9 @@ class WeightFormulaDetailPage extends StatelessWidget {
   final String heightText;
   final String lowerText;
   final String upperText;
+  final double? currentWeightKg;
+  final String? gender;
+  final String? unitSystem;
 
   const WeightFormulaDetailPage({
     super.key,
@@ -22,15 +28,27 @@ class WeightFormulaDetailPage extends StatelessWidget {
     required this.heightText,
     required this.lowerText,
     required this.upperText,
+    required this.currentWeightKg,
+    required this.gender,
+    required this.unitSystem,
   });
 
   @override
+  ConsumerState<WeightFormulaDetailPage> createState() =>
+      _WeightFormulaDetailPageState();
+}
+
+class _WeightFormulaDetailPageState
+    extends ConsumerState<WeightFormulaDetailPage> {
+
+  @override
   Widget build(BuildContext context) {
-    final formulaLower = heightCm != null
-        ? '18.5 x (${(heightCm! / 100).toStringAsFixed(2)}^2) = $lowerText'
+    ref.watch(storageSignalProvider);
+    final formulaLower = widget.heightCm != null
+        ? '18.5 x (${(widget.heightCm! / 100).toStringAsFixed(2)}^2) = ${widget.lowerText}'
         : '--';
-    final formulaUpper = heightCm != null
-        ? '${baseKg.toStringAsFixed(baseKg % 1 == 0 ? 0 : 1)} + 2.3 x (($heightText - 152.4) / 2.54) = $upperText'
+    final formulaUpper = widget.heightCm != null
+        ? '${widget.baseKg.toStringAsFixed(widget.baseKg % 1 == 0 ? 0 : 1)} + 2.3 x ((${widget.heightText} - 152.4) / 2.54) = ${widget.upperText}'
         : '--';
 
     return Scaffold(
@@ -38,7 +56,7 @@ class WeightFormulaDetailPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppTheme.background,
         foregroundColor: AppTheme.foreground,
-        title: const Text('How We Calculate Your Range'),
+        title: const Text('How We Calculate Your Target Range'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -61,7 +79,7 @@ class WeightFormulaDetailPage extends StatelessWidget {
                   Text(
                     '1. Base weight: 50 kg (male) or 45.5 kg (female).\n'
                     '2. Height adjustment: +2.3 kg per inch above 152.4 cm.\n'
-                    '3. Minimum treshold comes from BMI 18.5.',
+                    '3. Minimum threshold comes from BMI 18.5.',
                     style: TextStyle(
                       fontSize: 15,
                       color: AppTheme.foreground,
@@ -74,6 +92,7 @@ class WeightFormulaDetailPage extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             DetailTextCard(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
                     'Math Formula',
@@ -84,50 +103,158 @@ class WeightFormulaDetailPage extends StatelessWidget {
                       color: AppTheme.foreground,
                     ),
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 360;
+                      if (isNarrow) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _formulaColumn(
+                              title: 'Healthy minimum (BMI 18.5)',
+                              subtitle: 'BMI 18.5 x height(m)^2',
+                              value: formulaLower,
+                              accentColor: AppTheme.primary,
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            _formulaColumn(
+                              title: 'Ideal target (IBW)',
+                              subtitle:
+                                  'Base weight + 2.3 x ((height_cm - 152.4) / 2.54)',
+                              value: formulaUpper,
+                              accentColor: AppTheme.chartWeight,
+                            ),
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: _formulaColumn(
+                              title: 'Healthy minimum (BMI 18.5)',
+                              subtitle: 'BMI 18.5 x height(m)^2',
+                              value: formulaLower,
+                              accentColor: AppTheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: _formulaColumn(
+                              title: 'Ideal target (IBW)',
+                              subtitle:
+                                  'Base weight + 2.3 x ((height_cm - 152.4) / 2.54)',
+                              value: formulaUpper,
+                              accentColor: AppTheme.chartWeight,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            DetailTextCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'When we use IBW vs ABW',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.foreground,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Minimum treshold: BMI 18.5 x height(m)^2',
-                    textAlign: TextAlign.center,
+                    'IBW here follows the Devine base + height adjustment shown above.',
                     style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.mutedForeground,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    formulaLower,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w700,
                       color: AppTheme.foreground,
+                      height: 1.45,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Upper boundary: Base weight + 2.3 x ((height_cm - 152.4) / 2.54)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.mutedForeground,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    formulaUpper,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.foreground,
+                  const SizedBox(height: AppSpacing.sm),
+                  RichText(
+                    text: const TextSpan(
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: AppTheme.foreground,
+                        height: 1.45,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: 'If actual weight > 120% of IBW, we use ABW for energy targets.\n',
+                        ),
+                        TextSpan(
+                          text: 'ABW = IBW + 0.4 x (Actual - IBW)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.primary,
+                          ),
+                        ),
+                        TextSpan(
+                          text: '\nOtherwise, we use actual weight.',
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: AppSpacing.md),
+            AbwFormulaSimulatorCard(
+              heightCm: widget.heightCm,
+              gender: widget.gender,
+              unitSystem: widget.unitSystem,
+              initialWeightKg: widget.currentWeightKg,
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _formulaColumn({
+    required String title,
+    required String subtitle,
+    required String value,
+    required Color accentColor,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: accentColor,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppTheme.mutedForeground,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.foreground,
+          ),
+        ),
+      ],
     );
   }
 }

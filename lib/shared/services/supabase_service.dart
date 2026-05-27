@@ -185,11 +185,25 @@ class SupabaseService extends ChangeNotifier {
       query = query.eq('meal_date', mealDate);
     }
     final data = await query.order('created_at', ascending: false);
+    if (kDebugMode) {
+      debugPrint(
+        '[SupabaseService] fetchMeals(${mealDate ?? 'all'}) '
+        'returned ${(data as List).length} records',
+      );
+    }
     final list = <Meal>[];
     for (final row in data as List<dynamic>) {
       final rec = row as Map<String, dynamic>;
       final imagePath = rec['image_path'] as String?;
+      final fallbackImageUrl = rec['image_url'] as String?;
       final imageUrl = await _resolveMealImageUrl(rec);
+      if (kDebugMode &&
+          (imagePath == null || imagePath.isEmpty) &&
+          (fallbackImageUrl == null || fallbackImageUrl.isEmpty)) {
+        debugPrint(
+          '[SupabaseService] meal ${rec['id']} missing image_path/image_url',
+        );
+      }
       final items = rec['items'] as List<dynamic>? ?? [];
       if (items.length == 1) {
         // Single-item record → map directly to a Meal

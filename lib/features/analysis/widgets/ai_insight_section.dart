@@ -109,28 +109,16 @@ class _AiInsightSectionState extends State<AiInsightSection> {
   Widget _buildContent() {
     if (_report != null) {
       final summary = _report!['summary'] as String?;
-      final analysis = _report!['analysis'] as String?;
-      final trends = (_report!['trends'] as List?)?.cast<String>();
       final recs = (_report!['recommendations'] as List?)?.cast<String>();
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('AI Summary'),
+          _sectionTitle('Insights'),
           Text(summary ?? '', style: _textStyle),
-          if (analysis != null) ...[
-            const SizedBox(height: 12),
-            _sectionTitle('Analysis'),
-            Text(analysis, style: _textStyle),
-          ],
-          if (trends != null && trends.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _sectionTitle('Trends'),
-            ...trends.map((t) => _bulletPoint(t)),
-          ],
           if (recs != null && recs.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _sectionTitle('Recommendations'),
+            _sectionTitle('Tips'),
             ...recs.map((r) => _bulletPoint(r)),
           ],
         ],
@@ -167,7 +155,7 @@ class _AiInsightSectionState extends State<AiInsightSection> {
               ),
               SizedBox(height: 16),
               Text(
-                'AI 正在分析數據...',
+                'AI is analyzing your data...',
                 style: TextStyle(color: AppTheme.mutedForeground, fontSize: 14),
               ),
             ],

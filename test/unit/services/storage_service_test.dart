@@ -18,6 +18,56 @@ void main() {
   });
 
   group('StorageService', () {
+    int expectedTee({
+      required double weight,
+      required String gender,
+      required int age,
+      required String activityLevel,
+    }) {
+      double bmr;
+      if (gender == 'male') {
+        if (age < 30) {
+          bmr = 15.3 * weight + 679;
+        } else if (age < 60) {
+          bmr = 11.6 * weight + 879;
+        } else {
+          bmr = 13.5 * weight + 487;
+        }
+      } else if (gender == 'female') {
+        if (age < 30) {
+          bmr = 14.7 * weight + 496;
+        } else if (age < 60) {
+          bmr = 8.7 * weight + 829;
+        } else {
+          bmr = 10.5 * weight + 596;
+        }
+      } else {
+        double maleBmr;
+        double femaleBmr;
+        if (age < 30) {
+          maleBmr = 15.3 * weight + 679;
+          femaleBmr = 14.7 * weight + 496;
+        } else if (age < 60) {
+          maleBmr = 11.6 * weight + 879;
+          femaleBmr = 8.7 * weight + 829;
+        } else {
+          maleBmr = 13.5 * weight + 487;
+          femaleBmr = 10.5 * weight + 596;
+        }
+        bmr = (maleBmr + femaleBmr) / 2;
+      }
+
+      const activityMultipliers = {
+        'sedentary': 1.2,
+        'light': 1.375,
+        'moderate': 1.55,
+        'active': 1.725,
+        'very-active': 1.9,
+      };
+
+      return (bmr * (activityMultipliers[activityLevel] ?? 1.55)).round();
+    }
+
     test('uses 2000 as default daily target', () {
       expect(storage.getDailyTarget(), 2000);
     });
@@ -151,6 +201,47 @@ void main() {
       expect(guide, isNotNull);
       expect(guide!.minKg, closeTo(56.7, 0.1));
       expect(guide.maxKg, closeTo(70.5, 0.1));
+    });
+
+    test('calculateTEE uses ABW when above 120% IBW', () {
+      final profile = UserProfile(
+        gender: 'male',
+        height: 175,
+        weight: 100,
+        activityLevel: 'moderate',
+      );
+
+      final ibw = StorageService.calculateDevineIbwKg(
+        heightCm: profile.height,
+        gender: profile.gender,
+      );
+      final abw = ibw! + 0.4 * (profile.weight! - ibw);
+      final expected = expectedTee(
+        weight: abw,
+        gender: 'male',
+        age: 25,
+        activityLevel: 'moderate',
+      );
+
+      expect(StorageService.calculateTEE(profile), expected);
+    });
+
+    test('calculateTEE uses actual weight at or below 120% IBW', () {
+      final profile = UserProfile(
+        gender: 'male',
+        height: 175,
+        weight: 80,
+        activityLevel: 'moderate',
+      );
+
+      final expected = expectedTee(
+        weight: 80,
+        gender: 'male',
+        age: 25,
+        activityLevel: 'moderate',
+      );
+
+      expect(StorageService.calculateTEE(profile), expected);
     });
 
     test('addBodyMetric auto-computes bmi, whtr and tee', () async {

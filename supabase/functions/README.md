@@ -254,7 +254,13 @@ Model strategy:
   "success": true,
   "period": "week",
   "date_range": { "from": "2026-02-21", "to": "2026-02-28" },
-  "report_text": "📊 本週飲食總結\n\n平均每日攝取 1,950 kcal...",
+  "report": {
+    "summary": "Your intake was slightly below target on most days.",
+    "recommendations": [
+      "Add a protein-rich snack on lower-calorie days.",
+      "Keep portions steady when eating out to stay near target."
+    ]
+  },
   "charts_data": [
     { "meal_date": "2026-02-21", "calories": 1800, "protein": 75, "carbs": 200, "fat": 60 },
     ...
