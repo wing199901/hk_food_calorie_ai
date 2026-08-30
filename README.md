@@ -1,4 +1,4 @@
-# FitCalorie — AI Food Calorie Tracker
+# FitCalorie — AI Food Calorie Tracker (UWE FYP)
 
 AI-powered food calorie tracking app built with Flutter, Supabase, and Google Gemini 2.5 Flash. Designed for Hong Kong but works globally.
 
